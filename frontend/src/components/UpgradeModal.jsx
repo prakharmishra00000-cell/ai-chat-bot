@@ -75,6 +75,7 @@ function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess }) {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [copied, setCopied] = useState(false);
+  const [utrVisible, setUtrVisible] = useState(false);
 
   // Detect mobile
   const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
@@ -392,15 +393,15 @@ function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess }) {
           </>
         )}
 
-        {/* ===== STEP 2: Payment Instructions ===== */}
-        {step === 2 && (
+        {/* ===== STEP 2: Payment Interface ===== */}
+        {step === 2 && !success && (
           <div className="checkout-details-form glass-panel" style={{ padding: '30px', width: '100%', borderRadius: 'var(--radius-lg)' }}>
             <h3 style={{ fontFamily: 'var(--font-heading)', color: 'var(--accent-cyan)', fontSize: '1.25rem', marginBottom: '25px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>
               Complete UPI Payment
             </h3>
 
             {/* Amount display */}
-            <div style={{ textAlign: 'center', marginBottom: '25px' }}>
+            <div style={{ textAlign: 'center', marginBottom: '20px' }}>
               <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '5px' }}>Amount to Pay</p>
               <p style={{ fontSize: '2.5rem', fontWeight: 800, color: 'var(--accent-cyan)', fontFamily: 'var(--font-heading)' }}>
                 ₹{paymentAmount}
@@ -410,13 +411,87 @@ function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess }) {
               </p>
             </div>
 
-            {/* UPI ID display */}
-            <div style={{ textAlign: 'center', margin: '20px 0', padding: '20px', background: 'rgba(0,0,0,0.3)', borderRadius: '12px', border: '1px dashed var(--border-glass-glow)' }}>
-              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Send payment to this UPI ID
+            {/* QR Code for desktop scanning */}
+            {!isMobile && upiIntentUrl && (
+              <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '10px' }}>
+                  📱 Scan this QR code with any UPI app on your phone
+                </p>
+                <div style={{ display: 'inline-block', padding: '12px', background: '#fff', borderRadius: '12px' }}>
+                  <img 
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(upiIntentUrl)}`}
+                    alt="UPI Payment QR Code"
+                    style={{ width: '220px', height: '220px', display: 'block' }}
+                  />
+                </div>
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '8px' }}>
+                  Amount ₹{paymentAmount} will be pre-filled automatically
+                </p>
+              </div>
+            )}
+
+            {/* UPI App buttons */}
+            <div style={{ marginBottom: '20px' }}>
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textAlign: 'center', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                {isMobile ? 'Tap to pay with your UPI app' : 'Or pay directly using'}
+              </p>
+              
+              {/* Main UPI intent button */}
+              {upiIntentUrl && (
+                <a
+                  href={upiIntentUrl}
+                  className="btn"
+                  style={{ 
+                    width: '100%', padding: '16px', fontSize: '1.05rem', marginBottom: '12px',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
+                    textDecoration: 'none', color: 'inherit', cursor: 'pointer',
+                    background: 'linear-gradient(135deg, #00d4ff 0%, #7c3aed 100%)'
+                  }}
+                >
+                  💳 Pay ₹{paymentAmount} via any UPI App
+                </a>
+              )}
+
+              {/* Individual UPI app deep links */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <a 
+                  href={`tez://upi/pay?pa=${receiverUpiId}&pn=${encodeURIComponent('Prakhar Mishra')}&am=${paymentAmount}&cu=INR&tn=${encodeURIComponent(transactionId)}`}
+                  className="btn btn-secondary"
+                  style={{ padding: '12px', fontSize: '0.85rem', textDecoration: 'none', color: 'inherit', textAlign: 'center', display: 'block' }}
+                >
+                  Google Pay
+                </a>
+                <a 
+                  href={`phonepe://pay?pa=${receiverUpiId}&pn=${encodeURIComponent('Prakhar Mishra')}&am=${paymentAmount}&cu=INR&tn=${encodeURIComponent(transactionId)}`}
+                  className="btn btn-secondary"
+                  style={{ padding: '12px', fontSize: '0.85rem', textDecoration: 'none', color: 'inherit', textAlign: 'center', display: 'block' }}
+                >
+                  PhonePe
+                </a>
+                <a 
+                  href={`paytmmp://pay?pa=${receiverUpiId}&pn=${encodeURIComponent('Prakhar Mishra')}&am=${paymentAmount}&cu=INR&tn=${encodeURIComponent(transactionId)}`}
+                  className="btn btn-secondary"
+                  style={{ padding: '12px', fontSize: '0.85rem', textDecoration: 'none', color: 'inherit', textAlign: 'center', display: 'block' }}
+                >
+                  Paytm
+                </a>
+                <a 
+                  href={`upi://pay?pa=${receiverUpiId}&pn=${encodeURIComponent('Prakhar Mishra')}&am=${paymentAmount}&cu=INR&tn=${encodeURIComponent(transactionId)}`}
+                  className="btn btn-secondary"
+                  style={{ padding: '12px', fontSize: '0.85rem', textDecoration: 'none', color: 'inherit', textAlign: 'center', display: 'block' }}
+                >
+                  BHIM / Other
+                </a>
+              </div>
+            </div>
+
+            {/* UPI ID for manual payment */}
+            <div style={{ textAlign: 'center', margin: '15px 0', padding: '15px', background: 'rgba(0,0,0,0.3)', borderRadius: '12px', border: '1px dashed var(--border-glass-glow)' }}>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                UPI ID (for manual payment)
               </p>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
-                <p style={{ fontSize: '1.3rem', color: 'var(--accent-cyan)', fontWeight: 800, fontFamily: 'monospace', margin: 0 }}>
+                <p style={{ fontSize: '1.2rem', color: 'var(--accent-cyan)', fontWeight: 800, fontFamily: 'monospace', margin: 0 }}>
                   {receiverUpiId}
                 </p>
                 <button
@@ -430,87 +505,106 @@ function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess }) {
               </div>
             </div>
 
-            {/* Pay via UPI App button — opens native app picker on mobile */}
-            {upiIntentUrl && (
-              <a
-                href={upiIntentUrl}
+            {/* Step-by-step instructions */}
+            <div style={{ padding: '15px', background: 'rgba(0,0,0,0.2)', borderRadius: '8px', marginBottom: '20px' }}>
+              <p style={{ fontSize: '0.8rem', color: 'var(--accent-cyan)', fontWeight: 700, marginBottom: '8px' }}>📋 Steps to complete payment:</p>
+              <ol style={{ fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.8, margin: 0, paddingLeft: '16px' }}>
+                <li>{isMobile ? 'Tap "Pay via any UPI App" or select your preferred app above' : 'Scan the QR code above OR tap any UPI app button'}</li>
+                <li>Amount <strong style={{ color: 'var(--accent-cyan)' }}>₹{paymentAmount}</strong> will be pre-filled automatically</li>
+                <li>Enter your UPI PIN to complete payment securely</li>
+                <li>After payment success, note the <strong style={{ color: '#ffe259' }}>12-digit UTR/Reference number</strong></li>
+                <li>Click "I have completed payment" below and enter the UTR</li>
+              </ol>
+            </div>
+
+            {/* Confirmation button — shows UTR input */}
+            {!utrVisible ? (
+              <button
+                type="button"
                 className="btn"
-                style={{ 
-                  width: '100%', padding: '16px', fontSize: '1.1rem', marginBottom: '15px',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
-                  textDecoration: 'none', color: 'inherit', cursor: 'pointer'
-                }}
+                onClick={() => setUtrVisible(true)}
+                style={{ width: '100%', padding: '16px', fontSize: '1rem', background: 'linear-gradient(135deg, #00f2fe 0%, #4facfe 100%)' }}
               >
-                💳 Pay ₹{paymentAmount} via any UPI App
-              </a>
-            )}
-
-            <div style={{ textAlign: 'center', padding: '12px', background: 'rgba(0,0,0,0.2)', borderRadius: '8px', marginBottom: '20px' }}>
-              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', lineHeight: 1.6, margin: 0 }}>
-                {isMobile 
-                  ? 'Tap the button above → select your UPI app (GPay, PhonePe, Paytm) → amount ₹' + paymentAmount + ' will be pre-filled → enter your UPI PIN to complete payment'
-                  : 'Open your UPI app on your phone, send ₹' + paymentAmount + ' to the UPI ID shown above, then enter UTR below'
-                }
-              </p>
-            </div>
-
-            <div style={{ textAlign: 'center', padding: '15px', background: 'rgba(255,227,77,0.08)', borderRadius: '8px', border: '1px solid rgba(255,227,77,0.2)', marginBottom: '20px' }}>
-              <p style={{ fontSize: '0.85rem', color: '#ffe259', margin: 0 }}>
-                After completing payment in your UPI app, enter the 12-digit UTR number below
-              </p>
-            </div>
-
-            {/* UTR Input */}
-            <form onSubmit={handleVerifyUtr}>
-              <div className="form-group" style={{ marginBottom: '20px' }}>
-                <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)' }}>12-Digit UTR Number</label>
-                <input 
-                  type="text" 
-                  placeholder="Enter 12-digit UTR number" 
-                  value={utrInput} 
-                  onChange={(e) => setUtrInput(e.target.value.replace(/\D/g, '').slice(0, 12))} 
-                  required 
-                  maxLength="12"
-                  style={{ 
-                    background: 'rgba(0,0,0,0.2)', 
-                    color: 'var(--text-main)', 
-                    border: '1px solid var(--border-glass)', 
-                    fontSize: '1.1rem', 
-                    fontFamily: 'monospace', 
-                    letterSpacing: '0.15em',
-                    textAlign: 'center'
-                  }}
-                />
-                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '6px' }}>
-                  {utrInput.length}/12 digits entered
-                </p>
-              </div>
-
-              <button 
-                type="submit" 
-                className="btn" 
-                style={{ width: '100%', padding: '16px', fontSize: '1.1rem' }}
-                disabled={loading || utrInput.length !== 12}
-              >
-                {loading ? (
-                  <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
-                    <Loader size={20} className="spin-animation" />
-                    Verifying Payment...
-                  </span>
-                ) : (
-                  'Activate Plan'
-                )}
+                ✅ I have completed the payment
               </button>
-            </form>
+            ) : (
+              <>
+                {/* UTR entry popup */}
+                <div style={{ padding: '20px', background: 'rgba(0,242,254,0.05)', borderRadius: '12px', border: '1px solid rgba(0,242,254,0.2)', marginBottom: '15px' }}>
+                  <p style={{ fontSize: '0.9rem', color: '#ffe259', fontWeight: 700, textAlign: 'center', marginBottom: '15px' }}>
+                    ⚠️ Enter the 12-digit UTR number from your payment receipt
+                  </p>
+                  
+                  <form onSubmit={handleVerifyUtr}>
+                    <div className="form-group" style={{ marginBottom: '15px' }}>
+                      <input 
+                        type="text" 
+                        placeholder="Enter 12-digit UTR number" 
+                        value={utrInput} 
+                        onChange={(e) => setUtrInput(e.target.value.replace(/\D/g, '').slice(0, 12))} 
+                        required 
+                        maxLength="12"
+                        autoFocus
+                        style={{ 
+                          background: 'rgba(0,0,0,0.3)', 
+                          color: 'var(--text-main)', 
+                          border: '2px solid var(--accent-cyan)', 
+                          fontSize: '1.3rem', 
+                          fontFamily: 'monospace', 
+                          letterSpacing: '0.2em',
+                          textAlign: 'center',
+                          padding: '14px'
+                        }}
+                      />
+                      <p style={{ fontSize: '0.75rem', color: utrInput.length === 12 ? '#00f2fe' : 'var(--text-muted)', marginTop: '6px', textAlign: 'center' }}>
+                        {utrInput.length}/12 digits entered {utrInput.length === 12 ? '✅' : ''}
+                      </p>
+                    </div>
+
+                    <button 
+                      type="submit" 
+                      className="btn" 
+                      style={{ width: '100%', padding: '16px', fontSize: '1.05rem' }}
+                      disabled={loading || utrInput.length !== 12}
+                    >
+                      {loading ? (
+                        <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
+                          <Loader size={20} className="spin-animation" />
+                          Verifying Payment with UroPay...
+                        </span>
+                      ) : (
+                        '🔓 Verify & Activate Plan'
+                      )}
+                    </button>
+                  </form>
+                </div>
+              </>
+            )}
 
             <button
               type="button"
               className="btn btn-secondary"
-              onClick={() => { setStep(1); setError(''); setSuccess(''); setUtrInput(''); }}
+              onClick={() => { setStep(1); setError(''); setSuccess(''); setUtrInput(''); setUtrVisible(false); }}
               style={{ width: '100%', padding: '12px', fontSize: '0.9rem', marginTop: '12px' }}
             >
               ← Back to Plan Selection
             </button>
+          </div>
+        )}
+
+        {/* ===== SUCCESS STATE ===== */}
+        {success && (
+          <div className="checkout-details-form glass-panel" style={{ padding: '40px', width: '100%', borderRadius: 'var(--radius-lg)', textAlign: 'center' }}>
+            <CheckCircle size={64} color="#00f2fe" style={{ marginBottom: '20px' }} />
+            <h3 style={{ fontFamily: 'var(--font-heading)', color: 'var(--accent-cyan)', fontSize: '1.5rem', marginBottom: '15px', fontWeight: 700 }}>
+              Payment Verified!
+            </h3>
+            <p style={{ fontSize: '1rem', color: 'var(--text-main)', marginBottom: '10px' }}>
+              {success}
+            </p>
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+              Your plan is now active. Redirecting to your dashboard...
+            </p>
           </div>
         )}
       </div>
