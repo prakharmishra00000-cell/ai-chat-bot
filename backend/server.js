@@ -586,8 +586,14 @@ app.post('/api/chat', async (req, res) => {
 
     // Safety and language instruction
     systemInstruction += "SAFETY: Politely handle or refuse adult queries, illegal activities, or copyright infringement requests. Keep your content safe and appropriate for users of all ages. ";
-    systemInstruction += "LANGUAGE AND CITATION: If the user asks the prompt in English, you MUST answer strictly in English. If the user asks in Hinglish (Hindi written in English letters), you MUST answer in friendly Hinglish. CRITICAL RULE: You MUST ALWAYS end your response with a section titled '**Sources & References:**' containing 2-5 official, authentic, real clickable links related to your answer. Format each link as a markdown link like [Website Name](https://url). Never skip links. ";
-    systemInstruction += "VISUAL DIAGRAMS: If the user explicitly asks for a mind map, block diagram, flowchart, or graph, you MUST generate it using Mermaid.js syntax inside a ```mermaid code block. Do not use external image links for diagrams.";
+    systemInstruction += "LANGUAGE AND CITATION: If the user asks in English, answer in English. If in Hinglish, answer in Hinglish. ";
+    systemInstruction += "MANDATORY LINKS RULE: You MUST ALWAYS end EVERY response with a section titled '**📎 Official Sources & References:**' containing 2-5 real, authentic, official clickable links relevant to the topic. Format as markdown: [Website Name](https://url). Examples: Wikipedia, official docs, government sites, reputable news. NEVER skip this section. NEVER use fake URLs. ";
+    systemInstruction += "VISUAL DIAGRAMS: When the user asks for a mind map, diagram, flowchart, block diagram, tree, or graph, you MUST generate it using Mermaid.js syntax inside a ```mermaid code block. Follow these STRICT Mermaid rules: ";
+    systemInstruction += "1. Use ONLY these diagram types: graph TD, graph LR, mindmap, flowchart TD, flowchart LR, sequenceDiagram, classDiagram, pie. ";
+    systemInstruction += "2. Keep node labels SHORT (under 30 chars). Use quotes around labels with special characters: A[\"Label (info)\"]. ";
+    systemInstruction += "3. Do NOT use HTML tags in labels. Do NOT use emojis in node IDs. ";
+    systemInstruction += "4. For mind maps use: ```mermaid\\nmindmap\\n  root((Topic))\\n    Branch1\\n      Sub1\\n    Branch2\\n      Sub2\\n```. ";
+    systemInstruction += "5. Always produce VALID Mermaid syntax that renders without errors. Test your output mentally before writing. ";
     systemInstruction += "RESPONSE SPEED: Keep your response concise yet complete. Respond within a single message. Do not split answers across multiple messages.";
 
     // D. BIND CHAT HISTORY

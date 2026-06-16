@@ -446,8 +446,8 @@ function Dashboard({
   const renderMessageContent = (text) => {
     if (!text) return null;
     
-    // Look for Mermaid diagram code blocks
-    const mermaidRegex = /```mermaid\n([\s\S]*?)```/g;
+    // Look for Mermaid diagram code blocks (handles \n, \r\n, spaces after 'mermaid')
+    const mermaidRegex = /```mermaid\s*\n([\s\S]*?)```/g;
     const parts = [];
     let lastIndex = 0;
     let match;
