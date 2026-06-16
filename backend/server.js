@@ -16,27 +16,54 @@ app.use(express.json({ limit: '50mb' }));
 const CONFIG_PATH = path.join(__dirname, 'config.json');
 const DB_PATH = path.join(__dirname, 'db.json');
 
-// Auto-bootstrap config.json from environment variables on startup (useful for Render deployment)
-const envKeys = [];
-for (let i = 1; i <= 9; i++) {
-  const k = process.env[`GEMINI_API_KEY_${i}`] || process.env[`GEMINI_KEY_${i}`];
-  if (k) envKeys.push(k);
+// Auto-bootstrap config.json from environment variables on startup (for Render deployment)
+function bootstrapConfigFromEnv() {
+  const envKeys = [];
+  for (let i = 1; i <= 9; i++) {
+    const k = process.env[`GEMINI_API_KEY_${i}`] || process.env[`GEMINI_KEY_${i}`];
+    if (k) envKeys.push(k);
+  }
+  // Also check for a single GEMINI_API_KEY env var
+  if (envKeys.length === 0 && process.env.GEMINI_API_KEY) {
+    envKeys.push(process.env.GEMINI_API_KEY);
+  }
+  
+  if (envKeys.length > 0) {
+    try {
+      const configData = {
+        keys: envKeys,
+        razorpayKeyId: process.env.RAZORPAY_KEY_ID || '',
+        razorpaySecret: process.env.RAZORPAY_SECRET || '',
+        googleClientId: process.env.GOOGLE_CLIENT_ID || '',
+        adminUsername: process.env.ADMIN_USERNAME || 'prakhar mishra',
+        adminPassword: process.env.ADMIN_PASSWORD || 'prakhar@2025',
+        smtpUser: process.env.SMTP_USER || '',
+        smtpPass: process.env.SMTP_PASS || ''
+      };
+      fs.writeFileSync(CONFIG_PATH, JSON.stringify(configData, null, 2));
+      console.log(`Bootstrapped config.json with ${envKeys.length} API key(s) from environment variables.`);
+      return true;
+    } catch (e) {
+      console.error('Failed to bootstrap config from environment variables:', e);
+    }
+  }
+  return false;
 }
-if (envKeys.length > 0 && !fs.existsSync(CONFIG_PATH)) {
+
+// Try bootstrap on startup
+if (!fs.existsSync(CONFIG_PATH)) {
+  bootstrapConfigFromEnv();
+} else {
+  // config.json exists — check if it has valid keys, if not try env vars
   try {
-    fs.writeFileSync(CONFIG_PATH, JSON.stringify({
-      keys: envKeys,
-      razorpayKeyId: process.env.RAZORPAY_KEY_ID || '',
-      razorpaySecret: process.env.RAZORPAY_SECRET || '',
-      googleClientId: process.env.GOOGLE_CLIENT_ID || '',
-      adminUsername: process.env.ADMIN_USERNAME || 'prakhar mishra',
-      adminPassword: process.env.ADMIN_PASSWORD || 'prakhar@2025',
-      smtpUser: process.env.SMTP_USER || '',
-      smtpPass: process.env.SMTP_PASS || ''
-    }, null, 2));
-    console.log('Successfully bootstrapped config.json from environment variables.');
+    const existingConfig = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
+    if (!existingConfig.keys || existingConfig.keys.length === 0 || existingConfig.keys.every(k => !k || k === '')) {
+      console.warn('config.json exists but has no valid API keys. Trying environment variables...');
+      bootstrapConfigFromEnv();
+    }
   } catch (e) {
-    console.error('Failed to bootstrap config from environment variables:', e);
+    console.warn('config.json is corrupted. Rebuilding from env vars...');
+    bootstrapConfigFromEnv();
   }
 }
 
@@ -335,11 +362,11 @@ app.post('/api/user/status', (req, res) => {
 
 // GEMINI API ROTATION ENGINE
 let activeKeyIndex = 0;
-const API_TIMEOUT_MS = 14000; // 14 second timeout — generous enough for Gemini to respond
+const API_TIMEOUT_MS = 25000; // 25 second timeout — enough for any Gemini model to respond
 
 async function queryGeminiAPI(keys, contents, systemInstruction) {
   let attempts = 0;
-  const maxAttempts = Math.min(keys.length, 4); // Try max 4 keys to stay within 15 sec total
+  const maxAttempts = keys.length; // Try ALL available keys
   
   // Models ordered by speed and reliability
   const models = [
@@ -429,9 +456,14 @@ async function queryGeminiAPI(keys, contents, systemInstruction) {
 
 // Main Chat AI Endpoint
 app.post('/api/chat', async (req, res) => {
-  const config = readConfig();
-  if (!config) {
-    return res.status(500).json({ error: 'SETUP_REQUIRED', message: 'API credentials are not configured yet.' });
+  let config = readConfig();
+  if (!config || !config.keys || config.keys.length === 0) {
+    // Try re-bootstrapping from env vars
+    bootstrapConfigFromEnv();
+    config = readConfig();
+    if (!config || !config.keys || config.keys.length === 0) {
+      return res.status(500).json({ error: 'SETUP_REQUIRED', message: 'API credentials are not configured yet. Please complete the Setup process.' });
+    }
   }
 
   const { email, message, history, personality, mode, attachment } = req.body;
