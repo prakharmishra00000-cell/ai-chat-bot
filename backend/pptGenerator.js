@@ -37,27 +37,28 @@ const THEME = {
 
 // Visual icon shapes per slide (decorative geometric shapes to make slides visual)
 const VISUAL_LAYOUTS = [
-  // Layout 0: right-side icon panel
+  // Layout 0: rounded rect + circle
   (slide, pptx, theme) => {
-    slide.addShape(pptx.shapes.ROUNDED_RECTANGLE, { x: 10.5, y: 1.8, w: 2.3, h: 2.3, fill: { color: theme.accent, transparency: 88 }, rectRadius: 0.3, line: { color: theme.accent, width: 1.5, transparency: 50 } });
-    slide.addShape(pptx.shapes.OVAL, { x: 11.0, y: 4.5, w: 1.5, h: 1.5, fill: { color: theme.accent2, transparency: 85 }, line: { color: theme.accent2, width: 1, transparency: 50 } });
+    slide.addShape(pptx.shapes.ROUNDED_RECTANGLE, { x: 10.3, y: 1.6, w: 2.5, h: 2.5, fill: { color: theme.accent, transparency: 35 }, rectRadius: 0.3, line: { color: theme.accent, width: 2 } });
+    slide.addShape(pptx.shapes.OVAL, { x: 10.8, y: 4.4, w: 1.8, h: 1.8, fill: { color: theme.accent2, transparency: 30 }, line: { color: theme.accent2, width: 2 } });
   },
-  // Layout 1: bottom-right triangle + circle
+  // Layout 1: overlapping circles
   (slide, pptx, theme) => {
-    slide.addShape(pptx.shapes.OVAL, { x: 10.8, y: 2.2, w: 2, h: 2, fill: { color: theme.accent2, transparency: 87 }, line: { color: theme.accent2, width: 1.5, transparency: 40 } });
-    slide.addShape(pptx.shapes.ROUNDED_RECTANGLE, { x: 11.2, y: 4.8, w: 1.6, h: 1.4, fill: { color: theme.accent, transparency: 90 }, rectRadius: 0.2 });
+    slide.addShape(pptx.shapes.OVAL, { x: 10.3, y: 1.8, w: 2.5, h: 2.5, fill: { color: theme.accent2, transparency: 35 }, line: { color: theme.accent2, width: 2 } });
+    slide.addShape(pptx.shapes.OVAL, { x: 11.0, y: 3.8, w: 2, h: 2, fill: { color: theme.accent, transparency: 40 }, line: { color: theme.accent, width: 2 } });
   },
-  // Layout 2: stacked rectangles
+  // Layout 2: stacked color bars
   (slide, pptx, theme) => {
-    slide.addShape(pptx.shapes.ROUNDED_RECTANGLE, { x: 10.6, y: 1.6, w: 2.4, h: 1.2, fill: { color: theme.accent, transparency: 88 }, rectRadius: 0.15 });
-    slide.addShape(pptx.shapes.ROUNDED_RECTANGLE, { x: 10.8, y: 3.1, w: 2, h: 1.2, fill: { color: theme.accent2, transparency: 88 }, rectRadius: 0.15 });
-    slide.addShape(pptx.shapes.ROUNDED_RECTANGLE, { x: 11.0, y: 4.6, w: 1.6, h: 1.2, fill: { color: theme.accent3, transparency: 88 }, rectRadius: 0.15 });
+    slide.addShape(pptx.shapes.ROUNDED_RECTANGLE, { x: 10.4, y: 1.5, w: 2.6, h: 1.4, fill: { color: theme.accent, transparency: 25 }, rectRadius: 0.15 });
+    slide.addShape(pptx.shapes.ROUNDED_RECTANGLE, { x: 10.6, y: 3.2, w: 2.2, h: 1.4, fill: { color: theme.accent2, transparency: 25 }, rectRadius: 0.15 });
+    slide.addShape(pptx.shapes.ROUNDED_RECTANGLE, { x: 10.8, y: 4.9, w: 1.8, h: 1.4, fill: { color: theme.accent3, transparency: 25 }, rectRadius: 0.15 });
   },
-  // Layout 3: large circle + small dots
+  // Layout 3: large ring + solid dots
   (slide, pptx, theme) => {
-    slide.addShape(pptx.shapes.OVAL, { x: 10.2, y: 2, w: 2.8, h: 2.8, fill: { color: theme.accent, transparency: 90 }, line: { color: theme.accent, width: 2, transparency: 40 } });
-    slide.addShape(pptx.shapes.OVAL, { x: 11.8, y: 5.2, w: 0.6, h: 0.6, fill: { color: theme.accent2, transparency: 60 } });
-    slide.addShape(pptx.shapes.OVAL, { x: 10.5, y: 5.5, w: 0.4, h: 0.4, fill: { color: theme.accent3, transparency: 60 } });
+    slide.addShape(pptx.shapes.OVAL, { x: 10.0, y: 1.8, w: 3, h: 3, fill: { color: theme.accent, transparency: 45 }, line: { color: theme.accent, width: 3 } });
+    slide.addShape(pptx.shapes.OVAL, { x: 11.8, y: 5.0, w: 0.8, h: 0.8, fill: { color: theme.accent2, transparency: 10 } });
+    slide.addShape(pptx.shapes.OVAL, { x: 10.5, y: 5.4, w: 0.6, h: 0.6, fill: { color: theme.accent3, transparency: 10 } });
+    slide.addShape(pptx.shapes.OVAL, { x: 12.4, y: 5.6, w: 0.5, h: 0.5, fill: { color: theme.accent, transparency: 10 } });
   },
 ];
 
@@ -144,21 +145,27 @@ async function generatePPT(topic, slides, options = {}) {
   // ==================== SLIDE 1: TITLE SLIDE ====================
   const titleSlide = pptx.addSlide({ masterName: 'TITLE_SLIDE' });
 
-  // Decorative shapes
+  // Decorative shapes — clearly visible
   titleSlide.addShape(pptx.shapes.OVAL, {
-    x: 9.5, y: -1.5, w: 5.5, h: 5.5,
-    fill: { color: theme.accent, transparency: 90 },
-    line: { color: theme.accent, width: 1.5, transparency: 50 }
+    x: 9.0, y: -1, w: 5.5, h: 5.5,
+    fill: { color: theme.accent, transparency: 40 },
+    line: { color: theme.accent, width: 2.5 }
   });
   titleSlide.addShape(pptx.shapes.OVAL, {
-    x: 10.5, y: 0, w: 3, h: 3,
-    fill: { color: theme.accent2, transparency: 92 },
-    line: { color: theme.accent2, width: 1, transparency: 60 }
+    x: 10.5, y: 0.5, w: 3, h: 3,
+    fill: { color: theme.accent2, transparency: 35 },
+    line: { color: theme.accent2, width: 2 }
   });
   titleSlide.addShape(pptx.shapes.OVAL, {
-    x: -1.5, y: 5, w: 3.5, h: 3.5,
-    fill: { color: theme.accent2, transparency: 93 },
-    line: { color: theme.accent2, width: 1, transparency: 70 }
+    x: -1, y: 4.5, w: 3.5, h: 3.5,
+    fill: { color: theme.accent2, transparency: 40 },
+    line: { color: theme.accent2, width: 2 }
+  });
+  titleSlide.addShape(pptx.shapes.ROUNDED_RECTANGLE, {
+    x: 9.5, y: 5, w: 3, h: 2,
+    fill: { color: theme.accent3, transparency: 45 },
+    rectRadius: 0.3,
+    line: { color: theme.accent3, width: 1.5 }
   });
 
   // Topic name ONLY (clean, no prompt text)
@@ -243,16 +250,21 @@ async function generatePPT(topic, slides, options = {}) {
   // ==================== FINAL SLIDE: THANK YOU ====================
   const endSlide = pptx.addSlide({ masterName: 'TITLE_SLIDE' });
 
-  // Decorative shapes
+  // Decorative shapes — clearly visible
   endSlide.addShape(pptx.shapes.OVAL, {
-    x: 4.5, y: 1.2, w: 4.5, h: 4.5,
-    fill: { color: theme.accent, transparency: 90 },
-    line: { color: theme.accent, width: 2, transparency: 40 }
+    x: 4.2, y: 1.0, w: 5, h: 5,
+    fill: { color: theme.accent, transparency: 40 },
+    line: { color: theme.accent, width: 3 }
   });
   endSlide.addShape(pptx.shapes.OVAL, {
-    x: 8, y: 3.5, w: 2, h: 2,
-    fill: { color: theme.accent2, transparency: 88 },
-    line: { color: theme.accent2, width: 1.5, transparency: 50 }
+    x: 8.5, y: 3.5, w: 2.5, h: 2.5,
+    fill: { color: theme.accent2, transparency: 30 },
+    line: { color: theme.accent2, width: 2 }
+  });
+  endSlide.addShape(pptx.shapes.OVAL, {
+    x: 1, y: 2, w: 2, h: 2,
+    fill: { color: theme.accent3, transparency: 40 },
+    line: { color: theme.accent3, width: 1.5 }
   });
 
   endSlide.addText('Thank You', {
