@@ -107,6 +107,15 @@ function App() {
     localStorage.setItem('theme', theme);
   }, [theme]);
 
+  // 4. Periodic User Status Sync — keeps plan/prompts/expiry synced across devices
+  useEffect(() => {
+    if (!currentUser?.email) return;
+    const interval = setInterval(() => {
+      fetchUserStatus(currentUser.email);
+    }, 60000); // Refresh every 60 seconds
+    return () => clearInterval(interval);
+  }, [currentUser?.email]);
+
   // Handle successful login
   const handleLogin = (userEmail) => {
     const userObj = { email: userEmail };

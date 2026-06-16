@@ -127,11 +127,11 @@ function Login({ onLogin, onShowLegal, onShowSetup }) {
             );
             const profile = JSON.parse(jsonPayload);
             if (profile && profile.email) {
-              const currentAction = document.querySelector('.auth-tab.active')?.innerText.toLowerCase().includes('sign up') ? 'signup' : 'login';
+              // Always use 'login' — backend auto-registers if user doesn't exist (seamless cross-device)
               fetch('/api/user/auth', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email: profile.email, action: currentAction })
+                body: JSON.stringify({ email: profile.email, action: 'login' })
               }).then(res => res.json()).then(data => {
                 if (data.success) {
                   onLogin(profile.email);

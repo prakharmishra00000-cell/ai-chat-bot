@@ -340,7 +340,7 @@ function getOrCreateUser(email) {
   return user;
 }
 
-// User Auth Endpoint (Explicit Sign In / Sign Up)
+// User Auth Endpoint (Explicit Sign In / Sign Up) — Seamless cross-device auth
 app.post('/api/user/auth', (req, res) => {
   const { email, action } = req.body;
   if (!email || !action) return res.status(400).json({ error: 'Email and action are required' });
@@ -350,12 +350,15 @@ app.post('/api/user/auth', (req, res) => {
 
   if (action === 'login') {
     if (!userExists) {
-      return res.status(400).json({ error: 'USER_NOT_FOUND', message: 'Account not registered. Please sign up first.' });
+      // Auto-register on login attempt — seamless cross-device experience
+      getOrCreateUser(email);
+      return res.json({ success: true, message: 'Account created and logged in successfully.', autoRegistered: true });
     }
     return res.json({ success: true, message: 'Logged in successfully.' });
   } else if (action === 'signup') {
     if (userExists) {
-      return res.status(400).json({ error: 'USER_EXISTS', message: 'Account already registered. Please sign in.' });
+      // If already registered, just log them in instead of showing error
+      return res.json({ success: true, message: 'Account found. Logged in successfully.', alreadyExists: true });
     }
     // Create the user implicitly via helper
     getOrCreateUser(email);
