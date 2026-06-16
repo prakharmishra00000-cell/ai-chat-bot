@@ -36,10 +36,11 @@ function bootstrapConfigFromEnv() {
     if (singleKey && singleKey.trim()) envKeys.push(singleKey.trim());
   }
   
-  // Method 3: Scan ALL env vars for any that look like Google API keys (start with AIza)
+  // Method 3: Scan ALL env vars for any that look like Google/Gemini API keys
   if (envKeys.length === 0) {
     for (const [key, val] of Object.entries(process.env)) {
-      if (val && val.startsWith('AIza') && val.length > 30) {
+      if (val && (val.startsWith('AIza') || val.startsWith('AQ') || val.startsWith('gsk_')) && val.length > 20) {
+        console.log(`[STARTUP] Auto-detected API key from env var: ${key}`);
         envKeys.push(val.trim());
       }
     }
@@ -385,11 +386,14 @@ app.post('/api/user/status', (req, res) => {
 
 // GEMINI API ROTATION ENGINE
 let activeKeyIndex = 0;
-const API_TIMEOUT_MS = 25000; // 25 second timeout — enough for any Gemini model to respond
 
 async function queryGeminiAPI(keys, contents, systemInstruction) {
   let attempts = 0;
-  const maxAttempts = keys.length; // Try ALL available keys
+  const maxAttempts = keys.length;
+  const allErrors = [];
+  
+  // Try v1beta first, then v1 as fallback API versions
+  const apiVersions = ['v1beta', 'v1'];
   
   // Models ordered by speed and reliability
   const models = [
@@ -401,79 +405,81 @@ async function queryGeminiAPI(keys, contents, systemInstruction) {
 
   while (attempts < maxAttempts) {
     const activeKey = keys[activeKeyIndex];
-    let modelIndex = 0;
-    let lastError = null;
+    const keyPreview = activeKey.substring(0, 6) + '...';
+    let succeeded = false;
 
-    while (modelIndex < models.length) {
-      const activeModel = models[modelIndex];
-      const apiVer = 'v1beta';
-      const url = `https://generativelanguage.googleapis.com/${apiVer}/models/${activeModel}:generateContent?key=${activeKey}`;
-      
-      // Create abort controller for timeout
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
+    for (const apiVer of apiVersions) {
+      for (let modelIndex = 0; modelIndex < models.length; modelIndex++) {
+        const activeModel = models[modelIndex];
+        const url = `https://generativelanguage.googleapis.com/${apiVer}/models/${activeModel}:generateContent?key=${activeKey}`;
+        
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
 
-      try {
-        let payloadContents = JSON.parse(JSON.stringify(contents));
-        if (systemInstruction && payloadContents.length > 0 && payloadContents[0].role === 'user') {
-           payloadContents[0].parts[0].text = `[System Instruction: ${systemInstruction}]\n\n` + payloadContents[0].parts[0].text;
-        }
-
-        const requestPayload = {
-          contents: payloadContents
-        };
-
-        const response = await fetch(url, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(requestPayload),
-          signal: controller.signal
-        });
-
-        clearTimeout(timeoutId);
-        const responseData = await response.json();
-
-        if (response.ok) {
-          if (responseData.candidates && responseData.candidates[0] && responseData.candidates[0].content) {
-            return responseData.candidates[0].content.parts[0].text;
-          } else {
-            throw new Error('Invalid Gemini API response structure');
+        try {
+          let payloadContents = JSON.parse(JSON.stringify(contents));
+          if (systemInstruction && payloadContents.length > 0 && payloadContents[0].role === 'user') {
+             payloadContents[0].parts[0].text = `[System Instruction: ${systemInstruction}]\n\n` + payloadContents[0].parts[0].text;
           }
-        }
 
-        const errMessage = responseData.error?.message || response.statusText;
+          const requestPayload = { contents: payloadContents };
 
-        if (response.status === 429 || errMessage.toLowerCase().includes('key') || response.status === 401) {
-          lastError = new Error(`Key ${activeKeyIndex} rate-limited: ${errMessage}`);
-          break; // Rotate to next key
-        }
+          console.log(`[GEMINI] Trying Key ${keyPreview} | Model: ${activeModel} | API: ${apiVer}`);
 
-        if (response.status === 404 || errMessage.toLowerCase().includes('not found') || errMessage.toLowerCase().includes('not supported')) {
-          modelIndex++; // Try next model
-          lastError = new Error(errMessage);
-        } else {
-          lastError = new Error(errMessage);
-          modelIndex++; // Try next model instead of giving up
+          const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(requestPayload),
+            signal: controller.signal
+          });
+
+          clearTimeout(timeoutId);
+          const responseData = await response.json();
+
+          if (response.ok) {
+            if (responseData.candidates && responseData.candidates[0] && responseData.candidates[0].content) {
+              console.log(`[GEMINI] SUCCESS with Key ${keyPreview} | Model: ${activeModel} | API: ${apiVer}`);
+              return responseData.candidates[0].content.parts[0].text;
+            }
+            // Response OK but no candidates — might be safety blocked
+            const blockReason = responseData.candidates?.[0]?.finishReason || 'unknown';
+            console.warn(`[GEMINI] No content from ${activeModel}. Reason: ${blockReason}`);
+            continue;
+          }
+
+          const errMessage = responseData.error?.message || response.statusText;
+          const errDetail = `Key ${keyPreview} | ${apiVer}/${activeModel} | HTTP ${response.status}: ${errMessage}`;
+          console.warn(`[GEMINI] FAIL: ${errDetail}`);
+          allErrors.push(errDetail);
+
+          // Rate limited or invalid key — skip to next key
+          if (response.status === 429 || response.status === 401 || response.status === 403) {
+            break;
+          }
+          // Model not found — try next model
+          if (response.status === 404) {
+            continue;
+          }
+        } catch (error) {
+          clearTimeout(timeoutId);
+          if (error.name === 'AbortError') {
+            console.warn(`[GEMINI] TIMEOUT: Key ${keyPreview} | ${activeModel}`);
+            allErrors.push(`Timeout: ${keyPreview}/${activeModel}`);
+            continue; // Try next model
+          }
+          console.error(`[GEMINI] ERROR: Key ${keyPreview} | ${activeModel}:`, error.message);
+          allErrors.push(`${keyPreview}/${activeModel}: ${error.message}`);
+          continue;
         }
-      } catch (error) {
-        clearTimeout(timeoutId);
-        if (error.name === 'AbortError') {
-          console.warn(`Timeout on Key ${activeKeyIndex} Model ${activeModel}. Trying next...`);
-          lastError = new Error('Request timed out');
-          break; // Rotate to next key on timeout
-        }
-        console.error(`Error on Key ${activeKeyIndex} Model ${activeModel}:`, error.message);
-        lastError = error;
-        modelIndex++;
       }
+      if (succeeded) break;
     }
 
     activeKeyIndex = (activeKeyIndex + 1) % keys.length;
     attempts++;
   }
 
+  console.error(`[GEMINI] ALL KEYS FAILED. Errors: ${allErrors.join(' | ')}`);
   throw new Error('Our AI servers are currently busy. Please try again in a few seconds.');
 }
 
