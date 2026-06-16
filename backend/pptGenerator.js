@@ -38,91 +38,86 @@ const THEME = {
 };
 
 /**
- * Download an image to disk and return the file path.
- * Tries multiple free image sources for the keyword.
- * Returns null if all sources fail — bot response will NOT error.
+ * Download a topic-related image to disk.
+ * Uses multiple Unsplash query strategies for best relevance.
+ * Returns null if fails — no error, just fallback to shapes.
  */
 async function downloadImageForKeyword(keyword, index) {
   const safeKey = keyword.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 30);
   const outPath = path.join(IMG_CACHE_DIR, `img_${safeKey}_${index}_${Date.now()}.jpg`);
   
-  // Build search URLs — multiple fallbacks
-  const query = encodeURIComponent(keyword);
-  const urls = [
-    // Unsplash source — follows redirect to real JPEG
-    `https://source.unsplash.com/800x450/?${query}`,
-    // Lorem Picsum — always returns a real image (random but reliable)
-    `https://picsum.photos/seed/${safeKey}${index}/800/450`,
+  // Try 3 different query strategies for best topic match
+  const queries = [
+    keyword,                                    // Full: "Machine Learning Applications"
+    keyword.split(' ').slice(0, 3).join(' '),   // First 3 words: "Machine Learning Applications"
+    keyword.split(' ').slice(0, 2).join(' '),   // First 2 words: "Machine Learning"
   ];
   
-  for (const url of urls) {
+  for (const q of queries) {
+    const encoded = encodeURIComponent(q.trim());
+    if (!encoded) continue;
+    
+    // Only use Unsplash — it returns topic-related images
+    const url = `https://source.unsplash.com/800x450/?${encoded}`;
+    
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 12000);
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
       
       const res = await fetch(url, {
         signal: controller.signal,
         redirect: 'follow',
         headers: { 
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-          'Accept': 'image/jpeg,image/png,image/*,*/*'
+          'Accept': 'image/jpeg,image/png,image/*'
         }
       });
       clearTimeout(timeoutId);
       
       if (!res.ok) continue;
       
-      // Check content type — must be an image
       const contentType = res.headers.get('content-type') || '';
-      if (!contentType.includes('image')) {
-        console.warn(`[PPT-IMG] Not an image for "${keyword}" from ${url}: ${contentType}`);
-        continue;
-      }
+      if (!contentType.includes('image')) continue;
       
-      // Read as buffer
       const arrayBuf = await res.arrayBuffer();
       const buffer = Buffer.from(arrayBuf);
       
-      // Must be at least 3KB to be a real image
-      if (buffer.length < 3000) {
-        console.warn(`[PPT-IMG] Image too small for "${keyword}": ${buffer.length} bytes`);
-        continue;
-      }
+      if (buffer.length < 5000) continue; // Skip tiny/broken images
       
-      // Save to disk
       fs.writeFileSync(outPath, buffer);
-      console.log(`[PPT-IMG] ✅ Downloaded for "${keyword}" (${Math.round(buffer.length / 1024)}KB)`);
+      console.log(`[PPT-IMG] ✅ "${q}" → ${Math.round(buffer.length / 1024)}KB`);
       return outPath;
       
     } catch (e) {
-      if (e.name === 'AbortError') {
-        console.warn(`[PPT-IMG] Timeout for "${keyword}"`);
-      } else {
-        console.warn(`[PPT-IMG] Error for "${keyword}": ${e.message}`);
-      }
+      console.warn(`[PPT-IMG] ⚠ "${q}": ${e.name === 'AbortError' ? 'timeout' : e.message}`);
     }
   }
   
-  console.warn(`[PPT-IMG] ❌ All sources failed for "${keyword}"`);
+  console.warn(`[PPT-IMG] ❌ No image found for "${keyword}"`);
   return null;
 }
 
 /**
- * Extract 1-3 meaningful keywords from a slide title for image search
+ * Build a search query from slide title + main topic.
+ * Keeps the title meaningful and always includes the main topic.
  */
-function extractKeywords(slideTitle, mainTopic) {
-  const stopWords = /\b(the|a|an|and|or|of|in|on|for|to|with|is|are|was|were|be|been|have|has|had|do|does|did|will|would|could|should|may|might|can|its|it|this|that|these|those|their|our|your|my|key|main|major|important|overview|introduction|conclusion|summary|future|current|role|impact|effect|types|benefits|challenges|trends|sources|references)\b/gi;
-  
+function buildImageQuery(slideTitle, mainTopic) {
+  // Clean the slide title — keep meaningful words
   const cleaned = slideTitle
-    .replace(/[^a-zA-Z\s]/g, '')
-    .replace(stopWords, '')
+    .replace(/[^a-zA-Z0-9\s]/g, '')
+    .replace(/\b(slide|page|overview|introduction|conclusion|summary|sources|references|thank|you)\b/gi, '')
     .replace(/\s+/g, ' ')
     .trim();
   
-  const words = cleaned.split(' ').filter(w => w.length > 2);
-  const kw = words.slice(0, 2).join(' ');
-  // Combine with main topic for better search relevance
-  return kw ? `${kw} ${mainTopic}` : mainTopic;
+  // Combine slide-specific words with main topic
+  // e.g. slideTitle="Impact on Healthcare" + topic="Artificial Intelligence"
+  //   → "Healthcare Artificial Intelligence"
+  const titleWords = cleaned.split(' ').filter(w => w.length > 2).slice(0, 3).join(' ');
+  
+  if (titleWords && titleWords.toLowerCase() !== mainTopic.toLowerCase()) {
+    return `${titleWords} ${mainTopic}`.trim();
+  }
+  return mainTopic;
 }
 
 /**
@@ -234,7 +229,7 @@ async function generatePPT(topic, slides, options = {}) {
   imagePromises.push(downloadImageForKeyword(topic, 0));
   // Content slide images
   for (let i = 0; i < slides.length; i++) {
-    const kw = extractKeywords(slides[i].title, topic);
+    const kw = buildImageQuery(slides[i].title, topic);
     imagePromises.push(downloadImageForKeyword(kw, i + 1));
   }
   

@@ -633,42 +633,48 @@ app.post('/api/generate-ppt', async (req, res) => {
     
     console.log(`[PPT] Generating ${slideCount}-slide presentation on: "${cleanTopic}"`);
     
-    // STEP 2: Generate slide content
-    const pptContentPrompt = `Create a professional presentation on: "${cleanTopic}"
+    // STEP 2: Generate slide content strictly related to the topic
+    const pptContentPrompt = `You are creating a professional presentation STRICTLY about: "${cleanTopic}"
 
-STRICT RULES:
-- Generate exactly ${slideCount} content slides (do NOT include title or thank you slides, I will add those)
-- Style preference: ${stylePreference}
-- Each slide must have a clear title and 4-6 detailed bullet points
-- Use real, authentic, accurate information only
-- Include statistics, facts, and key data points where relevant
-- Make content educational, professional, and engaging
+CRITICAL RULES:
+1. EVERY slide title MUST be a direct sub-topic or aspect of "${cleanTopic}" — nothing unrelated
+2. EVERY bullet point MUST contain information directly about "${cleanTopic}" — no generic filler
+3. Generate exactly ${slideCount} content slides
+4. Style: ${stylePreference}
+5. Each slide: one clear sub-topic title + 4-6 specific, factual bullet points
+6. Include real statistics, data, facts, years, names where applicable
+7. Cover different important aspects/angles of "${cleanTopic}" across slides
 
-OUTPUT FORMAT - You MUST use this EXACT format for every slide:
+SUGGESTED SLIDE STRUCTURE for "${cleanTopic}":
+- Slide 1: What is ${cleanTopic} / Definition & Overview
+- Slide 2: History / Origin / Background of ${cleanTopic}
+- Slide 3-${Math.max(3, slideCount - 2)}: Key aspects, types, applications, impact, challenges specific to ${cleanTopic}
+- Slide ${slideCount - 1}: Current trends / Future of ${cleanTopic}
+- Slide ${slideCount}: Key takeaways about ${cleanTopic}
 
-SLIDE 1: [Title of first slide]
-- First detailed bullet point with specific information
-- Second detailed bullet point
-- Third bullet point with data/statistics if applicable
-- Fourth bullet point
-- Fifth bullet point (optional)
+OUTPUT FORMAT — use this EXACT format:
 
-SLIDE 2: [Title of second slide]
-- Bullet point 1
-- Bullet point 2
-- Bullet point 3
-- Bullet point 4
+SLIDE 1: [Sub-topic title related to ${cleanTopic}]
+- Specific fact or detail about ${cleanTopic}
+- Another specific point with data
+- Real statistic or example
+- Key information point
 
-Continue this pattern for all ${slideCount} slides.
+SLIDE 2: [Another sub-topic of ${cleanTopic}]
+- Bullet 1
+- Bullet 2
+- Bullet 3
+- Bullet 4
 
-After ALL slides, add:
+(Continue for all ${slideCount} slides)
+
 SLIDE ${slideCount + 1}: Sources & References
-- List 3-5 official reference links as bullet points
+- List 3-5 real official URLs where readers can learn more about ${cleanTopic}
 
-IMPORTANT: Do NOT use markdown formatting. Do NOT use ** for bold. Use plain text only. Start each slide with "SLIDE X:" exactly.`;
+IMPORTANT: Plain text only. No markdown. No ** bold. Start each with "SLIDE X:" exactly. Every word must relate to "${cleanTopic}".`;
 
     const contents = [{ role: 'user', parts: [{ text: pptContentPrompt }] }];
-    const systemInstr = 'You are a professional presentation content creator. Generate structured slide content exactly in the format requested. Use accurate, real-world information. No markdown formatting.';
+    const systemInstr = `You are an expert on "${cleanTopic}". Create presentation content ONLY about "${cleanTopic}". Every slide title must be a sub-topic of "${cleanTopic}". Every bullet point must contain specific facts about "${cleanTopic}". Do not include generic or unrelated content. Use plain text, no markdown.`;
     
     const aiResponse = await queryGeminiAPI(config.keys, contents, systemInstr);
     
