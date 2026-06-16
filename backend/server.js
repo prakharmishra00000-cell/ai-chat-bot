@@ -622,58 +622,132 @@ app.post('/api/generate-ppt', async (req, res) => {
   const stylePreference = style || 'balanced';
 
   try {
-    // STEP 1: Extract clean topic name using AI
-    let cleanTopic = topic;
+    // STEP 1: AI deeply analyzes the user's FULL prompt to understand what they actually want
+    // This extracts: the clean topic name + what sub-topics/aspects should be covered
+    const userOriginalPrompt = topic; // This is the user's full raw prompt
+    
+    let cleanTopic = userOriginalPrompt;
+    let slideOutline = '';
+    
     try {
-      const aiTopic = await extractTopicWithAI(topic, queryGeminiAPI, config.keys);
-      if (aiTopic) cleanTopic = aiTopic;
+      const analysisPrompt = `A user wants a presentation. Read their request carefully and understand exactly what topic they want and what aspects they expect to be covered.
+
+User's request: "${userOriginalPrompt}"
+
+You must respond in EXACTLY this format (nothing else):
+
+TOPIC: [The exact topic name — just the subject, no extra words. For example if user says "make a ppt on evolution of engines" the topic is "Evolution of Engines"]
+
+OUTLINE:
+1. [First sub-topic that should be covered based on what user asked]
+2. [Second sub-topic]
+3. [Third sub-topic]
+4. [Fourth sub-topic]
+5. [Fifth sub-topic]
+6. [Sixth sub-topic]
+7. [Seventh sub-topic]
+8. [Eighth sub-topic]
+
+Create exactly ${slideCount} sub-topics in the outline. Each sub-topic must be directly related to the main topic. Think about what aspects the user would naturally expect to see in a presentation about this topic.
+
+For example, if the user asks about "Evolution of Engines":
+TOPIC: Evolution of Engines
+OUTLINE:
+1. What is an Engine - Definition and Basic Working
+2. Origin and Invention of the First Engine
+3. Steam Engine Era - The Beginning of Mechanical Power
+4. Internal Combustion Engine - How It Changed Everything
+5. Types of Engines - Petrol, Diesel, Rotary, Turbine
+6. Key Upgrades and Technological Improvements in Engines
+7. Modern Engines - Electric Motors and Hybrid Technology
+8. Future of Engines - Hydrogen, AI-Powered, and Beyond`;
+
+      const analysisContents = [{ role: 'user', parts: [{ text: analysisPrompt }] }];
+      const analysisResponse = await queryGeminiAPI(config.keys, analysisContents, 'You analyze user requests to extract the topic and create a presentation outline. Respond only in the format asked. No markdown.');
+      
+      // Parse the analysis
+      const topicMatch = analysisResponse.match(/TOPIC:\s*(.+)/i);
+      if (topicMatch) {
+        const extracted = topicMatch[1].trim().replace(/^["']|["']$/g, '');
+        if (extracted.length > 2 && extracted.length < 150) cleanTopic = extracted;
+      }
+      
+      const outlineMatch = analysisResponse.match(/OUTLINE:\s*([\s\S]+)/i);
+      if (outlineMatch) {
+        slideOutline = outlineMatch[1].trim();
+      }
+      
+      console.log(`[PPT] AI understood topic: "${cleanTopic}"`);
+      console.log(`[PPT] AI created outline with ${slideOutline.split('\n').filter(l => l.trim()).length} sub-topics`);
     } catch (e) {
-      console.warn('[PPT] Topic extraction fallback to raw input');
+      console.warn('[PPT] Analysis fallback — using raw prompt');
+      // Fallback: try simple topic extraction
+      try {
+        const aiTopic = await extractTopicWithAI(userOriginalPrompt, queryGeminiAPI, config.keys);
+        if (aiTopic) cleanTopic = aiTopic;
+      } catch (e2) { /* use raw */ }
     }
     
     console.log(`[PPT] Generating ${slideCount}-slide presentation on: "${cleanTopic}"`);
     
-    // STEP 2: Generate slide content — treat it like explaining the topic in depth
-    const pptContentPrompt = `Explain "${cleanTopic}" in complete detail as if you are teaching someone everything about it. Break your explanation into exactly ${slideCount} sections. Each section should cover a different important aspect of "${cleanTopic}".
+    // STEP 2: Generate detailed slide content using the outline
+    const pptContentPrompt = slideOutline
+      ? `You are creating a detailed presentation about "${cleanTopic}".
 
-Your explanation must flow like this:
-1. Start with what "${cleanTopic}" actually is — define it clearly
-2. Then explain the history or background of "${cleanTopic}"
-3. Then cover the most important aspects, types, features, or components of "${cleanTopic}"
-4. Explain how "${cleanTopic}" is used in real life, its applications and impact
-5. Discuss challenges, problems, or limitations related to "${cleanTopic}"
-6. Cover current developments and future scope of "${cleanTopic}"
-7. End with key facts or takeaways about "${cleanTopic}"
+The user's original request was: "${userOriginalPrompt}"
 
-Every single point you write must be directly about "${cleanTopic}" — do not include generic information that could apply to any topic. Use specific names, dates, numbers, statistics, and real-world examples related to "${cleanTopic}".
+Follow this outline and write detailed content for each slide. Every point must be a real fact specifically about "${cleanTopic}":
 
-FORMAT YOUR RESPONSE EXACTLY LIKE THIS:
+${slideOutline}
 
-SLIDE 1: [A heading that is a sub-topic of ${cleanTopic}]
-- [A detailed point explaining something specific about ${cleanTopic}]
-- [Another specific fact or detail about ${cleanTopic}]
-- [A real statistic, number, or example related to ${cleanTopic}]
-- [One more important point about ${cleanTopic}]
-- [Additional detail if needed]
+For each sub-topic in the outline above, write one slide with 4-6 detailed bullet points. Every bullet must contain specific information directly about "${cleanTopic}" — real facts, dates, names, numbers, examples.
 
-SLIDE 2: [Next sub-topic of ${cleanTopic}]
+Write as if you are teaching someone everything about "${cleanTopic}". The content should be the same quality as if someone asked you to explain "${cleanTopic}" in a conversation.
+
+FORMAT — use this exact format:
+
+SLIDE 1: [Sub-topic from outline]
+- [Detailed specific fact about this aspect of ${cleanTopic}]
+- [Another real fact with names/dates/numbers]
+- [Important detail about ${cleanTopic}]
+- [Key point or example]
+- [Additional fact if relevant]
+
+SLIDE 2: [Next sub-topic from outline]
 - [Point 1]
 - [Point 2]
 - [Point 3]
 - [Point 4]
 
-Continue this exact pattern for all ${slideCount} slides.
+Continue for all ${slideCount} slides.
 
-After all content slides, add one final slide:
 SLIDE ${slideCount + 1}: Sources and References
-- [Official website or resource URL about ${cleanTopic}]
-- [Another credible source URL]
-- [Third reference URL]
+- [Real official URL about ${cleanTopic}]
+- [Another credible source]
+- [Third reference]
 
-Rules: Write in plain text only. No bold, no markdown, no asterisks. Start every slide with "SLIDE X:" exactly.`;
+Rules: Plain text only. No bold, no **, no markdown. Start each slide with "SLIDE X:" exactly.`
+      : `Explain "${cleanTopic}" in complete detail. The user asked: "${userOriginalPrompt}"
+
+Break your explanation into exactly ${slideCount} sections covering all important aspects of "${cleanTopic}". Include specific facts, dates, names, numbers.
+
+FORMAT:
+SLIDE 1: [Sub-topic of ${cleanTopic}]
+- [Detailed fact]
+- [Another fact]
+- [Data point]
+- [Key detail]
+
+Continue for ${slideCount} slides, then add:
+SLIDE ${slideCount + 1}: Sources and References
+- [URL 1]
+- [URL 2]
+- [URL 3]
+
+Plain text only. No markdown. Start each with "SLIDE X:".`;
 
     const contents = [{ role: 'user', parts: [{ text: pptContentPrompt }] }];
-    const systemInstr = `You are a knowledgeable expert and teacher on the subject of "${cleanTopic}". Your job is to explain "${cleanTopic}" thoroughly and accurately. Write as if you are teaching a student everything they need to know about "${cleanTopic}". Every heading you create must be a sub-topic within "${cleanTopic}". Every bullet point must contain a specific fact, detail, or explanation directly connected to "${cleanTopic}". Do not write anything generic or unrelated. Use plain text only.`;
+    const systemInstr = `You are a subject matter expert on "${cleanTopic}". Explain "${cleanTopic}" thoroughly with real, accurate information. Every slide heading must be a sub-topic of "${cleanTopic}". Every bullet must contain specific facts about "${cleanTopic}" — not generic information. Write as if teaching someone who wants to learn everything about "${cleanTopic}". Plain text only.`;
     
     const aiResponse = await queryGeminiAPI(config.keys, contents, systemInstr);
     
