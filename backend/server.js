@@ -5,7 +5,7 @@ const path = require('path');
 const fetch = require('node-fetch');
 const Razorpay = require('razorpay');
 const { performWebSearch } = require('./search');
-const { generatePPT, parseSlideContent, DOWNLOADS_DIR } = require('./pptGenerator');
+const { generatePPT, parseSlideContent, extractTopicWithAI, DOWNLOADS_DIR } = require('./pptGenerator');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -619,9 +619,22 @@ app.post('/api/generate-ppt', async (req, res) => {
   }
 
   const slideCount = Math.min(Math.max(parseInt(pageCount) || 8, 3), 25);
-  const stylePreference = style || 'balanced'; // 'text-heavy', 'visual', 'balanced'
-  
-  const pptPrompt = `Create a professional presentation on: "${topic}"
+  const stylePreference = style || 'balanced';
+
+  try {
+    // STEP 1: Extract clean topic name using AI
+    let cleanTopic = topic;
+    try {
+      const aiTopic = await extractTopicWithAI(topic, queryGeminiAPI, config.keys);
+      if (aiTopic) cleanTopic = aiTopic;
+    } catch (e) {
+      console.warn('[PPT] Topic extraction fallback to raw input');
+    }
+    
+    console.log(`[PPT] Generating ${slideCount}-slide presentation on: "${cleanTopic}"`);
+    
+    // STEP 2: Generate slide content
+    const pptContentPrompt = `Create a professional presentation on: "${cleanTopic}"
 
 STRICT RULES:
 - Generate exactly ${slideCount} content slides (do NOT include title or thank you slides, I will add those)
@@ -654,15 +667,12 @@ SLIDE ${slideCount + 1}: Sources & References
 
 IMPORTANT: Do NOT use markdown formatting. Do NOT use ** for bold. Use plain text only. Start each slide with "SLIDE X:" exactly.`;
 
-  try {
-    console.log(`[PPT] Generating ${slideCount}-slide presentation on: "${topic}"`);
-    
-    const contents = [{ role: 'user', parts: [{ text: pptPrompt }] }];
+    const contents = [{ role: 'user', parts: [{ text: pptContentPrompt }] }];
     const systemInstr = 'You are a professional presentation content creator. Generate structured slide content exactly in the format requested. Use accurate, real-world information. No markdown formatting.';
     
     const aiResponse = await queryGeminiAPI(config.keys, contents, systemInstr);
     
-    // Parse AI response into slides
+    // STEP 3: Parse AI response into slides
     const slides = parseSlideContent(aiResponse);
     
     if (!slides || slides.length === 0) {
@@ -670,10 +680,10 @@ IMPORTANT: Do NOT use markdown formatting. Do NOT use ** for bold. Use plain tex
       return res.status(500).json({ error: 'Failed to generate slide content. Please try again.' });
     }
     
-    console.log(`[PPT] Parsed ${slides.length} slides, generating PPTX...`);
+    console.log(`[PPT] Parsed ${slides.length} slides, generating PPTX with images...`);
     
-    // Generate the actual PPTX file
-    const result = await generatePPT(topic, slides, { style: stylePreference });
+    // STEP 4: Generate PPTX with real images (uses cleanTopic)
+    const result = await generatePPT(cleanTopic, slides, { style: stylePreference });
     
     const downloadUrl = `/api/download-ppt/${result.fileName}`;
     
@@ -685,8 +695,8 @@ IMPORTANT: Do NOT use markdown formatting. Do NOT use ** for bold. Use plain tex
       downloadUrl,
       fileName: result.fileName,
       slideCount: result.slideCount,
-      topic,
-      message: `✅ Presentation generated! ${result.slideCount} slides on "${topic}".`
+      topic: cleanTopic,
+      message: `✅ Presentation generated! ${result.slideCount} slides on "${cleanTopic}".`
     });
     
   } catch (error) {
