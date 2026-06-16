@@ -3,10 +3,6 @@ import { Key, Eye, EyeOff, ShieldAlert, Award } from 'lucide-react';
 
 function Setup({ onComplete, onBack, currentUser }) {
   const [keys, setKeys] = useState(Array(9).fill(''));
-  const [p2pApiKey, setP2pApiKey] = useState('');
-  const [p2pApiUrl, setP2pApiUrl] = useState('https://api.uropay.me/v1');
-  const [receiverUpiId, setReceiverUpiId] = useState('6372843175@kotakbank');
-  const [receiverName, setReceiverName] = useState('Prakhar Mishra');
   const [googleClientId, setGoogleClientId] = useState('');
   const [adminUsername, setAdminUsername] = useState('prakhar mishra');
   const [adminPassword, setAdminPassword] = useState('');
@@ -33,10 +29,6 @@ function Setup({ onComplete, onBack, currentUser }) {
             });
             setKeys(newKeys);
           }
-          setP2pApiKey(data.P2P_API_KEY || '');
-          setP2pApiUrl(data.P2P_API_URL || 'https://api.uropay.me/v1');
-          setReceiverUpiId(data.RECEIVER_UPI_ID || '6372843175@kotakbank');
-          setReceiverName(data.RECEIVER_NAME || 'Prakhar Mishra');
           setGoogleClientId(data.googleClientId || '');
           setAdminUsername(data.adminUsername || 'prakhar mishra');
           setAdminPassword(data.adminPassword || '');
@@ -77,10 +69,6 @@ function Setup({ onComplete, onBack, currentUser }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           keys: validKeys,
-          P2P_API_KEY: p2pApiKey,
-          P2P_API_URL: p2pApiUrl,
-          RECEIVER_UPI_ID: receiverUpiId,
-          RECEIVER_NAME: receiverName,
           googleClientId,
           adminUsername,
           adminPassword,
@@ -117,7 +105,7 @@ function Setup({ onComplete, onBack, currentUser }) {
           </button>
         )}
         <h2>System Credentials Setup</h2>
-        <p className="subtitle">Configure your Gemini keys, payment gateway, and admin logins. All secrets are stored locally on your device.</p>
+        <p className="subtitle">Configure your Gemini keys and admin logins. All secrets are stored locally on your device.</p>
         
         {error && (
           <div className="tos-checkbox" style={{ color: '#ff3366', marginBottom: '20px', padding: '10px', background: 'rgba(255,51,102,0.1)', borderRadius: '8px' }}>
@@ -143,43 +131,6 @@ function Setup({ onComplete, onBack, currentUser }) {
                   onChange={(e) => handleKeyChange(i, e.target.value)}
                 />
               ))}
-            </div>
-          </div>
-
-          {/* UroPay UPI Payment Configuration */}
-          <div className="form-group" style={{ borderTop: '1px solid var(--border-glass)', paddingTop: '20px', marginTop: '20px' }}>
-            <label>UroPay UPI Payment Configuration (Optional)</label>
-            <p style={{ fontSize: '0.75rem', color: varColor('text-muted'), marginBottom: '10px' }}>
-              Required to handle premium upgrades (₹99, ₹199, ₹999 orders). Configure your UroPay P2P API credentials and the receiver UPI ID for collecting payments.
-            </p>
-            <div className="keys-grid" style={{ gridTemplateColumns: '1fr' }}>
-              <input
-                type="password"
-                placeholder="UroPay API Key"
-                value={p2pApiKey}
-                onChange={(e) => setP2pApiKey(e.target.value)}
-                style={{ marginBottom: '10px' }}
-              />
-              <input
-                type="text"
-                placeholder="UroPay API URL (default: https://api.uropay.me/v1)"
-                value={p2pApiUrl}
-                onChange={(e) => setP2pApiUrl(e.target.value)}
-                style={{ marginBottom: '10px' }}
-              />
-              <input
-                type="text"
-                placeholder="Receiver UPI ID (default: 6372843175@kotakbank)"
-                value={receiverUpiId}
-                onChange={(e) => setReceiverUpiId(e.target.value)}
-                style={{ marginBottom: '10px' }}
-              />
-              <input
-                type="text"
-                placeholder="Receiver Name (default: Prakhar Mishra)"
-                value={receiverName}
-                onChange={(e) => setReceiverName(e.target.value)}
-              />
             </div>
           </div>
 

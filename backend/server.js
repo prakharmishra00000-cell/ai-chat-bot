@@ -53,8 +53,6 @@ function bootstrapConfigFromEnv() {
     try {
       const configData = {
         keys: envKeys,
-        P2P_API_KEY: process.env.P2P_API_KEY || '',
-        P2P_API_URL: process.env.P2P_API_URL || 'https://api.uropay.me/v1',
         RECEIVER_UPI_ID: process.env.RECEIVER_UPI_ID || '6372843175@kotakbank',
         RECEIVER_NAME: process.env.RECEIVER_NAME || 'Prakhar Mishra',
         googleClientId: process.env.GOOGLE_CLIENT_ID || process.env.GOOGLE_OAUTH_CLIENT_ID || '',
@@ -236,8 +234,6 @@ function readConfig() {
   if (envKeys.length > 0) {
     return {
       keys: envKeys,
-      P2P_API_KEY: process.env.P2P_API_KEY || '',
-      P2P_API_URL: process.env.P2P_API_URL || 'https://api.uropay.me/v1',
       RECEIVER_UPI_ID: process.env.RECEIVER_UPI_ID || '6372843175@kotakbank',
       RECEIVER_NAME: process.env.RECEIVER_NAME || 'Prakhar Mishra',
       googleClientId: process.env.GOOGLE_CLIENT_ID || '',
@@ -290,7 +286,7 @@ app.use((req, res, next) => {
 
 // Setup Configuration Endpoint
 app.post('/api/setup', (req, res) => {
-  const { keys, P2P_API_KEY, P2P_API_URL, RECEIVER_UPI_ID, RECEIVER_NAME, googleClientId, adminUsername, adminPassword, smtpUser, smtpPass } = req.body;
+  const { keys, googleClientId, adminUsername, adminPassword, smtpUser, smtpPass } = req.body;
   
   if (!keys || !Array.isArray(keys) || keys.length === 0 || !adminUsername || !adminPassword) {
     return res.status(400).json({ error: 'Keys, admin username, and admin password are required.' });
@@ -303,10 +299,8 @@ app.post('/api/setup', (req, res) => {
 
   const success = writeConfig({
     keys: cleanKeys,
-    P2P_API_KEY: P2P_API_KEY || '',
-    P2P_API_URL: P2P_API_URL || 'https://api.uropay.me/v1',
-    RECEIVER_UPI_ID: RECEIVER_UPI_ID || '6372843175@kotakbank',
-    RECEIVER_NAME: RECEIVER_NAME || 'Prakhar Mishra',
+    RECEIVER_UPI_ID: '6372843175@kotakbank',
+    RECEIVER_NAME: 'Prakhar Mishra',
     googleClientId: googleClientId || '',
     adminUsername,
     adminPassword,
@@ -1092,7 +1086,7 @@ app.post('/api/admin/config', (req, res) => {
 
   const config = readConfig();
   if (!config) {
-    return res.json({ keys: [], P2P_API_KEY: '', P2P_API_URL: 'https://api.uropay.me/v1', RECEIVER_UPI_ID: '6372843175@kotakbank', RECEIVER_NAME: 'Prakhar Mishra', googleClientId: '', adminUsername: 'prakhar mishra', adminPassword: '', smtpUser: '', smtpPass: '' });
+    return res.json({ keys: [], RECEIVER_UPI_ID: '6372843175@kotakbank', RECEIVER_NAME: 'Prakhar Mishra', googleClientId: '', adminUsername: 'prakhar mishra', adminPassword: '', smtpUser: '', smtpPass: '' });
   }
   res.json(config);
 });
@@ -1567,7 +1561,7 @@ app.post('/api/admin/self-code', async (req, res) => {
   // Automatically determine the target file if not provided
   if (!targetFile) {
     try {
-      const fileListPrompt = `\nYou are a project manager. We have a full-stack project with the following files:\n1. "backend/server.js" (Handles Express routes, database reads/writes, APIs)\n2. "frontend/src/App.jsx" (Handles views, routing, top-level state, alerts)\n3. "frontend/src/App.css" (Stylesheets, glassmorphism UI)\n4. "frontend/src/components/Dashboard.jsx" (Chat, voice messages, sidebar UI layout)\n5. "frontend/src/components/Admin.jsx" (Admin panel metrics, charts, tables)\n6. "frontend/src/components/UpgradeModal.jsx" (Subscription plan cards, billing, UroPay UPI payment integration)\n7. "frontend/src/components/Setup.jsx" (System Setup form for API Keys and SMTP configuration)\n8. "frontend/src/components/HelpSupport.jsx" (Query box and support contact)\n9. "frontend/src/components/Legal.jsx" (Terms of Service, Privacy Policy pages)\n10. "frontend/src/components/OwnerSecureLogin.jsx" (Re-verification secure page)\n\nBased on the following request from the user, which file should be modified?\nUser Request: "${prompt}"\n\nResponse format: Return ONLY the exact file path from the list above (e.g. "backend/server.js" or "frontend/src/components/Dashboard.jsx"). Do not include any formatting, explanation, punctuation, quotes, or markdown tags.\n`;
+      const fileListPrompt = `\nYou are a project manager. We have a full-stack project with the following files:\n1. "backend/server.js" (Handles Express routes, database reads/writes, APIs)\n2. "frontend/src/App.jsx" (Handles views, routing, top-level state, alerts)\n3. "frontend/src/App.css" (Stylesheets, glassmorphism UI)\n4. "frontend/src/components/Dashboard.jsx" (Chat, voice messages, sidebar UI layout)\n5. "frontend/src/components/Admin.jsx" (Admin panel metrics, charts, tables, payment approval)\n6. "frontend/src/components/UpgradeModal.jsx" (Subscription plan cards, UPI QR payment, UTR submission)\n7. "frontend/src/components/Setup.jsx" (System Setup form for API Keys and SMTP configuration)\n8. "frontend/src/components/HelpSupport.jsx" (Query box and support contact)\n9. "frontend/src/components/Legal.jsx" (Terms of Service, Privacy Policy pages)\n10. "frontend/src/components/OwnerSecureLogin.jsx" (Re-verification secure page)\n\nBased on the following request from the user, which file should be modified?\nUser Request: "${prompt}"\n\nResponse format: Return ONLY the exact file path from the list above (e.g. "backend/server.js" or "frontend/src/components/Dashboard.jsx"). Do not include any formatting, explanation, punctuation, quotes, or markdown tags.\n`;
 
       const contents = [{ role: 'user', parts: [{ text: fileListPrompt }] }];
       const aiResponse = await queryGeminiAPI(config.keys, contents, 'You are an expert file router.');

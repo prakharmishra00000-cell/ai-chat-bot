@@ -394,7 +394,7 @@ function Admin({ onBack, email }) {
                 <div className="stat-card glass-panel" style={{ padding: '24px', borderRadius: 'var(--radius-lg)' }}>
                   <div className="stat-label">Total Revenue Generated</div>
                   <div className="stat-value" style={{ color: 'var(--accent-neon-green)' }}>₹{stats.totalRevenue}</div>
-                  <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '8px' }}>UPI & Razorpay checkouts</p>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '8px' }}>UPI direct payments</p>
                 </div>
               </div>
 
@@ -423,7 +423,7 @@ function Admin({ onBack, email }) {
                             <td>{new Date(t.date).toLocaleDateString()}</td>
                             <td style={{ fontWeight: 600 }}>{t.email}</td>
                             <td><span style={{ fontSize: '0.75rem', padding: '2px 8px', borderRadius: '4px', background: 'rgba(0, 242, 254, 0.1)', color: 'var(--accent-cyan)' }}>{t.plan.toUpperCase()}</span></td>
-                            <td style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{t.razorpayPaymentId}</td>
+                            <td style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{t.paymentRef || t.razorpayPaymentId || '-'}</td>
                             <td style={{ color: 'var(--accent-neon-green)', fontWeight: 700 }}>₹{t.amount}</td>
                           </tr>
                         ))}

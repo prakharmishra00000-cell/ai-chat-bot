@@ -61,7 +61,7 @@ function TermsOfService() {
 
       <section style={sectionStyle}>
         <h3>5. Subscriptions and Refund Policy</h3>
-        <p>Subscribing to premium limits (Standard, Better, Premium) is done via Razorpay. All fees and subscriptions are billed in advance. **All subscriptions are strictly non-refundable**. Subscriptions renew automatically at the end of each billing cycle unless cancelled by the user. If a payment is declined or cancelled, the user account immediately falls back to the Free tier (30 prompts per day).</p>
+        <p>Subscribing to premium limits (Standard, Better, Premium) is done via direct UPI payment. All fees and subscriptions are billed in advance. **All subscriptions are strictly non-refundable**. Subscriptions do not renew automatically — they expire after the plan duration ends and the user account falls back to the Free tier (30 prompts per day).</p>
       </section>
 
       <section style={sectionStyle}>
@@ -87,7 +87,7 @@ function PrivacyPolicy() {
         <p>We believe in user privacy and collect only the minimum required information to provide the Service:</p>
         <ul style={listStyle}>
           <li><strong>Email Addresses:</strong> Used solely to identify accounts, secure logins, track daily prompt counts, and link active subscription plans.</li>
-          <li><strong>Transaction History:</strong> Details of payments processed via Razorpay (transaction ID, purchase date, plan type, amount) to activate subscription tiers. We do not store credit card or banking details locally.</li>
+          <li><strong>Transaction History:</strong> Details of payments processed via UPI (transaction ID, purchase date, plan type, amount) to activate subscription tiers. We do not store credit card or banking details.</li>
         </ul>
         <p><strong>Note:</strong> Chat conversations and histories are stored <strong>locally in the user's browser storage (localStorage)</strong>. We do not send your chat histories to our backend database, ensuring that only you can access and read your conversations.</p>
       </section>

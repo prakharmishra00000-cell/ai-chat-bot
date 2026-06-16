@@ -24,7 +24,7 @@ function App() {
   const [userPlanDetails, setUserPlanDetails] = useState(null);
   const [showExpiryReminder, setShowExpiryReminder] = useState(false);
 
-  // Configuration settings (Gemini / UroPay key checks)
+  // Configuration settings (Gemini API key checks)
   const [appConfig, setAppConfig] = useState(null);
 
   // 1. Check Setup Status & Load Configuration on Start
