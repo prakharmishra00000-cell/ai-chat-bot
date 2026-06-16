@@ -3,23 +3,25 @@ const path = require('path');
 const fs = require('fs');
 const fetch = require('node-fetch');
 
-// Ensure downloads directory exists
+// Ensure directories exist
 const DOWNLOADS_DIR = path.join(__dirname, 'ppt-downloads');
-if (!fs.existsSync(DOWNLOADS_DIR)) {
-  fs.mkdirSync(DOWNLOADS_DIR, { recursive: true });
-}
+const IMG_CACHE_DIR = path.join(__dirname, 'ppt-img-cache');
+if (!fs.existsSync(DOWNLOADS_DIR)) fs.mkdirSync(DOWNLOADS_DIR, { recursive: true });
+if (!fs.existsSync(IMG_CACHE_DIR)) fs.mkdirSync(IMG_CACHE_DIR, { recursive: true });
 
 // Clean old files (older than 1 hour)
 function cleanOldFiles() {
   try {
-    const files = fs.readdirSync(DOWNLOADS_DIR);
-    const now = Date.now();
-    files.forEach(file => {
-      const filePath = path.join(DOWNLOADS_DIR, file);
-      const stat = fs.statSync(filePath);
-      if (now - stat.mtimeMs > 3600000) {
-        fs.unlinkSync(filePath);
-      }
+    [DOWNLOADS_DIR, IMG_CACHE_DIR].forEach(dir => {
+      const files = fs.readdirSync(dir);
+      const now = Date.now();
+      files.forEach(file => {
+        const fp = path.join(dir, file);
+        try {
+          const stat = fs.statSync(fp);
+          if (now - stat.mtimeMs > 3600000) fs.unlinkSync(fp);
+        } catch (e) { /* skip */ }
+      });
     });
   } catch (e) { /* ignore */ }
 }
@@ -33,56 +35,83 @@ const THEME = {
   text: 'F1F5F9',
   subtext: '94A3B8',
   darkBar: '111827',
-  cardBg: '151D30',
 };
 
 /**
- * Fetch a real photo from Unsplash for a given keyword
- * Returns base64 image data or null if failed
+ * Download an image to disk and return the file path.
+ * Tries multiple free image sources for the keyword.
+ * Returns null if all sources fail — bot response will NOT error.
  */
-async function fetchImage(keyword, topicContext) {
-  const searchTerms = `${keyword} ${topicContext}`.trim();
-  const encodedQuery = encodeURIComponent(searchTerms);
+async function downloadImageForKeyword(keyword, index) {
+  const safeKey = keyword.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 30);
+  const outPath = path.join(IMG_CACHE_DIR, `img_${safeKey}_${index}_${Date.now()}.jpg`);
   
-  // Try multiple image sources
-  const sources = [
-    `https://source.unsplash.com/960x540/?${encodedQuery}`,
-    `https://source.unsplash.com/960x540/?${encodeURIComponent(keyword)}`,
+  // Build search URLs — multiple fallbacks
+  const query = encodeURIComponent(keyword);
+  const urls = [
+    // Unsplash source — follows redirect to real JPEG
+    `https://source.unsplash.com/800x450/?${query}`,
+    // Lorem Picsum — always returns a real image (random but reliable)
+    `https://picsum.photos/seed/${safeKey}${index}/800/450`,
   ];
   
-  for (const url of sources) {
+  for (const url of urls) {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 8000);
+      const timeoutId = setTimeout(() => controller.abort(), 12000);
       
-      const response = await fetch(url, { 
+      const res = await fetch(url, {
         signal: controller.signal,
         redirect: 'follow',
-        headers: { 'User-Agent': 'Mozilla/5.0' }
+        headers: { 
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'Accept': 'image/jpeg,image/png,image/*,*/*'
+        }
       });
       clearTimeout(timeoutId);
       
-      if (response.ok) {
-        const buffer = await response.buffer();
-        if (buffer.length > 5000) { // Valid image (>5KB)
-          const base64 = buffer.toString('base64');
-          console.log(`[PPT-IMG] ✅ Fetched image for: "${keyword}" (${Math.round(buffer.length/1024)}KB)`);
-          return `image/jpeg;base64,${base64}`;
-        }
+      if (!res.ok) continue;
+      
+      // Check content type — must be an image
+      const contentType = res.headers.get('content-type') || '';
+      if (!contentType.includes('image')) {
+        console.warn(`[PPT-IMG] Not an image for "${keyword}" from ${url}: ${contentType}`);
+        continue;
       }
+      
+      // Read as buffer
+      const arrayBuf = await res.arrayBuffer();
+      const buffer = Buffer.from(arrayBuf);
+      
+      // Must be at least 3KB to be a real image
+      if (buffer.length < 3000) {
+        console.warn(`[PPT-IMG] Image too small for "${keyword}": ${buffer.length} bytes`);
+        continue;
+      }
+      
+      // Save to disk
+      fs.writeFileSync(outPath, buffer);
+      console.log(`[PPT-IMG] ✅ Downloaded for "${keyword}" (${Math.round(buffer.length / 1024)}KB)`);
+      return outPath;
+      
     } catch (e) {
-      console.warn(`[PPT-IMG] ⚠ Failed for "${keyword}": ${e.message}`);
+      if (e.name === 'AbortError') {
+        console.warn(`[PPT-IMG] Timeout for "${keyword}"`);
+      } else {
+        console.warn(`[PPT-IMG] Error for "${keyword}": ${e.message}`);
+      }
     }
   }
+  
+  console.warn(`[PPT-IMG] ❌ All sources failed for "${keyword}"`);
   return null;
 }
 
 /**
- * Extract 1-2 keywords from a slide title for image search
+ * Extract 1-3 meaningful keywords from a slide title for image search
  */
 function extractKeywords(slideTitle, mainTopic) {
-  // Remove common filler words
-  const stopWords = /\b(the|a|an|and|or|of|in|on|for|to|with|is|are|was|were|be|been|being|have|has|had|do|does|did|will|would|could|should|may|might|can|shall|its|it|this|that|these|those|their|our|your|my|key|main|major|important|overview|introduction|conclusion|summary|future|current|role)\b/gi;
+  const stopWords = /\b(the|a|an|and|or|of|in|on|for|to|with|is|are|was|were|be|been|have|has|had|do|does|did|will|would|could|should|may|might|can|its|it|this|that|these|those|their|our|your|my|key|main|major|important|overview|introduction|conclusion|summary|future|current|role|impact|effect|types|benefits|challenges|trends|sources|references)\b/gi;
   
   const cleaned = slideTitle
     .replace(/[^a-zA-Z\s]/g, '')
@@ -91,8 +120,9 @@ function extractKeywords(slideTitle, mainTopic) {
     .trim();
   
   const words = cleaned.split(' ').filter(w => w.length > 2);
-  // Take first 2-3 meaningful words
-  return words.slice(0, 3).join(' ') || mainTopic;
+  const kw = words.slice(0, 2).join(' ');
+  // Combine with main topic for better search relevance
+  return kw ? `${kw} ${mainTopic}` : mainTopic;
 }
 
 /**
@@ -105,9 +135,7 @@ function parseSlideContent(aiResponse) {
     const jsonMatch = aiResponse.match(/```json\s*([\s\S]*?)```/);
     if (jsonMatch) {
       const parsed = JSON.parse(jsonMatch[1]);
-      if (Array.isArray(parsed.slides || parsed)) {
-        return parsed.slides || parsed;
-      }
+      if (Array.isArray(parsed.slides || parsed)) return parsed.slides || parsed;
     }
   } catch (e) { /* fall through */ }
 
@@ -140,34 +168,33 @@ function parseSlideContent(aiResponse) {
  */
 async function extractTopicWithAI(userPrompt, queryGeminiAPI, keys) {
   try {
-    const extractPrompt = `Extract ONLY the topic name from this user request. Return NOTHING except the topic name itself. No quotes, no extra words.
+    const extractPrompt = `Extract ONLY the topic name from this user request. Return NOTHING except the topic name. No quotes, no explanation.
 
-User request: "${userPrompt}"
+"${userPrompt}"
 
 Examples:
-- "create a 10 slide presentation on artificial intelligence" → Artificial Intelligence
-- "make me a ppt about climate change with more visuals 15 pages" → Climate Change
-- "generate a professional presentation on Indian Economy" → Indian Economy
-- "build a powerpoint on machine learning for beginners" → Machine Learning
+"create a 10 slide presentation on artificial intelligence" → Artificial Intelligence
+"make me a ppt about climate change with visuals" → Climate Change
+"generate presentation on Indian Economy" → Indian Economy
 
-Topic name:`;
+Topic:`;
 
     const contents = [{ role: 'user', parts: [{ text: extractPrompt }] }];
-    const topicName = await queryGeminiAPI(keys, contents, 'You extract topic names. Return only the topic name, nothing else.');
+    const topicName = await queryGeminiAPI(keys, contents, 'Extract topic name only. Return nothing else.');
     
     const cleaned = topicName.trim().replace(/^["']|["']$/g, '').replace(/\.$/, '').trim();
     if (cleaned.length > 2 && cleaned.length < 100) {
-      console.log(`[PPT] AI extracted topic: "${cleaned}"`);
+      console.log(`[PPT] AI topic: "${cleaned}"`);
       return cleaned;
     }
   } catch (e) {
-    console.warn('[PPT] AI topic extraction failed, using fallback');
+    console.warn('[PPT] Topic extraction failed');
   }
   return null;
 }
 
 /**
- * Generate a professional PowerPoint presentation with real images
+ * Generate a professional PPTX with real images
  */
 async function generatePPT(topic, slides, options = {}) {
   cleanOldFiles();
@@ -180,7 +207,6 @@ async function generatePPT(topic, slides, options = {}) {
   pptx.title = topic;
   pptx.layout = 'LAYOUT_WIDE';
 
-  // Define master slides — NO branding
   pptx.defineSlideMaster({
     title: 'TITLE_SLIDE',
     background: { color: theme.bg },
@@ -200,45 +226,47 @@ async function generatePPT(topic, slides, options = {}) {
     ]
   });
 
-  // ==================== FETCH IMAGES IN PARALLEL ====================
-  console.log(`[PPT] Fetching images for ${slides.length} slides...`);
+  // ==================== DOWNLOAD ALL IMAGES IN PARALLEL ====================
+  console.log(`[PPT] Downloading images for ${slides.length + 1} slides...`);
   
-  // Fetch title image + one image per slide (in parallel, max 6 concurrent)
   const imagePromises = [];
-  
-  // Title slide image
-  imagePromises.push(fetchImage(topic, ''));
-  
-  // Content slide images (extract keywords from each title)
-  for (const slide of slides) {
-    const keywords = extractKeywords(slide.title, topic);
-    imagePromises.push(fetchImage(keywords, topic));
+  // Title image
+  imagePromises.push(downloadImageForKeyword(topic, 0));
+  // Content slide images
+  for (let i = 0; i < slides.length; i++) {
+    const kw = extractKeywords(slides[i].title, topic);
+    imagePromises.push(downloadImageForKeyword(kw, i + 1));
   }
   
-  const images = await Promise.all(imagePromises);
-  const titleImage = images[0];
-  const slideImages = images.slice(1);
+  let imageFiles;
+  try {
+    imageFiles = await Promise.all(imagePromises);
+  } catch (e) {
+    console.warn('[PPT] Image download batch error:', e.message);
+    imageFiles = new Array(slides.length + 1).fill(null);
+  }
   
-  const successCount = images.filter(Boolean).length;
-  console.log(`[PPT] Fetched ${successCount}/${images.length} images successfully`);
+  const titleImgPath = imageFiles[0];
+  const slideImgPaths = imageFiles.slice(1);
+  const imgCount = imageFiles.filter(Boolean).length;
+  console.log(`[PPT] ✅ Got ${imgCount}/${imageFiles.length} images`);
 
   // ==================== SLIDE 1: TITLE SLIDE ====================
   const titleSlide = pptx.addSlide({ masterName: 'TITLE_SLIDE' });
 
-  // Title image (right side, large)
-  if (titleImage) {
-    // Image on right half with rounded overlay effect
+  if (titleImgPath && fs.existsSync(titleImgPath)) {
+    // Real photo on right side
     titleSlide.addImage({
-      data: titleImage, x: 6.5, y: 0.5, w: 6.3, h: 6.2,
-      rounding: true, sizing: { type: 'cover', w: 6.3, h: 6.2 }
+      path: titleImgPath,
+      x: 6.5, y: 0.3, w: 6.5, h: 6.5
     });
-    // Semi-transparent overlay on image for blending
+    // Dark overlay so text is readable
     titleSlide.addShape(pptx.shapes.RECTANGLE, {
-      x: 6.5, y: 0.5, w: 6.3, h: 6.2,
-      fill: { color: theme.bg, transparency: 40 }
+      x: 6.5, y: 0.3, w: 6.5, h: 6.5,
+      fill: { color: theme.bg, transparency: 35 }
     });
   } else {
-    // Decorative shapes if no image
+    // Decorative shapes fallback
     titleSlide.addShape(pptx.shapes.OVAL, {
       x: 9.0, y: -1, w: 5.5, h: 5.5,
       fill: { color: theme.accent, transparency: 40 },
@@ -251,20 +279,18 @@ async function generatePPT(topic, slides, options = {}) {
     });
   }
 
-  // Topic name
+  // Topic name (left side)
   titleSlide.addText(topic, {
     x: 0.8, y: 1.8, w: 6, h: 2.2,
     fontSize: 38, fontFace: 'Calibri', color: theme.text,
     bold: true, align: 'left', lineSpacingMultiple: 1.15,
   });
 
-  // Accent line
   titleSlide.addShape(pptx.shapes.RECTANGLE, {
     x: 0.8, y: 4.1, w: 3.5, h: 0.06,
     fill: { color: theme.accent }
   });
 
-  // Date
   titleSlide.addText(new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }), {
     x: 0.8, y: 4.4, w: 5, h: 0.5,
     fontSize: 14, fontFace: 'Calibri', color: theme.subtext
@@ -274,7 +300,8 @@ async function generatePPT(topic, slides, options = {}) {
   for (let i = 0; i < slides.length; i++) {
     const slide = slides[i];
     const contentSlide = pptx.addSlide({ masterName: 'CONTENT_SLIDE' });
-    const hasImage = !!slideImages[i];
+    const imgPath = slideImgPaths[i];
+    const hasImg = imgPath && fs.existsSync(imgPath);
 
     // Slide number
     contentSlide.addText(`${i + 1} / ${slides.length}`, {
@@ -284,19 +311,18 @@ async function generatePPT(topic, slides, options = {}) {
 
     // Title
     contentSlide.addText(slide.title, {
-      x: 0.5, y: 0.3, w: hasImage ? 8.5 : 12, h: 0.9,
+      x: 0.5, y: 0.3, w: hasImg ? 8.5 : 12, h: 0.9,
       fontSize: 26, fontFace: 'Calibri', color: theme.accent, bold: true,
     });
 
-    // Title underline
+    // Underline
     contentSlide.addShape(pptx.shapes.RECTANGLE, {
       x: 0.5, y: 1.25, w: 2.5, h: 0.04,
       fill: { color: theme.accent2 }
     });
 
-    // Content layout depends on whether we have an image
-    const contentWidth = hasImage ? 7.5 : 12;
-    
+    // Bullet content
+    const textWidth = hasImg ? 7.8 : 12;
     if (slide.bullets && slide.bullets.length > 0) {
       const bulletRows = slide.bullets.map(b => ({
         text: b,
@@ -308,25 +334,24 @@ async function generatePPT(topic, slides, options = {}) {
       }));
 
       contentSlide.addText(bulletRows, {
-        x: 0.7, y: 1.5, w: contentWidth, h: 5.3, valign: 'top',
+        x: 0.7, y: 1.5, w: textWidth, h: 5.3, valign: 'top',
       });
     }
 
-    // Add real image on right side
-    if (hasImage) {
+    // REAL IMAGE on right side
+    if (hasImg) {
       contentSlide.addImage({
-        data: slideImages[i], x: 8.6, y: 1.3, w: 4.3, h: 5.4,
-        rounding: true, sizing: { type: 'cover', w: 4.3, h: 5.4 }
+        path: imgPath,
+        x: 8.8, y: 1.3, w: 4.1, h: 5.4
       });
-      // Thin border around image
-      contentSlide.addShape(pptx.shapes.ROUNDED_RECTANGLE, {
-        x: 8.6, y: 1.3, w: 4.3, h: 5.4,
+      // Cyan border frame
+      contentSlide.addShape(pptx.shapes.RECTANGLE, {
+        x: 8.8, y: 1.3, w: 4.1, h: 5.4,
         fill: { type: 'none' },
-        line: { color: theme.accent, width: 1.5 },
-        rectRadius: 0.1
+        line: { color: theme.accent, width: 1.5 }
       });
     } else {
-      // Fallback decorative shape if image failed
+      // Fallback decorative shapes
       contentSlide.addShape(pptx.shapes.ROUNDED_RECTANGLE, {
         x: 10.3, y: 1.8, w: 2.5, h: 2.5,
         fill: { color: theme.accent, transparency: 35 },
@@ -343,7 +368,6 @@ async function generatePPT(topic, slides, options = {}) {
   // ==================== FINAL SLIDE: THANK YOU ====================
   const endSlide = pptx.addSlide({ masterName: 'TITLE_SLIDE' });
 
-  // Decorative shapes
   endSlide.addShape(pptx.shapes.OVAL, {
     x: 4.2, y: 1.0, w: 5, h: 5,
     fill: { color: theme.accent, transparency: 40 },
@@ -376,7 +400,11 @@ async function generatePPT(topic, slides, options = {}) {
   const filePath = path.join(DOWNLOADS_DIR, fileName);
 
   await pptx.writeFile({ fileName: filePath });
-  console.log(`[PPT] Generated: ${fileName} (${slides.length + 2} slides, ${successCount} images)`);
+  
+  // Cleanup cached images
+  imageFiles.forEach(f => { try { if (f) fs.unlinkSync(f); } catch(e) {} });
+  
+  console.log(`[PPT] ✅ Generated: ${fileName} (${slides.length + 2} slides, ${imgCount} real images)`);
 
   return { fileName, filePath, slideCount: slides.length + 2 };
 }
