@@ -633,48 +633,47 @@ app.post('/api/generate-ppt', async (req, res) => {
     
     console.log(`[PPT] Generating ${slideCount}-slide presentation on: "${cleanTopic}"`);
     
-    // STEP 2: Generate slide content strictly related to the topic
-    const pptContentPrompt = `You are creating a professional presentation STRICTLY about: "${cleanTopic}"
+    // STEP 2: Generate slide content — treat it like explaining the topic in depth
+    const pptContentPrompt = `Explain "${cleanTopic}" in complete detail as if you are teaching someone everything about it. Break your explanation into exactly ${slideCount} sections. Each section should cover a different important aspect of "${cleanTopic}".
 
-CRITICAL RULES:
-1. EVERY slide title MUST be a direct sub-topic or aspect of "${cleanTopic}" — nothing unrelated
-2. EVERY bullet point MUST contain information directly about "${cleanTopic}" — no generic filler
-3. Generate exactly ${slideCount} content slides
-4. Style: ${stylePreference}
-5. Each slide: one clear sub-topic title + 4-6 specific, factual bullet points
-6. Include real statistics, data, facts, years, names where applicable
-7. Cover different important aspects/angles of "${cleanTopic}" across slides
+Your explanation must flow like this:
+1. Start with what "${cleanTopic}" actually is — define it clearly
+2. Then explain the history or background of "${cleanTopic}"
+3. Then cover the most important aspects, types, features, or components of "${cleanTopic}"
+4. Explain how "${cleanTopic}" is used in real life, its applications and impact
+5. Discuss challenges, problems, or limitations related to "${cleanTopic}"
+6. Cover current developments and future scope of "${cleanTopic}"
+7. End with key facts or takeaways about "${cleanTopic}"
 
-SUGGESTED SLIDE STRUCTURE for "${cleanTopic}":
-- Slide 1: What is ${cleanTopic} / Definition & Overview
-- Slide 2: History / Origin / Background of ${cleanTopic}
-- Slide 3-${Math.max(3, slideCount - 2)}: Key aspects, types, applications, impact, challenges specific to ${cleanTopic}
-- Slide ${slideCount - 1}: Current trends / Future of ${cleanTopic}
-- Slide ${slideCount}: Key takeaways about ${cleanTopic}
+Every single point you write must be directly about "${cleanTopic}" — do not include generic information that could apply to any topic. Use specific names, dates, numbers, statistics, and real-world examples related to "${cleanTopic}".
 
-OUTPUT FORMAT — use this EXACT format:
+FORMAT YOUR RESPONSE EXACTLY LIKE THIS:
 
-SLIDE 1: [Sub-topic title related to ${cleanTopic}]
-- Specific fact or detail about ${cleanTopic}
-- Another specific point with data
-- Real statistic or example
-- Key information point
+SLIDE 1: [A heading that is a sub-topic of ${cleanTopic}]
+- [A detailed point explaining something specific about ${cleanTopic}]
+- [Another specific fact or detail about ${cleanTopic}]
+- [A real statistic, number, or example related to ${cleanTopic}]
+- [One more important point about ${cleanTopic}]
+- [Additional detail if needed]
 
-SLIDE 2: [Another sub-topic of ${cleanTopic}]
-- Bullet 1
-- Bullet 2
-- Bullet 3
-- Bullet 4
+SLIDE 2: [Next sub-topic of ${cleanTopic}]
+- [Point 1]
+- [Point 2]
+- [Point 3]
+- [Point 4]
 
-(Continue for all ${slideCount} slides)
+Continue this exact pattern for all ${slideCount} slides.
 
-SLIDE ${slideCount + 1}: Sources & References
-- List 3-5 real official URLs where readers can learn more about ${cleanTopic}
+After all content slides, add one final slide:
+SLIDE ${slideCount + 1}: Sources and References
+- [Official website or resource URL about ${cleanTopic}]
+- [Another credible source URL]
+- [Third reference URL]
 
-IMPORTANT: Plain text only. No markdown. No ** bold. Start each with "SLIDE X:" exactly. Every word must relate to "${cleanTopic}".`;
+Rules: Write in plain text only. No bold, no markdown, no asterisks. Start every slide with "SLIDE X:" exactly.`;
 
     const contents = [{ role: 'user', parts: [{ text: pptContentPrompt }] }];
-    const systemInstr = `You are an expert on "${cleanTopic}". Create presentation content ONLY about "${cleanTopic}". Every slide title must be a sub-topic of "${cleanTopic}". Every bullet point must contain specific facts about "${cleanTopic}". Do not include generic or unrelated content. Use plain text, no markdown.`;
+    const systemInstr = `You are a knowledgeable expert and teacher on the subject of "${cleanTopic}". Your job is to explain "${cleanTopic}" thoroughly and accurately. Write as if you are teaching a student everything they need to know about "${cleanTopic}". Every heading you create must be a sub-topic within "${cleanTopic}". Every bullet point must contain a specific fact, detail, or explanation directly connected to "${cleanTopic}". Do not write anything generic or unrelated. Use plain text only.`;
     
     const aiResponse = await queryGeminiAPI(config.keys, contents, systemInstr);
     
