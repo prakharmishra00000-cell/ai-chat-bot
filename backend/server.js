@@ -172,6 +172,7 @@ let dbInitData = {
         "Matrix Simulation",
         "File & Image Attachments",
         "Live Diagrams & Mind Maps",
+        "PPT Presentation Generator",
         "Valid for 365 Days"
       ]
     }
@@ -546,6 +547,15 @@ app.post('/api/generate-ppt', async (req, res) => {
   const { email, topic, pageCount, style } = req.body;
   if (!email || !topic) {
     return res.status(400).json({ error: 'Email and topic are required.' });
+  }
+  
+  // PPT is PREMIUM-ONLY feature
+  const user = getOrCreateUser(email);
+  if (user.plan !== 'premium') {
+    return res.status(403).json({ 
+      error: 'FEATURE_LOCKED', 
+      message: 'PPT Presentation Generator is exclusively available on the Premium Plan (₹999/year). Please upgrade to access this feature.' 
+    });
   }
   
   let config = readConfig();

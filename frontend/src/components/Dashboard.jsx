@@ -404,6 +404,26 @@ function Dashboard({
                              /\b(create|make|generate|build|prepare|design)\b/i.test(userMessageText);
         
         if (isPPTRequest) {
+          // Check if user is on Premium plan
+          const userPlan = userPlanDetails?.plan || currentUser?.plan || 'free';
+          if (userPlan !== 'premium') {
+            botResponseText += '\n\n🔒 **PPT Presentation Generator** is exclusively available on the **Premium Plan (₹999/year)**.\n\nUpgrade to Premium to unlock:\n- Professional PPT generation with download\n- Custom slide count & style preferences\n- Beautiful dark-themed presentations\n\nClick the upgrade button to get started!';
+            
+            const botMsg = {
+              id: 'msg_bot_' + Date.now(),
+              sender: 'bot',
+              text: botResponseText,
+              timestamp: new Date().toISOString()
+            };
+            const finalChatList = conversations.map(c => {
+              if (c.id === activeChatId) return { ...c, messages: [...updatedMessages, botMsg] };
+              return c;
+            });
+            saveChatsToLocal(finalChatList);
+            refreshUserStatus();
+            setLoading(false);
+            return;
+          }
           try {
             // Extract slide count from user message
             const countMatch = userMessageText.match(/(\d+)\s*(slide|page|ppt)/i);
