@@ -335,18 +335,18 @@ app.post('/api/user/status', (req, res) => {
 
 // GEMINI API ROTATION ENGINE
 let activeKeyIndex = 0;
-const API_TIMEOUT_MS = 12000; // 12 second timeout per API call for fast responses
+const API_TIMEOUT_MS = 14000; // 14 second timeout — generous enough for Gemini to respond
 
 async function queryGeminiAPI(keys, contents, systemInstruction) {
   let attempts = 0;
-  const maxAttempts = keys.length;
+  const maxAttempts = Math.min(keys.length, 4); // Try max 4 keys to stay within 15 sec total
   
-  // Models ordered by speed: fastest first
+  // Models ordered by speed and reliability
   const models = [
     'gemini-2.0-flash',
     'gemini-2.5-flash',
-    'gemini-flash-latest',
-    'gemini-pro-latest'
+    'gemini-1.5-flash',
+    'gemini-pro'
   ];
 
   while (attempts < maxAttempts) {
@@ -396,38 +396,35 @@ async function queryGeminiAPI(keys, contents, systemInstruction) {
         const errMessage = responseData.error?.message || response.statusText;
 
         if (response.status === 429 || errMessage.toLowerCase().includes('key') || response.status === 401) {
-          lastError = new Error(`Key Index ${activeKeyIndex} failed: ${errMessage}`);
-          break;
+          lastError = new Error(`Key ${activeKeyIndex} rate-limited: ${errMessage}`);
+          break; // Rotate to next key
         }
 
         if (response.status === 404 || errMessage.toLowerCase().includes('not found') || errMessage.toLowerCase().includes('not supported')) {
-          console.warn(`Model ${activeModel} not supported on Key Index ${activeKeyIndex}. Trying next model...`);
-          modelIndex++;
+          modelIndex++; // Try next model
           lastError = new Error(errMessage);
         } else {
           lastError = new Error(errMessage);
-          break;
+          modelIndex++; // Try next model instead of giving up
         }
       } catch (error) {
         clearTimeout(timeoutId);
         if (error.name === 'AbortError') {
-          console.warn(`Timeout (${API_TIMEOUT_MS}ms) on Key ${activeKeyIndex} Model ${activeModel}. Rotating...`);
+          console.warn(`Timeout on Key ${activeKeyIndex} Model ${activeModel}. Trying next...`);
           lastError = new Error('Request timed out');
-          modelIndex++;
-          continue;
+          break; // Rotate to next key on timeout
         }
-        console.error(`Gemini call error on Key Index ${activeKeyIndex} using Model ${activeModel}:`, error.message);
+        console.error(`Error on Key ${activeKeyIndex} Model ${activeModel}:`, error.message);
         lastError = error;
         modelIndex++;
       }
     }
 
-    console.warn(`Key Index ${activeKeyIndex} failed all fallback models. Error: ${lastError?.message}. Rotating to next API key...`);
     activeKeyIndex = (activeKeyIndex + 1) % keys.length;
     attempts++;
   }
 
-  throw new Error('All 9 Gemini API Keys have been exhausted or failed. Please check your keys or retry later.');
+  throw new Error('Our AI servers are currently busy. Please try again in a few seconds.');
 }
 
 // Main Chat AI Endpoint
@@ -476,34 +473,30 @@ app.post('/api/chat', async (req, res) => {
   try {
     let finalPrompt = message;
 
-    // A. OPTIMIZE MODE
+    // A. OPTIMIZE MODE — merged into single call (no separate API call)
     if (mode === 'optimize') {
-      try {
-        const optimizationInstruction = "Rephrase and expand the following user prompt into a completely structured, descriptive, grammatically complete sentence. Keep the core intent identical. Only return the final query sentence, nothing else.";
-        const optimizationContent = [{ role: 'user', parts: [{ text: message }] }];
-        const optimized = await queryGeminiAPI(config.keys, optimizationContent, optimizationInstruction);
-        if (optimized) {
-          finalPrompt = optimized.trim();
-          console.log(`Prompt optimized: "${message}" -> "${finalPrompt}"`);
-        }
-      } catch (e) {
-        console.error('Failed to optimize prompt, falling back to original:', e);
-      }
+      finalPrompt = `[OPTIMIZE INSTRUCTION: First, rewrite the following user query into a well-structured, grammatically complete sentence. Show the optimized query at the top of your response prefixed with "🔧 Optimized Query:". Then answer the optimized query in full detail.]\n\nUser's original query: ${message}`;
     }
 
-    // B. WEB GROUNDING SEARCH
+    // B. WEB GROUNDING SEARCH (with 5 second timeout to not block response)
     let searchGroundingContext = '';
     const needsSearch = /search|latest|news|weather|current|realtime|today|fact|who is|what is|google/i.test(finalPrompt);
     
     if (needsSearch) {
-      console.log(`Executing web grounding search for: "${finalPrompt}"`);
-      const searchResults = await performWebSearch(finalPrompt);
-      if (searchResults && searchResults.length > 0) {
-        searchGroundingContext = "\n\nReal-time Web Search Grounding Context:\n";
-        searchResults.forEach((res, i) => {
-          searchGroundingContext += `[${i + 1}] Source: "${res.title}" (${res.link})\nSnippet: ${res.snippet}\n\n`;
-        });
-        searchGroundingContext += "Use these search results to answer the user's prompt. Cite the source links directly in the answer in Markdown link format. If the search context doesn't have the answer, use your pre-trained knowledge but prioritize this live web data.";
+      try {
+        console.log(`Executing web grounding search for: "${finalPrompt}"`);
+        const searchPromise = performWebSearch(finalPrompt);
+        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Search timeout')), 5000));
+        const searchResults = await Promise.race([searchPromise, timeoutPromise]);
+        if (searchResults && searchResults.length > 0) {
+          searchGroundingContext = "\n\nReal-time Web Search Grounding Context:\n";
+          searchResults.forEach((res, i) => {
+            searchGroundingContext += `[${i + 1}] Source: "${res.title}" (${res.link})\nSnippet: ${res.snippet}\n\n`;
+          });
+          searchGroundingContext += "Use these search results to answer the user's prompt. Cite the source links directly in the answer in Markdown link format.";
+        }
+      } catch (e) {
+        console.warn('Web search skipped (timeout or error):', e.message);
       }
     }
 
@@ -608,7 +601,7 @@ app.post('/api/chat', async (req, res) => {
 
   } catch (error) {
     console.error('Error generating chat response:', error);
-    res.status(500).json({ error: 'GENERATION_ERROR', message: error.message });
+    res.status(500).json({ error: 'GENERATION_ERROR', message: 'Our AI servers are currently busy. Please try your query again.' });
   }
 });
 

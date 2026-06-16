@@ -392,11 +392,7 @@ function Dashboard({
       const responseData = await chatRes.json();
       
       if (chatRes.ok) {
-        // If optimize mode was on, prepend the structured question to the response
-        let botResponseText = responseData.response;
-        if (mode === 'optimize' && responseData.optimizedPrompt) {
-          botResponseText = `**🔧 Optimized Query:** *"${responseData.optimizedPrompt}"*\n\n---\n\n${responseData.response}`;
-        }
+        const botResponseText = responseData.response;
 
         const botMsg = {
           id: 'msg_bot_' + Date.now(),
