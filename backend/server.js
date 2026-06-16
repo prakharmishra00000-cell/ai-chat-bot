@@ -3,7 +3,7 @@ const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
 const fetch = require('node-fetch');
-const Razorpay = require('razorpay');
+const crypto = require('crypto');
 const { performWebSearch } = require('./search');
 const { generatePPT, parseSlideContent, extractTopicWithAI, DOWNLOADS_DIR } = require('./pptGenerator');
 
@@ -53,8 +53,10 @@ function bootstrapConfigFromEnv() {
     try {
       const configData = {
         keys: envKeys,
-        razorpayKeyId: process.env.RAZORPAY_KEY_ID || process.env.RAZORPAY_KEY || '',
-        razorpaySecret: process.env.RAZORPAY_SECRET || process.env.RAZORPAY_KEY_SECRET || '',
+        P2P_API_KEY: process.env.P2P_API_KEY || '',
+        P2P_API_URL: process.env.P2P_API_URL || 'https://api.uropay.me/v1',
+        RECEIVER_UPI_ID: process.env.RECEIVER_UPI_ID || '6372843175@kotakbank',
+        RECEIVER_NAME: process.env.RECEIVER_NAME || 'Prakhar Mishra',
         googleClientId: process.env.GOOGLE_CLIENT_ID || process.env.GOOGLE_OAUTH_CLIENT_ID || '',
         adminUsername: process.env.ADMIN_USERNAME || 'prakhar mishra',
         adminPassword: process.env.ADMIN_PASSWORD || 'prakhar@2025',
@@ -234,8 +236,10 @@ function readConfig() {
   if (envKeys.length > 0) {
     return {
       keys: envKeys,
-      razorpayKeyId: process.env.RAZORPAY_KEY_ID || '',
-      razorpaySecret: process.env.RAZORPAY_SECRET || '',
+      P2P_API_KEY: process.env.P2P_API_KEY || '',
+      P2P_API_URL: process.env.P2P_API_URL || 'https://api.uropay.me/v1',
+      RECEIVER_UPI_ID: process.env.RECEIVER_UPI_ID || '6372843175@kotakbank',
+      RECEIVER_NAME: process.env.RECEIVER_NAME || 'Prakhar Mishra',
       googleClientId: process.env.GOOGLE_CLIENT_ID || '',
     };
   }
@@ -286,7 +290,7 @@ app.use((req, res, next) => {
 
 // Setup Configuration Endpoint
 app.post('/api/setup', (req, res) => {
-  const { keys, razorpayKeyId, razorpaySecret, googleClientId, adminUsername, adminPassword, smtpUser, smtpPass } = req.body;
+  const { keys, P2P_API_KEY, P2P_API_URL, RECEIVER_UPI_ID, RECEIVER_NAME, googleClientId, adminUsername, adminPassword, smtpUser, smtpPass } = req.body;
   
   if (!keys || !Array.isArray(keys) || keys.length === 0 || !adminUsername || !adminPassword) {
     return res.status(400).json({ error: 'Keys, admin username, and admin password are required.' });
@@ -299,8 +303,10 @@ app.post('/api/setup', (req, res) => {
 
   const success = writeConfig({
     keys: cleanKeys,
-    razorpayKeyId: razorpayKeyId || '',
-    razorpaySecret: razorpaySecret || '',
+    P2P_API_KEY: P2P_API_KEY || '',
+    P2P_API_URL: P2P_API_URL || 'https://api.uropay.me/v1',
+    RECEIVER_UPI_ID: RECEIVER_UPI_ID || '6372843175@kotakbank',
+    RECEIVER_NAME: RECEIVER_NAME || 'Prakhar Mishra',
     googleClientId: googleClientId || '',
     adminUsername,
     adminPassword,
@@ -321,15 +327,16 @@ app.get('/api/setup/status', (req, res) => {
   res.json({ setupCompleted: !!config });
 });
 
-// Securely expose only non-secret keys to the frontend for Google Sign-In and Razorpay initialization
+// Securely expose public config to frontend (Google Sign-In, UPI receiver details)
 app.get('/api/config/public', (req, res) => {
   const config = readConfig();
   if (!config) {
-    return res.json({ googleClientId: '', razorpayKeyId: '' });
+    return res.json({ googleClientId: '', receiverUpiId: '6372843175@kotakbank', receiverName: 'Prakhar Mishra' });
   }
   res.json({
     googleClientId: config.googleClientId || '',
-    razorpayKeyId: config.razorpayKeyId || ''
+    receiverUpiId: config.RECEIVER_UPI_ID || '6372843175@kotakbank',
+    receiverName: config.RECEIVER_NAME || 'Prakhar Mishra'
   });
 });
 
@@ -1027,116 +1034,186 @@ app.post('/api/chat', async (req, res) => {
   }
 });
 
-// RAZORPAY PAYMENT ENDPOINTS
-app.post('/api/payment/create-order', (req, res) => {
-  const config = readConfig();
-  if (!config || !config.razorpayKeyId || !config.razorpaySecret) {
-    return res.status(500).json({ error: 'RAZORPAY_NOT_CONFIGURED', message: 'Razorpay keys are not configured.' });
-  }
+// ==================== UROPAY P2P UPI PAYMENT ENDPOINTS ====================
+// Workflow: User selects plan → UPI intent opens user's UPI app → User pays to our UPI ID
+// → UroPay companion app detects SMS → User enters 12-digit UTR → Backend verifies via UroPay API → Plan unlocks
 
-  const { amount, plan } = req.body;
-  if (!amount || !plan) {
-    return res.status(400).json({ error: 'Amount and Plan are required.' });
-  }
-
+app.post('/api/payments/initiate', (req, res) => {
   try {
+    const { email, planId } = req.body;
+    if (!email || !planId) {
+      return res.status(400).json({ error: 'Email and plan are required.' });
+    }
+
     const db = readDB();
-    const planInfo = db.plans && db.plans[plan];
-    const verifiedPrice = planInfo ? planInfo.price : amount;
+    const config = readConfig();
+    const planInfo = db.plans && db.plans[planId];
+    if (!planInfo || !planInfo.price || planInfo.price <= 0) {
+      return res.status(400).json({ error: 'Invalid plan selected.' });
+    }
 
-    const rzp = new Razorpay({
-      key_id: config.razorpayKeyId,
-      key_secret: config.razorpaySecret
+    const amount = planInfo.price;
+    const receiverUpiId = config.RECEIVER_UPI_ID || '6372843175@kotakbank';
+    const receiverName = config.RECEIVER_NAME || 'Prakhar Mishra';
+    const transactionId = 'TXN_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8).toUpperCase();
+
+    // Store pending transaction
+    if (!db.transactions) db.transactions = [];
+    db.transactions.push({
+      id: transactionId,
+      email,
+      planId,
+      amount,
+      utr: null,
+      status: 'PENDING',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     });
+    writeDB(db);
 
-    const options = {
-      amount: verifiedPrice * 100, // convert Rupees to paise
-      currency: 'INR',
-      receipt: `receipt_${Date.now()}`,
-      notes: { plan }
-    };
+    // Build NPCI-compliant UPI Intent URI
+    const upiIntentUrl = `upi://pay?pa=${encodeURIComponent(receiverUpiId)}&pn=${encodeURIComponent(receiverName)}&am=${amount}&cu=INR&tn=${encodeURIComponent(transactionId)}`;
 
-    rzp.orders.create(options, (err, order) => {
-      if (err) {
-        console.error('Razorpay order creation error:', err);
-        return res.status(500).json({ error: 'RZP_ORDER_FAILED', message: err.message });
-      }
-      res.json({
-        ...order,
-        key: config.razorpayKeyId
-      });
+    console.log(`[PAYMENT] Initiated: ${transactionId} | Plan: ${planId} | Amount: ₹${amount} | Email: ${email}`);
+
+    res.json({
+      success: true,
+      transactionId,
+      upiIntentUrl,
+      amount,
+      receiverUpiId,
+      receiverName
     });
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({ error: 'RZP_CLIENT_FAILED', message: e.message });
+  } catch (error) {
+    console.error('[PAYMENT] Initiation error:', error.message);
+    res.status(500).json({ error: 'Failed to initiate payment.' });
   }
 });
 
-app.post('/api/payment/verify', (req, res) => {
-  const config = readConfig();
-  if (!config) return res.status(500).json({ error: 'Config missing' });
-
-  const { email, plan, razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
-  if (!email || !plan || !razorpay_payment_id) {
-    return res.status(400).json({ error: 'Missing payment signature components.' });
-  }
-
-  // Verification step (using Hmac SHA256)
-  const crypto = require('crypto');
-  let isVerified = false;
-
-  if (config.razorpaySecret) {
-    const generated_signature = crypto
-      .createHmac('sha256', config.razorpaySecret)
-      .update(razorpay_order_id + '|' + razorpay_payment_id)
-      .digest('hex');
-    if (generated_signature === razorpay_signature) {
-      isVerified = true;
+app.post('/api/payments/verify-utr', async (req, res) => {
+  try {
+    const { transactionId, utr } = req.body;
+    if (!transactionId || !utr) {
+      return res.status(400).json({ error: 'Transaction ID and UTR are required.' });
     }
-  }
 
-  if (isVerified) {
-    // Payment verified successfully!
+    // Validate UTR format: exactly 12 numeric digits
+    if (!/^\d{12}$/.test(utr)) {
+      return res.status(400).json({ error: 'Invalid UTR. Must be exactly 12 digits.' });
+    }
+
     const db = readDB();
-    const user = getOrCreateUser(email);
-    
-    // Calculate Plan Duration dynamically from DB config
-    const planInfo = db.plans && db.plans[plan];
-    let days = 30;
-    let price = 99;
-    
-    if (planInfo) {
-      days = planInfo.days || 30;
-      price = planInfo.price;
-    } else {
-      if (plan === 'standard') { days = 30; price = 99; }
-      else if (plan === 'better') { days = 90; price = 199; }
-      else if (plan === 'premium') { days = 365; price = 999; }
+    if (!db.transactions) db.transactions = [];
+
+    // Find the transaction
+    const txnIndex = db.transactions.findIndex(t => t.id === transactionId);
+    if (txnIndex === -1) {
+      return res.status(404).json({ error: 'Transaction not found.' });
     }
 
-    const expiryDate = new Date();
-    expiryDate.setDate(expiryDate.getDate() + days);
+    const txn = db.transactions[txnIndex];
 
-    // Update User Plan
-    user.plan = plan;
-    user.planExpiry = expiryDate.toISOString();
-    db.users[email] = user;
+    // Prevent double-fulfillment
+    if (txn.status === 'SUCCESS') {
+      return res.status(400).json({ error: 'This transaction has already been verified and plan activated.' });
+    }
 
-    // Log Transaction
-    const txn = {
-      id: `txn_${Date.now()}`,
-      email,
-      amount: price,
-      plan,
-      razorpayPaymentId: razorpay_payment_id,
-      date: new Date().toISOString()
-    };
-    db.transactions.push(txn);
-    writeDB(db);
+    // Replay-attack prevention: check if UTR was used before
+    const utrUsed = db.transactions.some(t => t.utr === utr && t.status === 'SUCCESS');
+    if (utrUsed) {
+      return res.status(400).json({ error: 'This UTR has already been used for another transaction. Each UTR can only be used once.' });
+    }
 
-    res.json({ success: true, user });
-  } else {
-    res.status(400).json({ error: 'INVALID_SIGNATURE', message: 'Payment signature verification failed.' });
+    // Verify via UroPay API (if configured)
+    const config = readConfig();
+    let verified = false;
+
+    if (config.P2P_API_KEY && config.P2P_API_URL) {
+      try {
+        const verifyUrl = `${config.P2P_API_URL}/verify`;
+        const verifyRes = await fetch(verifyUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${config.P2P_API_KEY}`
+          },
+          body: JSON.stringify({
+            utr: utr,
+            amount: txn.amount,
+            receiver_upi_id: config.RECEIVER_UPI_ID || '6372843175@kotakbank'
+          })
+        });
+
+        if (verifyRes.ok) {
+          const verifyData = await verifyRes.json();
+          if (verifyData.success || verifyData.status === 'confirmed' || verifyData.verified) {
+            verified = true;
+            console.log(`[PAYMENT] UroPay verified UTR: ${utr} for ₹${txn.amount}`);
+          } else {
+            console.warn(`[PAYMENT] UroPay could not confirm UTR: ${utr}`, verifyData);
+            return res.status(400).json({ error: 'Payment could not be verified yet. The UroPay system has not detected this payment. Please wait 1-2 minutes and try again.' });
+          }
+        } else {
+          console.warn(`[PAYMENT] UroPay API error:`, verifyRes.status);
+          // If API returns error but key is set, don't auto-approve
+          return res.status(400).json({ error: 'Payment verification service temporarily unavailable. Please try again in a few minutes.' });
+        }
+      } catch (apiErr) {
+        console.error('[PAYMENT] UroPay API call failed:', apiErr.message);
+        return res.status(500).json({ error: 'Payment verification service error. Please try again.' });
+      }
+    } else {
+      // No UroPay API key configured — auto-approve based on UTR submission (trust-based)
+      verified = true;
+      console.log(`[PAYMENT] Auto-approved (no UroPay API key): UTR ${utr} for ₹${txn.amount}`);
+    }
+
+    if (verified) {
+      // Mark transaction as SUCCESS
+      db.transactions[txnIndex].utr = utr;
+      db.transactions[txnIndex].status = 'SUCCESS';
+      db.transactions[txnIndex].updatedAt = new Date().toISOString();
+
+      // ACTIVATE THE PLAN for the user
+      const user = db.users[txn.email];
+      if (user) {
+        const planInfo = db.plans && db.plans[txn.planId];
+        const planDays = planInfo ? (planInfo.days || 30) : 30;
+        const expiryDate = new Date();
+        expiryDate.setDate(expiryDate.getDate() + planDays);
+
+        user.plan = txn.planId;
+        user.planExpiry = expiryDate.toISOString();
+        db.users[txn.email] = user;
+
+        console.log(`[PAYMENT] ✅ Plan activated: ${txn.email} → ${txn.planId} (expires: ${expiryDate.toISOString()})`);
+      }
+
+      // Save to order history
+      if (!db.orders) db.orders = [];
+      db.orders.push({
+        email: txn.email,
+        plan: txn.planId,
+        amount: txn.amount,
+        utr: utr,
+        paymentMethod: 'UPI_UROPAY',
+        transactionId: transactionId,
+        date: new Date().toISOString()
+      });
+
+      writeDB(db);
+
+      return res.json({
+        success: true,
+        message: `✅ Payment verified! Your ${txn.planId} plan has been activated successfully.`,
+        plan: txn.planId
+      });
+    }
+
+    return res.status(400).json({ error: 'Payment verification failed.' });
+  } catch (error) {
+    console.error('[PAYMENT] Verification error:', error.message);
+    res.status(500).json({ error: 'Payment verification failed. Please try again.' });
   }
 });
 
@@ -1149,7 +1226,7 @@ app.post('/api/admin/config', (req, res) => {
 
   const config = readConfig();
   if (!config) {
-    return res.json({ keys: [], razorpayKeyId: '', razorpaySecret: '', googleClientId: '', adminUsername: 'prakhar mishra', adminPassword: '', smtpUser: '', smtpPass: '' });
+    return res.json({ keys: [], P2P_API_KEY: '', P2P_API_URL: 'https://api.uropay.me/v1', RECEIVER_UPI_ID: '6372843175@kotakbank', RECEIVER_NAME: 'Prakhar Mishra', googleClientId: '', adminUsername: 'prakhar mishra', adminPassword: '', smtpUser: '', smtpPass: '' });
   }
   res.json(config);
 });
@@ -1344,44 +1421,6 @@ app.post('/api/plans/update', (req, res) => {
   res.json({ success: true, message: 'Plans updated successfully.' });
 });
 
-// SUBMIT UPI TRANSACTION ID FOR APPROVAL
-app.post('/api/payment/submit-upi', (req, res) => {
-  const { email, plan, transactionId } = req.body;
-  if (!email || !plan || !transactionId) {
-    return res.status(400).json({ error: 'Email, Plan, and Transaction ID are required.' });
-  }
-
-  const db = readDB();
-  db.pendingApprovals = db.pendingApprovals || [];
-  
-  // Check if this transaction ID is already submitted
-  const exists = db.pendingApprovals.some(r => r.transactionId === transactionId);
-  if (exists) {
-    return res.status(400).json({ error: 'This Transaction ID has already been submitted for verification.' });
-  }
-
-  // Find plan details
-  const planInfo = db.plans && db.plans[plan];
-  const price = planInfo ? planInfo.price : 99;
-
-  const approvalRequest = {
-    id: 'req_' + Date.now(),
-    email,
-    plan,
-    transactionId,
-    amount: price,
-    status: 'pending',
-    date: new Date().toISOString()
-  };
-
-  db.pendingApprovals.push(approvalRequest);
-  writeDB(db);
-
-  res.json({ 
-    success: true, 
-    message: 'Your payment transaction ID has been submitted successfully. The plan will unlock once the admin approves it.' 
-  });
-});
 
 // ACTION ON PENDING APPROVAL REQUEST (APPROVE/REJECT) - ADMIN ONLY
 app.post('/api/admin/approvals/action', (req, res) => {
@@ -1436,7 +1475,7 @@ app.post('/api/admin/approvals/action', (req, res) => {
       email: approvalReq.email,
       amount: price,
       plan: approvalReq.plan,
-      razorpayPaymentId: `DirectUPI_${approvalReq.transactionId}`,
+      paymentRef: `DirectUPI_${approvalReq.transactionId}`,
       date: new Date().toISOString()
     };
     db.transactions.push(txn);
@@ -1574,7 +1613,7 @@ app.post('/api/admin/self-code', async (req, res) => {
   // Automatically determine the target file if not provided
   if (!targetFile) {
     try {
-      const fileListPrompt = `\nYou are a project manager. We have a full-stack project with the following files:\n1. "backend/server.js" (Handles Express routes, database reads/writes, APIs)\n2. "frontend/src/App.jsx" (Handles views, routing, top-level state, alerts)\n3. "frontend/src/App.css" (Stylesheets, glassmorphism UI)\n4. "frontend/src/components/Dashboard.jsx" (Chat, voice messages, sidebar UI layout)\n5. "frontend/src/components/Admin.jsx" (Admin panel metrics, charts, tables)\n6. "frontend/src/components/UpgradeModal.jsx" (Subscription plan cards, billing, Razorpay integration)\n7. "frontend/src/components/Setup.jsx" (System Setup form for API Keys and SMTP configuration)\n8. "frontend/src/components/HelpSupport.jsx" (Query box and support contact)\n9. "frontend/src/components/Legal.jsx" (Terms of Service, Privacy Policy pages)\n10. "frontend/src/components/OwnerSecureLogin.jsx" (Re-verification secure page)\n\nBased on the following request from the user, which file should be modified?\nUser Request: "${prompt}"\n\nResponse format: Return ONLY the exact file path from the list above (e.g. "backend/server.js" or "frontend/src/components/Dashboard.jsx"). Do not include any formatting, explanation, punctuation, quotes, or markdown tags.\n`;
+      const fileListPrompt = `\nYou are a project manager. We have a full-stack project with the following files:\n1. "backend/server.js" (Handles Express routes, database reads/writes, APIs)\n2. "frontend/src/App.jsx" (Handles views, routing, top-level state, alerts)\n3. "frontend/src/App.css" (Stylesheets, glassmorphism UI)\n4. "frontend/src/components/Dashboard.jsx" (Chat, voice messages, sidebar UI layout)\n5. "frontend/src/components/Admin.jsx" (Admin panel metrics, charts, tables)\n6. "frontend/src/components/UpgradeModal.jsx" (Subscription plan cards, billing, UroPay UPI payment integration)\n7. "frontend/src/components/Setup.jsx" (System Setup form for API Keys and SMTP configuration)\n8. "frontend/src/components/HelpSupport.jsx" (Query box and support contact)\n9. "frontend/src/components/Legal.jsx" (Terms of Service, Privacy Policy pages)\n10. "frontend/src/components/OwnerSecureLogin.jsx" (Re-verification secure page)\n\nBased on the following request from the user, which file should be modified?\nUser Request: "${prompt}"\n\nResponse format: Return ONLY the exact file path from the list above (e.g. "backend/server.js" or "frontend/src/components/Dashboard.jsx"). Do not include any formatting, explanation, punctuation, quotes, or markdown tags.\n`;
 
       const contents = [{ role: 'user', parts: [{ text: fileListPrompt }] }];
       const aiResponse = await queryGeminiAPI(config.keys, contents, 'You are an expert file router.');

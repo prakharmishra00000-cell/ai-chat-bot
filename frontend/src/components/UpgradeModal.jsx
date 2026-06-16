@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Check, Award, Flame, Zap } from 'lucide-react';
+import { X, Check, Award, Flame, Zap, Copy, Loader, CheckCircle, AlertCircle } from 'lucide-react';
 
 function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess }) {
   const fallbackPlans = [
@@ -63,10 +63,21 @@ function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess }) {
   const [billingName, setBillingName] = useState('');
   const [billingEmail, setBillingEmail] = useState(email || '');
   const [billingPhone, setBillingPhone] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState('razorpay'); // 'razorpay' or 'upi'
+
+  // Multi-step flow: 1=select, 2=payment, 3=verify
+  const [step, setStep] = useState(1);
+  const [transactionId, setTransactionId] = useState('');
+  const [upiIntentUrl, setUpiIntentUrl] = useState('');
+  const [paymentAmount, setPaymentAmount] = useState(0);
+  const [receiverUpiId, setReceiverUpiId] = useState('');
+  const [utrInput, setUtrInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [transactionId, setTransactionId] = useState('');
+  const [success, setSuccess] = useState('');
+  const [copied, setCopied] = useState(false);
+
+  // Detect mobile
+  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
   // Fetch dynamic plans from DB
   useEffect(() => {
@@ -76,7 +87,6 @@ function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess }) {
         if (res.ok) {
           const data = await res.json();
           if (Object.keys(data).length > 0) {
-            // Re-map backend object plans to array ordered by price
             const ordered = ['standard', 'better', 'premium']
               .map(id => data[id])
               .filter(Boolean);
@@ -95,116 +105,9 @@ function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess }) {
     fetchPlans();
   }, [currentPlan]);
 
-  const handlePay = async (plan) => {
+  // Step 2: Initiate payment
+  const handleInitiatePayment = async () => {
     setError('');
-    setLoading(true);
-
-    try {
-      // 1. Create order on backend
-      const orderRes = await fetch('/api/payment/create-order', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          amount: plan.price,
-          plan: plan.id
-        })
-      });
-
-      const orderData = await orderRes.ok ? await orderRes.json() : null;
-
-      // Handle configuration missing or test fallback simulation
-      if (!orderRes.ok || !orderData || !orderData.id || !window.Razorpay) {
-        console.warn('Razorpay credentials missing or blocked. Transitioning to UPI fallback scan...');
-        setPaymentMethod('upi');
-        setLoading(false);
-        return;
-      }
-
-      // Launch Razorpay Checkout
-      const options = {
-        key: orderData.key || '',
-        amount: orderData.amount,
-        currency: orderData.currency,
-        name: 'MatrixMind Premium',
-        description: `Upgrade to ${plan.name}`,
-        order_id: orderData.id,
-        handler: async function (response) {
-          try {
-            const verifyRes = await fetch('/api/payment/verify', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                email,
-                plan: plan.id,
-                razorpay_order_id: response.razorpay_order_id,
-                razorpay_payment_id: response.razorpay_payment_id,
-                razorpay_signature: response.razorpay_signature
-              })
-            });
-            const verifyData = await verifyRes.json();
-            if (verifyData.success) {
-              alert("Thank you for choosing our plan! Hope you enjoy it.");
-              onPaymentSuccess();
-            } else {
-              setError(verifyData.error || 'Payment signature verification failed.');
-            }
-          } catch (e) {
-            setError('Error verifying payment signature.');
-          } finally {
-            setLoading(false);
-          }
-        },
-        prefill: {
-          name: billingName,
-          email: billingEmail,
-          contact: billingPhone
-        },
-        theme: {
-          color: '#00f2fe'
-        }
-      };
-
-      const rzp1 = new window.Razorpay(options);
-      rzp1.open();
-
-    } catch (err) {
-      console.error(err);
-      setError('Payment gateway error. Initializing transaction failed.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const simulatePaymentSuccess = async (planId) => {
-    setLoading(true);
-    try {
-      const verifyRes = await fetch('/api/payment/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email,
-          plan: planId,
-          razorpay_order_id: 'sim_order_' + Date.now(),
-          razorpay_payment_id: 'sim_pay_' + Date.now(),
-          razorpay_signature: 'simulated_success'
-        })
-      });
-      const data = await verifyRes.json();
-      if (data.success) {
-        alert("Thank you for choosing our plan! Hope you enjoy it.");
-        onPaymentSuccess();
-      } else {
-        setError(data.error || 'Failed to apply plan upgrade.');
-      }
-    } catch (e) {
-      setError('Plan upgrade failure.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleProceedPayment = async (e) => {
-    if (e) e.preventDefault();
     if (!billingName.trim()) {
       setError('Full Name is required.');
       return;
@@ -218,38 +121,99 @@ function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess }) {
       return;
     }
 
-    if (paymentMethod === 'upi') {
-      if (transactionId.length !== 12) {
-        setError('A valid 12-digit Transaction ID is required for UPI QR payment verification.');
-        return;
+    setLoading(true);
+    try {
+      const res = await fetch('/api/payments/initiate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: billingEmail,
+          planId: selectedPlan.id
+        })
+      });
+
+      const data = await res.json();
+
+      if (res.ok && data.transactionId) {
+        setTransactionId(data.transactionId);
+        setUpiIntentUrl(data.upiIntentUrl || '');
+        setPaymentAmount(data.amount || selectedPlan.price);
+        setReceiverUpiId(data.receiverUpiId || '6372843175@kotakbank');
+        setStep(2);
+      } else {
+        setError(data.error || 'Failed to initiate payment. Please try again.');
       }
-      setLoading(true);
-      setError('');
-      try {
-        const response = await fetch('/api/payment/submit-upi', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            email: email,
-            plan: selectedPlan.id,
-            transactionId
-          })
-        });
-        const data = await response.json();
-        if (response.ok && data.success) {
-          alert(data.message || 'Your payment transaction ID has been submitted successfully. The plan will unlock once the admin approves it.');
-          onClose();
-        } else {
-          setError(data.error || 'Failed to submit UPI verification request.');
-        }
-      } catch (err) {
-        console.error(err);
-        setError('Error submitting UPI transaction ID.');
-      } finally {
-        setLoading(false);
+    } catch (err) {
+      console.error(err);
+      setError('Network error while initiating payment.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Open UPI intent on mobile
+  const handleOpenUpiApp = () => {
+    if (upiIntentUrl) {
+      window.location.href = upiIntentUrl;
+    }
+  };
+
+  // Copy UPI ID to clipboard
+  const handleCopyUpiId = async () => {
+    try {
+      await navigator.clipboard.writeText(receiverUpiId);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Fallback
+      const el = document.createElement('textarea');
+      el.value = receiverUpiId;
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand('copy');
+      document.body.removeChild(el);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  // Step 3: Verify UTR
+  const handleVerifyUtr = async (e) => {
+    e.preventDefault();
+    setError('');
+    setSuccess('');
+
+    if (utrInput.length !== 12) {
+      setError('Please enter a valid 12-digit UTR number.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await fetch('/api/payments/verify-utr', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          transactionId,
+          utr: utrInput
+        })
+      });
+
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        setSuccess(data.message || 'Payment verified successfully! Your plan has been activated.');
+        setTimeout(() => {
+          onPaymentSuccess();
+        }, 2000);
+      } else {
+        setError(data.error || 'UTR verification failed. Please check the number and try again.');
       }
-    } else {
-      handlePay(selectedPlan);
+    } catch (err) {
+      console.error(err);
+      setError('Network error during UTR verification.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -264,198 +228,297 @@ function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess }) {
         <p className="plans-subtitle">Unlock daily prompt capacity, rotation speed, and matrix features. Experience maximum cognitive power.</p>
 
         {error && (
-          <div style={{ color: '#ff3366', background: 'rgba(255,51,102,0.1)', padding: '10px 14px', borderRadius: '8px', fontSize: '0.85rem', marginBottom: '20px', textAlign: 'center' }}>
+          <div style={{ color: '#ff3366', background: 'rgba(255,51,102,0.1)', padding: '10px 14px', borderRadius: '8px', fontSize: '0.85rem', marginBottom: '20px', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+            <AlertCircle size={18} />
             {error}
           </div>
         )}
 
-        <div className="plans-grid">
-          {dbPlans.map((plan) => {
-            const isActive = currentPlan === plan.id;
-            const isPlanSelected = selectedPlan && selectedPlan.id === plan.id;
-            
-            return (
-              <div 
-                key={plan.id} 
-                className={`plan-card glass-panel ${plan.popular ? 'popular' : ''}`}
-                onClick={() => !isActive && setSelectedPlan(plan)}
-                style={{ 
-                  cursor: isActive ? 'not-allowed' : 'pointer',
-                  border: isPlanSelected ? '2px solid var(--accent-cyan)' : '1px solid var(--border-glass)',
-                  boxShadow: isPlanSelected ? 'var(--shadow-glow)' : 'none',
-                  transform: isPlanSelected ? 'scale(1.02)' : 'none',
-                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
-                }}
-              >
-                {plan.popular && <span className="plan-badge">Most Popular</span>}
-                <div style={{ marginBottom: '15px' }}>{iconsMap[plan.id] || <Zap size={32} color="#4facfe" />}</div>
-                <h3 className="plan-name">{plan.name}</h3>
-                
-                <div className="plan-price-row">
-                  <span className="plan-price">₹{plan.price}</span>
-                  <span className="plan-duration">/ {plan.duration || 'Month'}</span>
-                </div>
-
-                <div style={{ fontSize: '0.8rem', color: 'var(--accent-cyan)', fontWeight: 700, marginBottom: '20px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  {plan.efficiency || (plan.id === 'premium' ? 'Maximum Response Rate' : 'High Response Rate')}
-                </div>
-
-                <ul className="plan-features">
-                  {plan.features.map((f, idx) => (
-                    <li key={idx}>
-                      <Check size={16} color="var(--accent-cyan)" />
-                      <span>{f}</span>
-                    </li>
-                  ))}
-                </ul>
-
-                <button 
-                  className={`btn plan-btn ${isActive ? 'btn-secondary' : isPlanSelected ? '' : 'btn-secondary'}`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (!isActive) setSelectedPlan(plan);
-                  }}
-                  disabled={isActive}
-                >
-                  {isActive ? 'Current Plan' : isPlanSelected ? 'Selected' : 'Select Plan'}
-                </button>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Checkout Form */}
-        <form onSubmit={handleProceedPayment} className="checkout-details-form glass-panel" style={{ marginTop: '30px', padding: '25px', width: '100%', borderRadius: 'var(--radius-lg)' }}>
-          <h3 style={{ fontFamily: 'var(--font-heading)', color: 'var(--accent-cyan)', fontSize: '1.25rem', marginBottom: '20px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            Billing & Checkout Details
-          </h3>
-
-          <div style={{ marginBottom: '20px' }}>
-            <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: '8px' }}>Payment Method</label>
-            <div style={{ display: 'flex', gap: '15px' }}>
-              <button 
-                type="button" 
-                className={`btn ${paymentMethod === 'razorpay' ? '' : 'btn-secondary'}`} 
-                onClick={() => setPaymentMethod('razorpay')}
-                style={{ flex: 1, padding: '10px', fontSize: '0.9rem' }}
-              >
-                Razorpay Card/UPI
-              </button>
-              <button 
-                type="button" 
-                className={`btn ${paymentMethod === 'upi' ? '' : 'btn-secondary'}`} 
-                onClick={() => setPaymentMethod('upi')}
-                style={{ flex: 1, padding: '10px', fontSize: '0.9rem' }}
-              >
-                Direct UPI QR (Kotak Bank)
-              </button>
-            </div>
+        {success && (
+          <div style={{ color: '#00f2fe', background: 'rgba(0,242,254,0.1)', padding: '10px 14px', borderRadius: '8px', fontSize: '0.85rem', marginBottom: '20px', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+            <CheckCircle size={18} />
+            {success}
           </div>
+        )}
 
-          {paymentMethod === 'upi' && (
-            <>
-              <div style={{ textAlign: 'center', margin: '20px 0', padding: '20px', background: 'rgba(0,0,0,0.3)', borderRadius: '8px', border: '1px dashed var(--border-glass-glow)' }}>
-                <p style={{ fontSize: '1.1rem', color: 'var(--accent-cyan)', fontWeight: 800, margin: '10px 0' }}>
-                  UPI ID: 6372843175@kotakbank
-                </p>
-                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                  Please transfer the amount ₹{selectedPlan.price} to this UPI ID using your mobile UPI app and enter the 12-digit transaction ID (UTR) below for verification.
-                </p>
+        {/* ===== STEP 1: Plan Selection ===== */}
+        {step === 1 && (
+          <>
+            <div className="plans-grid">
+              {dbPlans.map((plan) => {
+                const isActive = currentPlan === plan.id;
+                const isPlanSelected = selectedPlan && selectedPlan.id === plan.id;
+                
+                return (
+                  <div 
+                    key={plan.id} 
+                    className={`plan-card glass-panel ${plan.popular ? 'popular' : ''}`}
+                    onClick={() => !isActive && setSelectedPlan(plan)}
+                    style={{ 
+                      cursor: isActive ? 'not-allowed' : 'pointer',
+                      border: isPlanSelected ? '2px solid var(--accent-cyan)' : '1px solid var(--border-glass)',
+                      boxShadow: isPlanSelected ? 'var(--shadow-glow)' : 'none',
+                      transform: isPlanSelected ? 'scale(1.02)' : 'none',
+                      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+                    }}
+                  >
+                    {plan.popular && <span className="plan-badge">Most Popular</span>}
+                    <div style={{ marginBottom: '15px' }}>{iconsMap[plan.id] || <Zap size={32} color="#4facfe" />}</div>
+                    <h3 className="plan-name">{plan.name}</h3>
+                    
+                    <div className="plan-price-row">
+                      <span className="plan-price">₹{plan.price}</span>
+                      <span className="plan-duration">/ {plan.duration || 'Month'}</span>
+                    </div>
+
+                    <div style={{ fontSize: '0.8rem', color: 'var(--accent-cyan)', fontWeight: 700, marginBottom: '20px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      {plan.efficiency || (plan.id === 'premium' ? 'Maximum Response Rate' : 'High Response Rate')}
+                    </div>
+
+                    <ul className="plan-features">
+                      {plan.features.map((f, idx) => (
+                        <li key={idx}>
+                          <Check size={16} color="var(--accent-cyan)" />
+                          <span>{f}</span>
+                        </li>
+                      ))}
+                    </ul>
+
+                    <button 
+                      className={`btn plan-btn ${isActive ? 'btn-secondary' : isPlanSelected ? '' : 'btn-secondary'}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (!isActive) setSelectedPlan(plan);
+                      }}
+                      disabled={isActive}
+                    >
+                      {isActive ? 'Current Plan' : isPlanSelected ? 'Selected' : 'Select Plan'}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Billing & Checkout Form */}
+            <form onSubmit={(e) => { e.preventDefault(); handleInitiatePayment(); }} className="checkout-details-form glass-panel" style={{ marginTop: '30px', padding: '25px', width: '100%', borderRadius: 'var(--radius-lg)' }}>
+              <h3 style={{ fontFamily: 'var(--font-heading)', color: 'var(--accent-cyan)', fontSize: '1.25rem', marginBottom: '20px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Billing & Checkout Details
+              </h3>
+
+              <div className="keys-grid" style={{ gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)' }}>Selected Tier</label>
+                  <input 
+                    type="text" 
+                    value={selectedPlan ? selectedPlan.name : ''} 
+                    readOnly 
+                    style={{ background: 'rgba(0,0,0,0.4)', color: 'var(--text-main)', border: '1px solid var(--border-glass)', cursor: 'not-allowed' }} 
+                  />
+                </div>
+
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)' }}>Amount Box (INR)</label>
+                  <input 
+                    type="text" 
+                    value={selectedPlan ? `₹ ${selectedPlan.price}` : ''} 
+                    readOnly 
+                    style={{ 
+                      background: 'rgba(0,0,0,0.4)', 
+                      color: 'var(--accent-cyan)', 
+                      border: '1px solid var(--border-glass)', 
+                      cursor: 'not-allowed', 
+                      fontWeight: 800, 
+                      fontSize: '1.1rem' 
+                    }} 
+                  />
+                </div>
               </div>
 
               <div className="form-group" style={{ marginBottom: '20px' }}>
-                <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)' }}>12-Digit UPI Transaction ID / UTR</label>
+                <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)' }}>Full Name</label>
                 <input 
                   type="text" 
-                  placeholder="Enter 12-digit transaction ID" 
-                  value={transactionId} 
-                  onChange={(e) => setTransactionId(e.target.value.replace(/\D/g, '').slice(0, 12))} 
+                  placeholder="Enter your full name" 
+                  value={billingName} 
+                  onChange={(e) => setBillingName(e.target.value)} 
                   required 
-                  maxLength="12"
                   style={{ background: 'rgba(0,0,0,0.2)', color: 'var(--text-main)', border: '1px solid var(--border-glass)' }}
                 />
               </div>
-            </>
-          )}
 
-          <div className="keys-grid" style={{ gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
-            <div className="form-group" style={{ marginBottom: 0 }}>
-              <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)' }}>Selected Tier</label>
-              <input 
-                type="text" 
-                value={selectedPlan ? selectedPlan.name : ''} 
-                readOnly 
-                style={{ background: 'rgba(0,0,0,0.4)', color: 'var(--text-main)', border: '1px solid var(--border-glass)', cursor: 'not-allowed' }} 
-              />
+              <div className="keys-grid" style={{ gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)' }}>Email Address</label>
+                  <input 
+                    type="email" 
+                    placeholder="Enter your email" 
+                    value={billingEmail} 
+                    onChange={(e) => setBillingEmail(e.target.value)} 
+                    required 
+                    style={{ background: 'rgba(0,0,0,0.2)', color: 'var(--text-main)', border: '1px solid var(--border-glass)' }}
+                  />
+                </div>
+
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)' }}>Phone Number</label>
+                  <input 
+                    type="tel" 
+                    placeholder="Enter phone number" 
+                    value={billingPhone} 
+                    onChange={(e) => setBillingPhone(e.target.value)} 
+                    required 
+                    maxLength="15"
+                    style={{ background: 'rgba(0,0,0,0.2)', color: 'var(--text-main)', border: '1px solid var(--border-glass)' }}
+                  />
+                </div>
+              </div>
+
+              <button 
+                type="submit" 
+                className="btn" 
+                style={{ width: '100%', padding: '16px', fontSize: '1.1rem', marginTop: '10px' }}
+                disabled={loading || !selectedPlan}
+              >
+                {loading ? (
+                  <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
+                    <Loader size={20} className="spin-animation" />
+                    Initiating Payment...
+                  </span>
+                ) : (
+                  `Pay ₹${selectedPlan ? selectedPlan.price : 0} via UPI`
+                )}
+              </button>
+            </form>
+          </>
+        )}
+
+        {/* ===== STEP 2: Payment Instructions ===== */}
+        {step === 2 && (
+          <div className="checkout-details-form glass-panel" style={{ padding: '30px', width: '100%', borderRadius: 'var(--radius-lg)' }}>
+            <h3 style={{ fontFamily: 'var(--font-heading)', color: 'var(--accent-cyan)', fontSize: '1.25rem', marginBottom: '25px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>
+              Complete UPI Payment
+            </h3>
+
+            {/* Amount display */}
+            <div style={{ textAlign: 'center', marginBottom: '25px' }}>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '5px' }}>Amount to Pay</p>
+              <p style={{ fontSize: '2.5rem', fontWeight: 800, color: 'var(--accent-cyan)', fontFamily: 'var(--font-heading)' }}>
+                ₹{paymentAmount}
+              </p>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                for {selectedPlan?.name} ({selectedPlan?.duration})
+              </p>
             </div>
 
-            <div className="form-group" style={{ marginBottom: 0 }}>
-              <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)' }}>Amount Box (INR)</label>
-              <input 
-                type="text" 
-                value={selectedPlan ? `₹ ${selectedPlan.price}` : ''} 
-                readOnly 
-                style={{ 
-                  background: 'rgba(0,0,0,0.4)', 
-                  color: 'var(--accent-cyan)', 
-                  border: '1px solid var(--border-glass)', 
-                  cursor: 'not-allowed', 
-                  fontWeight: 800, 
-                  fontSize: '1.1rem' 
-                }} 
-              />
+            {/* UPI ID display */}
+            <div style={{ textAlign: 'center', margin: '20px 0', padding: '20px', background: 'rgba(0,0,0,0.3)', borderRadius: '12px', border: '1px dashed var(--border-glass-glow)' }}>
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Send payment to this UPI ID
+              </p>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
+                <p style={{ fontSize: '1.3rem', color: 'var(--accent-cyan)', fontWeight: 800, fontFamily: 'monospace', margin: 0 }}>
+                  {receiverUpiId}
+                </p>
+                <button
+                  type="button"
+                  onClick={handleCopyUpiId}
+                  style={{ background: 'none', border: '1px solid var(--border-glass)', borderRadius: '6px', padding: '4px 8px', color: copied ? '#00f2fe' : '#94a3b8', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem' }}
+                >
+                  <Copy size={14} />
+                  {copied ? 'Copied!' : 'Copy'}
+                </button>
+              </div>
             </div>
+
+            {/* Pay via UPI App button (mobile) or manual instructions (desktop) */}
+            {isMobile && upiIntentUrl ? (
+              <button
+                type="button"
+                className="btn"
+                onClick={handleOpenUpiApp}
+                style={{ width: '100%', padding: '16px', fontSize: '1.1rem', marginBottom: '20px' }}
+              >
+                Pay ₹{paymentAmount} via any UPI App
+              </button>
+            ) : (
+              <div style={{ textAlign: 'center', padding: '15px', background: 'rgba(0,0,0,0.2)', borderRadius: '8px', marginBottom: '20px' }}>
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>
+                  Open your UPI app (Google Pay, PhonePe, Paytm, etc.), send <strong style={{ color: 'var(--accent-cyan)' }}>₹{paymentAmount}</strong> to the UPI ID above.
+                </p>
+              </div>
+            )}
+
+            <div style={{ textAlign: 'center', padding: '15px', background: 'rgba(255,227,77,0.08)', borderRadius: '8px', border: '1px solid rgba(255,227,77,0.2)', marginBottom: '20px' }}>
+              <p style={{ fontSize: '0.85rem', color: '#ffe259', margin: 0 }}>
+                After completing payment in your UPI app, enter the 12-digit UTR number below
+              </p>
+            </div>
+
+            {/* UTR Input */}
+            <form onSubmit={handleVerifyUtr}>
+              <div className="form-group" style={{ marginBottom: '20px' }}>
+                <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)' }}>12-Digit UTR Number</label>
+                <input 
+                  type="text" 
+                  placeholder="Enter 12-digit UTR number" 
+                  value={utrInput} 
+                  onChange={(e) => setUtrInput(e.target.value.replace(/\D/g, '').slice(0, 12))} 
+                  required 
+                  maxLength="12"
+                  style={{ 
+                    background: 'rgba(0,0,0,0.2)', 
+                    color: 'var(--text-main)', 
+                    border: '1px solid var(--border-glass)', 
+                    fontSize: '1.1rem', 
+                    fontFamily: 'monospace', 
+                    letterSpacing: '0.15em',
+                    textAlign: 'center'
+                  }}
+                />
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '6px' }}>
+                  {utrInput.length}/12 digits entered
+                </p>
+              </div>
+
+              <button 
+                type="submit" 
+                className="btn" 
+                style={{ width: '100%', padding: '16px', fontSize: '1.1rem' }}
+                disabled={loading || utrInput.length !== 12}
+              >
+                {loading ? (
+                  <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
+                    <Loader size={20} className="spin-animation" />
+                    Verifying Payment...
+                  </span>
+                ) : (
+                  'Activate Plan'
+                )}
+              </button>
+            </form>
+
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => { setStep(1); setError(''); setSuccess(''); setUtrInput(''); }}
+              style={{ width: '100%', padding: '12px', fontSize: '0.9rem', marginTop: '12px' }}
+            >
+              ← Back to Plan Selection
+            </button>
           </div>
-
-          <div className="form-group" style={{ marginBottom: '20px' }}>
-            <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)' }}>Full Name</label>
-            <input 
-              type="text" 
-              placeholder="Enter your full name" 
-              value={billingName} 
-              onChange={(e) => setBillingName(e.target.value)} 
-              required 
-              style={{ background: 'rgba(0,0,0,0.2)', color: 'var(--text-main)', border: '1px solid var(--border-glass)' }}
-            />
-          </div>
-
-          <div className="keys-grid" style={{ gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
-            <div className="form-group" style={{ marginBottom: 0 }}>
-              <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)' }}>Email Address</label>
-              <input 
-                type="email" 
-                placeholder="Enter your email" 
-                value={billingEmail} 
-                onChange={(e) => setBillingEmail(e.target.value)} 
-                required 
-                style={{ background: 'rgba(0,0,0,0.2)', color: 'var(--text-main)', border: '1px solid var(--border-glass)' }}
-              />
-            </div>
-
-            <div className="form-group" style={{ marginBottom: 0 }}>
-              <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)' }}>Phone Number</label>
-              <input 
-                type="tel" 
-                placeholder="Enter phone number" 
-                value={billingPhone} 
-                onChange={(e) => setBillingPhone(e.target.value)} 
-                required 
-                maxLength="15"
-                style={{ background: 'rgba(0,0,0,0.2)', color: 'var(--text-main)', border: '1px solid var(--border-glass)' }}
-              />
-            </div>
-          </div>
-
-          <button 
-            type="submit" 
-            className="btn" 
-            style={{ width: '100%', padding: '16px', fontSize: '1.1rem', marginTop: '10px' }}
-            disabled={loading || !selectedPlan}
-          >
-            {loading ? 'Processing Transaction...' : paymentMethod === 'upi' ? 'Confirm Transfer & Instantly Unlock Plan' : `Proceed to Secure Payment (₹${selectedPlan ? selectedPlan.price : 0})`}
-          </button>
-        </form>
+        )}
       </div>
+
+      {/* Spinner animation style */}
+      <style>{`
+        .spin-animation {
+          animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   );
 }
