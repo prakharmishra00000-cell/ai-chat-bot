@@ -539,8 +539,17 @@ function Dashboard({
     return linkParts.length > 0 ? linkParts : <span dangerouslySetInnerHTML={{ __html: cleanLine }} />;
   };
 
+  // Auto-close sidebar on mobile when chat selected
+  const handleChatSelect = (chatId) => {
+    setActiveChatId(chatId);
+    if (window.innerWidth <= 768) setSidebarOpen(false);
+  };
+
   return (
     <div className="app-container" style={{ width: '100%' }}>
+      {/* Sidebar backdrop — tap to close on mobile */}
+      {sidebarOpen && <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} />}
+
       {/* Responsive Sidebar */}
       <div className={`sidebar glass-panel ${sidebarOpen ? 'open' : ''}`}>
         <div className="sidebar-header">
@@ -576,7 +585,7 @@ function Dashboard({
             <div 
               key={chat.id} 
               className={`chat-item ${activeChatId === chat.id ? 'active' : ''}`}
-              onClick={() => setActiveChatId(chat.id)}
+              onClick={() => handleChatSelect(chat.id)}
             >
               <span className="chat-item-text">{chat.title}</span>
               {conversations.length > 1 && (
@@ -631,7 +640,7 @@ function Dashboard({
       {/* Main chat viewport */}
       <div className="main-chat-area">
         <div className="main-header">
-          <div className="header-left">
+          <div className="header-row-top">
             {!sidebarOpen && (
               <button className="hamburger-btn" onClick={() => setSidebarOpen(true)}>
                 <Menu size={24} />
@@ -659,24 +668,22 @@ function Dashboard({
                 Analyst
               </button>
             </div>
-          </div>
 
-          <div className="header-right">
-            {/* Optimize query button */}
-            <button 
-              className={`mode-toggle-btn ${mode === 'optimize' ? 'active' : ''}`}
-              onClick={() => setMode(prev => prev === 'optimize' ? 'normal' : 'optimize')}
-            >
-              Optimize Prompt
-            </button>
-
-            {/* Matrix Simulation multiverse button */}
-            <button 
-              className={`mode-toggle-btn matrix ${mode === 'matrix_simulation' ? 'active' : ''}`}
-              onClick={() => setMode(prev => prev === 'matrix_simulation' ? 'normal' : 'matrix_simulation')}
-            >
-              Matrix Simulation
-            </button>
+            {/* Mode toggle buttons */}
+            <div className="header-modes">
+              <button 
+                className={`mode-toggle-btn ${mode === 'optimize' ? 'active' : ''}`}
+                onClick={() => setMode(prev => prev === 'optimize' ? 'normal' : 'optimize')}
+              >
+                Optimize
+              </button>
+              <button 
+                className={`mode-toggle-btn matrix ${mode === 'matrix_simulation' ? 'active' : ''}`}
+                onClick={() => setMode(prev => prev === 'matrix_simulation' ? 'normal' : 'matrix_simulation')}
+              >
+                Matrix
+              </button>
+            </div>
           </div>
         </div>
 

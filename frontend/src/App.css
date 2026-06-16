@@ -566,35 +566,27 @@ body {
 .main-header {
   padding: 15px 25px;
   border-bottom: 1px solid var(--border-glass);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
   z-index: 5;
   background: rgba(10, 15, 29, 0.4);
   backdrop-filter: blur(10px);
 }
 
-.header-left {
+.header-row-top {
   display: flex;
   align-items: center;
-  gap: 15px;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
-.hamburger-btn {
-  background: transparent;
-  border: none;
-  color: var(--text-main);
-  cursor: pointer;
+.header-modes {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
+/* Sidebar backdrop for mobile */
+.sidebar-backdrop {
   display: none;
-  align-items: center;
-  padding: 6px;
-  border-radius: var(--radius-sm);
-}
-
-.header-right {
-  display: flex;
-  align-items: center;
-  gap: 10px;
 }
 
 /* Personality Indicator/Switcher */
@@ -1347,9 +1339,6 @@ body {
   .modal-card {
     max-width: 550px;
   }
-  .header-right {
-    gap: 6px;
-  }
   .mode-toggle-btn {
     padding: 6px 10px;
     font-size: 0.75rem;
@@ -1360,25 +1349,40 @@ body {
   .app-container {
     flex-direction: column;
   }
+
+  /* SIDEBAR BACKDROP - dark overlay */
+  .sidebar-backdrop {
+    display: block;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 999;
+  }
   
   /* HAMBURGER - Always visible on mobile */
   .hamburger-btn {
     display: flex !important;
-    min-width: 40px;
-    min-height: 40px;
+    min-width: 42px;
+    min-height: 42px;
     align-items: center;
     justify-content: center;
     border-radius: var(--radius-md);
     background: var(--bg-glass);
     border: 1px solid var(--border-glass) !important;
+    color: var(--text-main);
+    cursor: pointer;
+    flex-shrink: 0;
   }
   
   /* SIDEBAR - Full screen overlay on mobile */
   .sidebar {
     position: fixed;
     left: -100%;
-    width: 85%;
-    max-width: 320px;
+    width: 80%;
+    max-width: 300px;
     height: 100vh;
     height: 100dvh;
     transition: left 0.3s ease;
@@ -1389,22 +1393,15 @@ body {
   .sidebar.open {
     left: 0;
   }
-  
-  /* Sidebar backdrop overlay */
-  .sidebar.open::after {
-    content: '';
-    position: fixed;
-    top: 0;
-    left: 100%;
-    width: 100vw;
-    height: 100vh;
-    background: rgba(0, 0, 0, 0.5);
-    z-index: -1;
+
+  .sidebar-header {
+    padding: 15px;
+    gap: 10px;
   }
 
   .sidebar-footer {
     padding: 12px;
-    gap: 10px;
+    gap: 8px;
   }
 
   .sidebar-footer .btn, .sidebar-footer .btn-secondary {
@@ -1416,42 +1413,44 @@ body {
     padding: 8px;
   }
 
+  .user-badge-info {
+    max-width: 100%;
+  }
+
   .user-badge-email {
     font-size: 0.72rem;
   }
   
-  /* HEADER - Compact on mobile */
+  /* HEADER - Fits everything on mobile */
   .main-header {
     padding: 10px 12px;
+  }
+
+  .header-row-top {
+    gap: 8px;
     flex-wrap: wrap;
-    gap: 8px;
-  }
-  
-  .header-left {
-    gap: 8px;
-    flex: 1;
-    min-width: 0;
-  }
-  
-  .header-right {
-    gap: 6px;
-    flex-shrink: 0;
   }
   
   /* Personality switcher - compact on mobile */
   .personality-bar {
     padding: 2px;
+    flex-shrink: 0;
   }
   
   .personality-btn {
-    padding: 5px 8px;
-    font-size: 0.7rem;
+    padding: 6px 10px;
+    font-size: 0.72rem;
+  }
+
+  /* Mode buttons */
+  .header-modes {
+    gap: 6px;
+    margin-left: 0;
   }
   
-  /* Mode toggle buttons - compact */
   .mode-toggle-btn {
-    padding: 5px 8px;
-    font-size: 0.68rem;
+    padding: 6px 10px;
+    font-size: 0.72rem;
     white-space: nowrap;
   }
   
@@ -1500,12 +1499,11 @@ body {
     gap: 16px;
   }
 
-  /* Download/Erase chat buttons */
   .chat-bubble-wrapper .chat-action-btn {
     font-size: 0.7rem;
   }
   
-  /* INPUT BAR - Fixed at bottom, properly sized */
+  /* INPUT BAR - Properly sized at bottom */
   .chat-input-container {
     padding: 10px 10px 16px;
     padding-bottom: max(16px, env(safe-area-inset-bottom));
@@ -1528,8 +1526,8 @@ body {
   
   /* Attachment/Mic/Send buttons - clearly visible */
   .chat-input-btn {
-    min-width: 38px;
-    min-height: 38px;
+    min-width: 40px;
+    min-height: 40px;
     padding: 8px;
     flex-shrink: 0;
   }
@@ -1538,16 +1536,14 @@ body {
     background: var(--gradient-primary);
     color: var(--text-dark);
     border-radius: 50%;
-    min-width: 40px;
-    min-height: 40px;
+    min-width: 42px;
+    min-height: 42px;
   }
   
-  /* Attachment popup */
   .attachment-popover {
     bottom: 55px;
   }
   
-  /* Admin grid */
   .admin-grid {
     grid-template-columns: 1fr;
   }
@@ -1556,7 +1552,6 @@ body {
     grid-template-columns: repeat(2, 1fr);
   }
 
-  /* Tables in chat - scrollable */
   .chat-bubble table {
     display: block;
     overflow-x: auto;
@@ -1568,12 +1563,10 @@ body {
     padding: 10px;
   }
 
-  /* Mermaid diagrams - scrollable */
   .mermaid-diagram-container {
     overflow-x: auto;
   }
 
-  /* Modal adjustments */
   .modal-card {
     max-width: 95vw;
     max-height: 90vh;
@@ -1592,22 +1585,27 @@ body {
     padding: 8px 8px;
   }
 
-  .header-left {
+  .header-row-top {
     gap: 6px;
   }
 
   .personality-btn {
-    padding: 4px 6px;
+    padding: 5px 7px;
     font-size: 0.65rem;
   }
 
   .mode-toggle-btn {
-    padding: 4px 6px;
-    font-size: 0.6rem;
+    padding: 5px 8px;
+    font-size: 0.65rem;
+  }
+
+  .hamburger-btn {
+    min-width: 36px;
+    min-height: 36px;
   }
 
   .empty-chat-state h1 {
-    font-size: 1.5rem;
+    font-size: 1.4rem;
   }
 
   .chat-input-container {
@@ -1620,14 +1618,14 @@ body {
   }
 
   .chat-input-btn {
-    min-width: 34px;
-    min-height: 34px;
+    min-width: 36px;
+    min-height: 36px;
     padding: 6px;
   }
 
   .chat-input-btn.send-msg {
-    min-width: 36px;
-    min-height: 36px;
+    min-width: 38px;
+    min-height: 38px;
   }
 
   .chat-bubble {
@@ -1641,7 +1639,7 @@ body {
   }
 
   .sidebar {
-    width: 90%;
+    width: 88%;
   }
 
   .feature-box {
