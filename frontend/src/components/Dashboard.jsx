@@ -404,26 +404,6 @@ function Dashboard({
                              /\b(create|make|generate|build|prepare|design)\b/i.test(userMessageText);
         
         if (isPPTRequest) {
-          // Check if user is on Premium plan
-          const userPlan = userPlanDetails?.plan || currentUser?.plan || 'free';
-          if (userPlan !== 'premium') {
-            botResponseText += '\n\n🔒 **PPT Presentation Generator** is exclusively available on the **Premium Plan (₹999/year)**.\n\nUpgrade to Premium to unlock:\n- Professional PPT generation with download\n- Custom slide count & style preferences\n- Beautiful dark-themed presentations\n\nClick the upgrade button to get started!';
-            
-            const botMsg = {
-              id: 'msg_bot_' + Date.now(),
-              sender: 'bot',
-              text: botResponseText,
-              timestamp: new Date().toISOString()
-            };
-            const finalChatList = conversations.map(c => {
-              if (c.id === activeChatId) return { ...c, messages: [...updatedMessages, botMsg] };
-              return c;
-            });
-            saveChatsToLocal(finalChatList);
-            refreshUserStatus();
-            setLoading(false);
-            return;
-          }
           try {
             // Extract slide count from user message
             const countMatch = userMessageText.match(/(\d+)\s*(slide|page|ppt)/i);
@@ -477,8 +457,10 @@ function Dashboard({
             
             if (pptRes.ok && pptData.success) {
               botResponseText += `\n\n✅ **Your presentation is ready!** (${pptData.slideCount} slides)\n\n📥 [**Click here to download your PPT**](${pptData.downloadUrl})\n\n*File: ${pptData.fileName}*`;
+            } else if (pptData.error === 'FEATURE_LIMIT') {
+              botResponseText += `\n\n🔒 **PPT daily limit reached!** ${pptData.message}\n\nUpgrade your plan for more PPT generations per day.`;
             } else {
-              botResponseText += `\n\n⚠️ PPT generation failed: ${pptData.error || 'Unknown error'}. You can still use the information above to create your presentation manually.`;
+              botResponseText += `\n\n⚠️ PPT generation failed: ${pptData.message || pptData.error || 'Unknown error'}. You can still use the information above to create your presentation manually.`;
             }
           } catch (pptErr) {
             console.error('PPT generation error:', pptErr);
@@ -508,6 +490,9 @@ function Dashboard({
       } else {
         if (responseData.error === 'LIMIT_EXCEEDED') {
           alert("You have reached your daily prompt limit for today. Please upgrade your plan to unlock higher capacity.");
+          onTriggerUpgrade();
+        } else if (responseData.error === 'FEATURE_LIMIT') {
+          alert(responseData.message || "You've reached the daily limit for this feature. Upgrade your plan for more.");
           onTriggerUpgrade();
         } else if (responseData.error === 'FEATURE_LOCKED') {
           alert(responseData.message || "This feature is not available in your current plan. Please upgrade.");

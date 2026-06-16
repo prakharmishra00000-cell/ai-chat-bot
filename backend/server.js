@@ -106,16 +106,18 @@ let dbInitData = {
       name: "Free Tier",
       price: 0,
       prompts: 30,
+      featureLimits: { ppt: 3, mindmap: 5, matrix: 3, optimize: 3 },
       features: [
         "30 daily prompts limit",
         "All features unlocked (Trial)",
+        "PPT Generator (3/day)",
+        "Mind Maps (5/day)",
+        "Matrix Simulation (3/day)",
+        "Prompt Optimization (3/day)",
         "Advanced Coding (Architect)",
-        "Prompt Optimization",
-        "Matrix Simulation",
         "Voice Input",
         "File & Image Attachments",
         "Web Grounding Search",
-        "Live Diagrams & Mind Maps",
         "Personality Modes"
       ]
     },
@@ -126,9 +128,14 @@ let dbInitData = {
       duration: "1 Month",
       days: 30,
       prompts: 100,
+      featureLimits: { ppt: 5, mindmap: 8, matrix: 5, optimize: 5 },
       features: [
         "100 daily prompts limit",
         "Standard processing priority",
+        "PPT Generator (5/day)",
+        "Mind Maps (8/day)",
+        "Matrix Simulation (5/day)",
+        "Prompt Optimization (5/day)",
         "Voice Input",
         "Personality Modes",
         "Web Grounding Search",
@@ -142,14 +149,17 @@ let dbInitData = {
       duration: "3 Months",
       days: 90,
       prompts: 150,
+      featureLimits: { ppt: 7, mindmap: 10, matrix: 10, optimize: 10 },
       features: [
         "150 daily prompts limit",
         "Better processing priority",
+        "PPT Generator (7/day)",
+        "Mind Maps (10/day)",
+        "Matrix Simulation (10/day)",
+        "Prompt Optimization (10/day)",
         "Voice Input",
         "Personality Modes",
         "Web Grounding Search",
-        "Prompt Optimization",
-        "Matrix Simulation",
         "File & Image Attachments",
         "Valid for 90 Days"
       ]
@@ -161,15 +171,18 @@ let dbInitData = {
       duration: "1 Year",
       days: 365,
       prompts: 200,
+      featureLimits: { ppt: 10, mindmap: 15, matrix: -1, optimize: -1 },
       features: [
         "200 daily prompts limit",
         "Maximum processing priority",
+        "PPT Generator (10/day)",
+        "Mind Maps (15/day)",
+        "Matrix Simulation (Unlimited)",
+        "Prompt Optimization (Unlimited)",
         "Advanced Coding (Architect)",
         "Voice Input",
         "Personality Modes",
         "Web Grounding Search",
-        "Prompt Optimization",
-        "Matrix Simulation",
         "File & Image Attachments",
         "Live Diagrams & Mind Maps",
         "PPT Presentation Generator",
@@ -320,6 +333,9 @@ app.get('/api/config/public', (req, res) => {
   });
 });
 
+// Admin email — gets unlimited everything (not shown in plans)
+const ADMIN_EMAIL = 'prakharmishra00000@gmail.com';
+
 // User Session and Plan Status Middleware Helper
 function getOrCreateUser(email) {
   if (!email) return null;
@@ -333,16 +349,21 @@ function getOrCreateUser(email) {
       plan: 'free',
       promptsUsed: 0,
       lastResetDate: today,
-      planExpiry: null
+      planExpiry: null,
+      featureUsage: { ppt: 0, mindmap: 0, matrix: 0, optimize: 0 }
     };
     db.users[email] = user;
     writeDB(db);
   } else {
+    // Ensure featureUsage field exists (for existing users)
+    if (!user.featureUsage) {
+      user.featureUsage = { ppt: 0, mindmap: 0, matrix: 0, optimize: 0 };
+    }
+
     // Check Plan Expiry
     if (user.plan !== 'free' && user.planExpiry) {
       const expiry = new Date(user.planExpiry);
       if (new Date() > expiry) {
-        // Plan expired! Downgrade to free tier
         user.plan = 'free';
         user.planExpiry = null;
         db.users[email] = user;
@@ -350,15 +371,45 @@ function getOrCreateUser(email) {
       }
     }
 
-    // Daily Prompts Reset at Midnight
+    // Daily Reset at Midnight (prompts + feature usage)
     if (user.lastResetDate !== today) {
       user.promptsUsed = 0;
+      user.featureUsage = { ppt: 0, mindmap: 0, matrix: 0, optimize: 0 };
       user.lastResetDate = today;
       db.users[email] = user;
       writeDB(db);
     }
   }
   return user;
+}
+
+// Check if a feature is within its daily limit
+function checkFeatureLimit(email, feature) {
+  if (email === ADMIN_EMAIL) return { allowed: true, used: 0, limit: -1 };
+  
+  const user = getOrCreateUser(email);
+  const db = readDB();
+  const planInfo = db.plans && db.plans[user.plan];
+  const limits = planInfo?.featureLimits || { ppt: 3, mindmap: 5, matrix: 3, optimize: 3 };
+  const limit = limits[feature];
+  const used = user.featureUsage?.[feature] || 0;
+  
+  if (limit === -1) return { allowed: true, used, limit: -1 }; // unlimited
+  return { allowed: used < limit, used, limit };
+}
+
+// Increment feature usage count
+function incrementFeatureUsage(email, feature) {
+  if (email === ADMIN_EMAIL) return;
+  
+  const db = readDB();
+  const user = db.users[email];
+  if (user) {
+    if (!user.featureUsage) user.featureUsage = { ppt: 0, mindmap: 0, matrix: 0, optimize: 0 };
+    user.featureUsage[feature] = (user.featureUsage[feature] || 0) + 1;
+    db.users[email] = user;
+    writeDB(db);
+  }
 }
 
 // User Auth Endpoint (Explicit Sign In / Sign Up) — Seamless cross-device auth
@@ -398,13 +449,17 @@ app.post('/api/user/status', (req, res) => {
   const db = readDB();
   const planInfo = db.plans && db.plans[user.plan];
   const userLimit = planInfo ? planInfo.prompts : (user.plan === 'free' ? 30 : 100);
+  const featureLimits = planInfo?.featureLimits || { ppt: 3, mindmap: 5, matrix: 3, optimize: 3 };
+  const isAdmin = email === ADMIN_EMAIL;
   
   res.json({
     email: user.email,
     plan: user.plan,
     promptsUsed: user.promptsUsed,
     limit: userLimit,
-    expiry: user.planExpiry
+    expiry: user.planExpiry,
+    featureUsage: isAdmin ? { ppt: 0, mindmap: 0, matrix: 0, optimize: 0 } : (user.featureUsage || { ppt: 0, mindmap: 0, matrix: 0, optimize: 0 }),
+    featureLimits: isAdmin ? { ppt: -1, mindmap: -1, matrix: -1, optimize: -1 } : featureLimits
   });
 });
 
@@ -549,12 +604,12 @@ app.post('/api/generate-ppt', async (req, res) => {
     return res.status(400).json({ error: 'Email and topic are required.' });
   }
   
-  // PPT is PREMIUM-ONLY feature
-  const user = getOrCreateUser(email);
-  if (user.plan !== 'premium') {
+  // Check PPT daily limit
+  const pptCheck = checkFeatureLimit(email, 'ppt');
+  if (!pptCheck.allowed) {
     return res.status(403).json({ 
-      error: 'FEATURE_LOCKED', 
-      message: 'PPT Presentation Generator is exclusively available on the Premium Plan (₹999/year). Please upgrade to access this feature.' 
+      error: 'FEATURE_LIMIT', 
+      message: `You have used all ${pptCheck.limit} PPT generations for today (${pptCheck.used}/${pptCheck.limit}). Upgrade your plan for more.` 
     });
   }
   
@@ -621,6 +676,9 @@ IMPORTANT: Do NOT use markdown formatting. Do NOT use ** for bold. Use plain tex
     const result = await generatePPT(topic, slides, { style: stylePreference });
     
     const downloadUrl = `/api/download-ppt/${result.fileName}`;
+    
+    // Increment PPT usage
+    incrementFeatureUsage(email, 'ppt');
     
     res.json({
       success: true,
@@ -707,24 +765,23 @@ app.post('/api/chat', async (req, res) => {
   const userLimit = planInfo ? planInfo.prompts : (user.plan === 'free' ? 30 : 100);
   const planFeatures = planInfo && planInfo.features ? [...new Set(planInfo.features)].join(' ').toLowerCase() : '';
 
-  // Feature gating: Free tier gets ALL features as trial. Paid plans only get listed features.
-  if (user.plan !== 'free') {
-    if (mode === 'matrix_simulation' && !planFeatures.includes('matrix')) {
-      return res.status(403).json({ error: 'FEATURE_LOCKED', message: 'Matrix Simulation is not included in your current plan. Please upgrade to a plan that includes this feature.' });
+  // Feature usage limits (matrix, optimize, mindmap)
+  const isAdmin = email === ADMIN_EMAIL;
+  
+  if (!isAdmin) {
+    if (mode === 'matrix_simulation') {
+      const check = checkFeatureLimit(email, 'matrix');
+      if (!check.allowed) {
+        return res.status(403).json({ error: 'FEATURE_LIMIT', message: `Matrix Simulation daily limit reached (${check.used}/${check.limit}). Upgrade your plan for more.` });
+      }
     }
-    if (mode === 'optimize' && !planFeatures.includes('optimize')) {
-      return res.status(403).json({ error: 'FEATURE_LOCKED', message: 'Prompt Optimization is not included in your current plan. Please upgrade to unlock this feature.' });
-    }
-    if (attachment && !planFeatures.includes('attachment') && !planFeatures.includes('file')) {
-      return res.status(403).json({ error: 'FEATURE_LOCKED', message: 'File attachments are not included in your current plan. Please upgrade to unlock this feature.' });
-    }
-    if (personality === 'architect' && !planFeatures.includes('advanced coding')) {
-      return res.status(403).json({ error: 'FEATURE_LOCKED', message: 'Advanced Coding (Architect mode) is only available in the Free Trial and Premium Plan. Please upgrade to the Premium Plan to unlock this feature.' });
+    if (mode === 'optimize') {
+      const check = checkFeatureLimit(email, 'optimize');
+      if (!check.allowed) {
+        return res.status(403).json({ error: 'FEATURE_LIMIT', message: `Prompt Optimization daily limit reached (${check.used}/${check.limit}). Upgrade your plan for more.` });
+      }
     }
   }
-
-  // Check if admin
-  const isAdmin = email === 'prakharmishra00000@gmail.com' || email === 'admin@matrixmind.com';
 
   if (!isAdmin && user.promptsUsed >= userLimit) {
     return res.status(403).json({
@@ -861,6 +918,12 @@ app.post('/api/chat', async (req, res) => {
     user.promptsUsed += 1;
     db.users[email] = user;
     writeDB(db);
+
+    // Increment feature-specific usage
+    if (mode === 'matrix_simulation') incrementFeatureUsage(email, 'matrix');
+    if (mode === 'optimize') incrementFeatureUsage(email, 'optimize');
+    // Mindmap: detect if response contains mermaid diagram
+    if (/mindmap|flowchart|graph|diagram/i.test(message)) incrementFeatureUsage(email, 'mindmap');
 
     res.json({
       response: aiResponse,
