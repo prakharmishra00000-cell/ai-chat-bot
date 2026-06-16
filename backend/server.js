@@ -19,51 +19,74 @@ const DB_PATH = path.join(__dirname, 'db.json');
 // Auto-bootstrap config.json from environment variables on startup (for Render deployment)
 function bootstrapConfigFromEnv() {
   const envKeys = [];
+  
+  // Method 1: Check numbered keys with multiple naming patterns
   for (let i = 1; i <= 9; i++) {
-    const k = process.env[`GEMINI_API_KEY_${i}`] || process.env[`GEMINI_KEY_${i}`];
-    if (k) envKeys.push(k);
+    const k = process.env[`GEMINI_API_KEY_${i}`] 
+           || process.env[`GEMINI_KEY_${i}`] 
+           || process.env[`API_KEY_${i}`]
+           || process.env[`GEMINI_API_KEY${i}`]
+           || process.env[`KEY_${i}`];
+    if (k && k.trim()) envKeys.push(k.trim());
   }
-  // Also check for a single GEMINI_API_KEY env var
-  if (envKeys.length === 0 && process.env.GEMINI_API_KEY) {
-    envKeys.push(process.env.GEMINI_API_KEY);
+  
+  // Method 2: Check single key env vars
+  if (envKeys.length === 0) {
+    const singleKey = process.env.GEMINI_API_KEY || process.env.GEMINI_KEY || process.env.API_KEY;
+    if (singleKey && singleKey.trim()) envKeys.push(singleKey.trim());
   }
+  
+  // Method 3: Scan ALL env vars for any that look like Google API keys (start with AIza)
+  if (envKeys.length === 0) {
+    for (const [key, val] of Object.entries(process.env)) {
+      if (val && val.startsWith('AIza') && val.length > 30) {
+        envKeys.push(val.trim());
+      }
+    }
+  }
+
+  console.log(`[STARTUP] Found ${envKeys.length} Gemini API key(s) from environment variables.`);
   
   if (envKeys.length > 0) {
     try {
       const configData = {
         keys: envKeys,
-        razorpayKeyId: process.env.RAZORPAY_KEY_ID || '',
-        razorpaySecret: process.env.RAZORPAY_SECRET || '',
-        googleClientId: process.env.GOOGLE_CLIENT_ID || '',
+        razorpayKeyId: process.env.RAZORPAY_KEY_ID || process.env.RAZORPAY_KEY || '',
+        razorpaySecret: process.env.RAZORPAY_SECRET || process.env.RAZORPAY_KEY_SECRET || '',
+        googleClientId: process.env.GOOGLE_CLIENT_ID || process.env.GOOGLE_OAUTH_CLIENT_ID || '',
         adminUsername: process.env.ADMIN_USERNAME || 'prakhar mishra',
         adminPassword: process.env.ADMIN_PASSWORD || 'prakhar@2025',
-        smtpUser: process.env.SMTP_USER || '',
-        smtpPass: process.env.SMTP_PASS || ''
+        smtpUser: process.env.SMTP_USER || process.env.SMTP_EMAIL || '',
+        smtpPass: process.env.SMTP_PASS || process.env.SMTP_PASSWORD || process.env.SMTP_APP_PASSWORD || ''
       };
       fs.writeFileSync(CONFIG_PATH, JSON.stringify(configData, null, 2));
-      console.log(`Bootstrapped config.json with ${envKeys.length} API key(s) from environment variables.`);
+      console.log(`[STARTUP] Successfully bootstrapped config.json with ${envKeys.length} API key(s).`);
       return true;
     } catch (e) {
-      console.error('Failed to bootstrap config from environment variables:', e);
+      console.error('[STARTUP] Failed to write config.json:', e);
     }
+  } else {
+    console.warn('[STARTUP] WARNING: No Gemini API keys found in environment variables!');
+    console.warn('[STARTUP] Expected env var names: GEMINI_API_KEY_1, GEMINI_API_KEY_2, ... or GEMINI_API_KEY');
   }
   return false;
 }
 
-// Try bootstrap on startup
-if (!fs.existsSync(CONFIG_PATH)) {
-  bootstrapConfigFromEnv();
-} else {
-  // config.json exists — check if it has valid keys, if not try env vars
+// Try bootstrap on startup — ALWAYS attempt env vars first on fresh deploy
+console.log(`[STARTUP] Checking config at: ${CONFIG_PATH}`);
+console.log(`[STARTUP] Config file exists: ${fs.existsSync(CONFIG_PATH)}`);
+
+// Always try to bootstrap from env vars (overwrite if env vars exist)
+const bootstrapped = bootstrapConfigFromEnv();
+
+if (!bootstrapped && !fs.existsSync(CONFIG_PATH)) {
+  console.warn('[STARTUP] No config.json and no env vars. Bot will need Setup page configuration.');
+} else if (fs.existsSync(CONFIG_PATH)) {
   try {
     const existingConfig = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
-    if (!existingConfig.keys || existingConfig.keys.length === 0 || existingConfig.keys.every(k => !k || k === '')) {
-      console.warn('config.json exists but has no valid API keys. Trying environment variables...');
-      bootstrapConfigFromEnv();
-    }
+    console.log(`[STARTUP] config.json loaded with ${existingConfig.keys ? existingConfig.keys.length : 0} API key(s).`);
   } catch (e) {
-    console.warn('config.json is corrupted. Rebuilding from env vars...');
-    bootstrapConfigFromEnv();
+    console.error('[STARTUP] config.json is corrupted:', e.message);
   }
 }
 
