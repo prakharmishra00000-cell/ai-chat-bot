@@ -197,15 +197,34 @@ if (!fs.existsSync(DB_PATH)) {
 
 // Helpers for Reading/Writing Config & DB
 function readConfig() {
-  if (!fs.existsSync(CONFIG_PATH)) {
-    return null;
+  // Try config.json first
+  if (fs.existsSync(CONFIG_PATH)) {
+    try {
+      const config = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
+      if (config && config.keys && config.keys.length > 0) return config;
+    } catch (e) {
+      console.error('Error reading config.json:', e);
+    }
   }
-  try {
-    return JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
-  } catch (e) {
-    console.error('Error reading config:', e);
-    return null;
+  // Fallback: load keys directly from env vars every time
+  const envKeys = [];
+  for (let i = 1; i <= 9; i++) {
+    const k = process.env[`GEMINI_API_KEY_${i}`] || process.env[`GEMINI_KEY_${i}`];
+    if (k && k.trim()) envKeys.push(k.trim());
   }
+  if (envKeys.length === 0) {
+    const single = process.env.GEMINI_API_KEY || process.env.GEMINI_KEY;
+    if (single && single.trim()) envKeys.push(single.trim());
+  }
+  if (envKeys.length > 0) {
+    return {
+      keys: envKeys,
+      razorpayKeyId: process.env.RAZORPAY_KEY_ID || '',
+      razorpaySecret: process.env.RAZORPAY_SECRET || '',
+      googleClientId: process.env.GOOGLE_CLIENT_ID || '',
+    };
+  }
+  return null;
 }
 
 function writeConfig(config) {
@@ -462,11 +481,12 @@ async function queryGeminiAPI(keys, contents, systemInstruction) {
     }
   }
 
-  // FINAL RETRY: Wait 2 seconds, then try the first working model one more time
+  // FINAL RETRY: Wait 2 seconds, then try gemini-1.5-flash on first 3 keys
   console.log('[GEMINI] All attempts failed. Waiting 2s for final retry...');
   await new Promise(r => setTimeout(r, 2000));
   
-  for (const key of keys) {
+  for (let i = 0; i < Math.min(keys.length, 3); i++) {
+    const key = keys[i];
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 25000);
     try {
@@ -493,21 +513,37 @@ async function queryGeminiAPI(keys, contents, systemInstruction) {
     }
   }
 
-  console.error(`[GEMINI] ALL ATTEMPTS EXHAUSTED`);
-  throw new Error('Our AI servers are currently busy. Please try again in a few seconds.');
+  console.error(`[GEMINI] ALL ${keys.length} KEYS EXHAUSTED — daily free-tier quota likely reached`);
+  throw new Error('Daily API quota exhausted on all keys. The free tier resets at midnight Pacific Time. Please try again later or upgrade your API keys to paid tier.');
 }
+
+// Health Check — diagnose key loading issues
+app.get('/api/health', (req, res) => {
+  const config = readConfig();
+  const keyCount = config?.keys?.length || 0;
+  const keyPreviews = (config?.keys || []).map(k => k.substring(0, 6) + '...' + k.substring(k.length - 4));
+  res.json({
+    status: keyCount > 0 ? 'OK' : 'NO_KEYS',
+    keyCount,
+    keyPreviews,
+    configFileExists: fs.existsSync(CONFIG_PATH),
+    envKeysFound: Object.keys(process.env).filter(k => k.includes('GEMINI')).length,
+    timestamp: new Date().toISOString()
+  });
+});
 
 // Main Chat AI Endpoint
 app.post('/api/chat', async (req, res) => {
   let config = readConfig();
   if (!config || !config.keys || config.keys.length === 0) {
-    // Try re-bootstrapping from env vars
     bootstrapConfigFromEnv();
     config = readConfig();
     if (!config || !config.keys || config.keys.length === 0) {
-      return res.status(500).json({ error: 'SETUP_REQUIRED', message: 'API credentials are not configured yet. Please complete the Setup process.' });
+      return res.status(500).json({ error: 'SETUP_REQUIRED', message: 'API credentials are not configured. Please set GEMINI_API_KEY_1 through GEMINI_API_KEY_9 in Render environment variables.' });
     }
   }
+  
+  console.log(`[CHAT] Processing request with ${config.keys.length} API key(s). First key prefix: ${config.keys[0].substring(0, 6)}...`);
 
   const { email, message, history, personality, mode, attachment } = req.body;
   if (!email) return res.status(400).json({ error: 'Email is required.' });
