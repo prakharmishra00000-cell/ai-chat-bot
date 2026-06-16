@@ -532,6 +532,53 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// Key Diagnostic — tests each key individually to find exact errors
+app.get('/api/test-keys', async (req, res) => {
+  const config = readConfig();
+  if (!config || !config.keys || config.keys.length === 0) {
+    return res.json({ error: 'No keys found' });
+  }
+  
+  const results = [];
+  const testPayload = { contents: [{ role: 'user', parts: [{ text: 'Say hi in one word' }] }] };
+  
+  for (let i = 0; i < config.keys.length; i++) {
+    const key = config.keys[i];
+    const keyPreview = key.substring(0, 8) + '...' + key.substring(key.length - 4);
+    
+    // Test with gemini-1.5-flash
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(testPayload),
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+      const data = await response.json();
+      
+      if (response.ok && data.candidates?.[0]?.content) {
+        results.push({ key: keyPreview, status: 'WORKING', httpCode: 200, model: 'gemini-1.5-flash' });
+      } else {
+        const errMsg = data.error?.message || 'Unknown error';
+        results.push({ key: keyPreview, status: 'FAILED', httpCode: response.status, error: errMsg.substring(0, 150), model: 'gemini-1.5-flash' });
+      }
+    } catch (e) {
+      results.push({ key: keyPreview, status: 'ERROR', error: e.message, model: 'gemini-1.5-flash' });
+    }
+  }
+  
+  const workingKeys = results.filter(r => r.status === 'WORKING').length;
+  res.json({ 
+    summary: `${workingKeys}/${results.length} keys working`,
+    results,
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Main Chat AI Endpoint
 app.post('/api/chat', async (req, res) => {
   let config = readConfig();
