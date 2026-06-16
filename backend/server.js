@@ -410,13 +410,12 @@ app.post('/api/user/status', (req, res) => {
 let activeKeyIndex = 0;
 
 async function queryGeminiAPI(keys, contents, systemInstruction) {
-  // Models ordered by speed and free-tier availability
+  // Models confirmed WORKING as of June 2026 — ordered by preference
   const modelConfigs = [
-    { model: 'gemini-1.5-flash', api: 'v1beta' },
-    { model: 'gemini-1.5-flash', api: 'v1' },
+    { model: 'gemini-3.5-flash', api: 'v1beta' },
+    { model: 'gemini-3.1-flash-lite', api: 'v1beta' },
+    { model: 'gemini-2.5-flash', api: 'v1beta' },
     { model: 'gemini-2.0-flash', api: 'v1beta' },
-    { model: 'gemini-pro', api: 'v1beta' },
-    { model: 'gemini-pro', api: 'v1' },
   ];
 
   // Try each key with each model
@@ -481,7 +480,7 @@ async function queryGeminiAPI(keys, contents, systemInstruction) {
     }
   }
 
-  // FINAL RETRY: Wait 2 seconds, then try gemini-1.5-flash on first 3 keys
+  // FINAL RETRY: Wait 2 seconds, then try gemini-3.5-flash on first 3 keys
   console.log('[GEMINI] All attempts failed. Waiting 2s for final retry...');
   await new Promise(r => setTimeout(r, 2000));
   
@@ -494,7 +493,7 @@ async function queryGeminiAPI(keys, contents, systemInstruction) {
       if (systemInstruction && payloadContents.length > 0 && payloadContents[0].role === 'user') {
         payloadContents[0].parts[0].text = `[System Instruction: ${systemInstruction}]\n\n` + payloadContents[0].parts[0].text;
       }
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${key}`;
       const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -546,11 +545,11 @@ app.get('/api/test-keys', async (req, res) => {
     const key = config.keys[i];
     const keyPreview = key.substring(0, 8) + '...' + key.substring(key.length - 4);
     
-    // Test with gemini-1.5-flash
+    // Test with gemini-3.5-flash
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000);
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${key}`;
       const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -561,13 +560,13 @@ app.get('/api/test-keys', async (req, res) => {
       const data = await response.json();
       
       if (response.ok && data.candidates?.[0]?.content) {
-        results.push({ key: keyPreview, status: 'WORKING', httpCode: 200, model: 'gemini-1.5-flash' });
+        results.push({ key: keyPreview, status: 'WORKING', httpCode: 200, model: 'gemini-3.5-flash' });
       } else {
         const errMsg = data.error?.message || 'Unknown error';
-        results.push({ key: keyPreview, status: 'FAILED', httpCode: response.status, error: errMsg.substring(0, 150), model: 'gemini-1.5-flash' });
+        results.push({ key: keyPreview, status: 'FAILED', httpCode: response.status, error: errMsg.substring(0, 150), model: 'gemini-3.5-flash' });
       }
     } catch (e) {
-      results.push({ key: keyPreview, status: 'ERROR', error: e.message, model: 'gemini-1.5-flash' });
+      results.push({ key: keyPreview, status: 'ERROR', error: e.message, model: 'gemini-3.5-flash' });
     }
   }
   
