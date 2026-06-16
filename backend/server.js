@@ -541,13 +541,13 @@ app.post('/api/chat', async (req, res) => {
 
     // B. WEB GROUNDING SEARCH (with 5 second timeout to not block response)
     let searchGroundingContext = '';
-    const needsSearch = /search|latest|news|weather|current|realtime|today|fact|who is|what is|google/i.test(finalPrompt);
+    const needsSearch = /search|latest|news|weather|current|realtime|today|fact|who is|what is|what are|how to|how does|where|when|why|google|explain|tell me|information|guide|tutorial|review|compare|best|top|list|official|website|link|source|recommend/i.test(finalPrompt);
     
     if (needsSearch) {
       try {
         console.log(`Executing web grounding search for: "${finalPrompt}"`);
         const searchPromise = performWebSearch(finalPrompt);
-        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Search timeout')), 5000));
+        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Search timeout')), 10000));
         const searchResults = await Promise.race([searchPromise, timeoutPromise]);
         if (searchResults && searchResults.length > 0) {
           searchGroundingContext = "\n\nReal-time Web Search Grounding Context:\n";

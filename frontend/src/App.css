@@ -1347,6 +1347,13 @@ body {
   .modal-card {
     max-width: 550px;
   }
+  .header-right {
+    gap: 6px;
+  }
+  .mode-toggle-btn {
+    padding: 6px 10px;
+    font-size: 0.75rem;
+  }
 }
 
 @media (max-width: 768px) {
@@ -1354,36 +1361,302 @@ body {
     flex-direction: column;
   }
   
+  /* HAMBURGER - Always visible on mobile */
   .hamburger-btn {
-    display: flex;
+    display: flex !important;
+    min-width: 40px;
+    min-height: 40px;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-md);
+    background: var(--bg-glass);
+    border: 1px solid var(--border-glass) !important;
   }
   
+  /* SIDEBAR - Full screen overlay on mobile */
   .sidebar {
-    position: absolute;
-    left: -320px;
-    width: 320px;
-    height: 100%;
-    transition: var(--transition-smooth);
-    box-shadow: 10px 0 30px rgba(0,0,0,0.5);
+    position: fixed;
+    left: -100%;
+    width: 85%;
+    max-width: 320px;
+    height: 100vh;
+    height: 100dvh;
+    transition: left 0.3s ease;
+    box-shadow: 10px 0 30px rgba(0,0,0,0.7);
+    z-index: 1000;
   }
   
   .sidebar.open {
     left: 0;
   }
   
+  /* Sidebar backdrop overlay */
+  .sidebar.open::after {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 100%;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: -1;
+  }
+
+  .sidebar-footer {
+    padding: 12px;
+    gap: 10px;
+  }
+
+  .sidebar-footer .btn, .sidebar-footer .btn-secondary {
+    padding: 10px 12px !important;
+    font-size: 0.8rem !important;
+  }
+
+  .user-badge {
+    padding: 8px;
+  }
+
+  .user-badge-email {
+    font-size: 0.72rem;
+  }
+  
+  /* HEADER - Compact on mobile */
+  .main-header {
+    padding: 10px 12px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  
+  .header-left {
+    gap: 8px;
+    flex: 1;
+    min-width: 0;
+  }
+  
+  .header-right {
+    gap: 6px;
+    flex-shrink: 0;
+  }
+  
+  /* Personality switcher - compact on mobile */
+  .personality-bar {
+    padding: 2px;
+  }
+  
+  .personality-btn {
+    padding: 5px 8px;
+    font-size: 0.7rem;
+  }
+  
+  /* Mode toggle buttons - compact */
+  .mode-toggle-btn {
+    padding: 5px 8px;
+    font-size: 0.68rem;
+    white-space: nowrap;
+  }
+  
+  /* FEATURES GRID - Stack vertically on mobile */
   .features-grid {
     grid-template-columns: 1fr;
+    gap: 12px;
+    padding: 0 10px;
+  }
+
+  .feature-box {
+    padding: 16px;
+  }
+
+  .feature-box h3 {
+    font-size: 0.95rem;
+    margin: 8px 0 4px;
+  }
+
+  .feature-box p {
+    font-size: 0.8rem;
+  }
+
+  .empty-chat-state {
+    padding: 20px 15px;
+  }
+
+  .empty-chat-state h1 {
+    font-size: 1.8rem;
+  }
+
+  .empty-chat-state p {
+    font-size: 0.85rem;
+    margin-bottom: 20px;
   }
   
+  /* CHAT BUBBLES - Full width on mobile */
   .chat-bubble {
-    max-width: 90%;
+    max-width: 92%;
+    padding: 12px 14px;
+    font-size: 0.9rem;
   }
   
+  .messages-container {
+    padding: 15px 10px;
+    gap: 16px;
+  }
+
+  /* Download/Erase chat buttons */
+  .chat-bubble-wrapper .chat-action-btn {
+    font-size: 0.7rem;
+  }
+  
+  /* INPUT BAR - Fixed at bottom, properly sized */
+  .chat-input-container {
+    padding: 10px 10px 16px;
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
+  }
+  
+  .chat-input-bar {
+    padding: 6px 10px;
+    gap: 6px;
+  }
+  
+  .chat-input-bar input {
+    padding: 10px 0;
+    font-size: 0.9rem;
+    min-width: 0;
+  }
+
+  .chat-input-bar input::placeholder {
+    font-size: 0.78rem;
+  }
+  
+  /* Attachment/Mic/Send buttons - clearly visible */
+  .chat-input-btn {
+    min-width: 38px;
+    min-height: 38px;
+    padding: 8px;
+    flex-shrink: 0;
+  }
+  
+  .chat-input-btn.send-msg {
+    background: var(--gradient-primary);
+    color: var(--text-dark);
+    border-radius: 50%;
+    min-width: 40px;
+    min-height: 40px;
+  }
+  
+  /* Attachment popup */
+  .attachment-popover {
+    bottom: 55px;
+  }
+  
+  /* Admin grid */
   .admin-grid {
     grid-template-columns: 1fr;
   }
   
   .admin-stats-row {
     grid-template-columns: repeat(2, 1fr);
+  }
+
+  /* Tables in chat - scrollable */
+  .chat-bubble table {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+
+  .chat-bubble pre {
+    font-size: 0.8rem;
+    padding: 10px;
+  }
+
+  /* Mermaid diagrams - scrollable */
+  .mermaid-diagram-container {
+    overflow-x: auto;
+  }
+
+  /* Modal adjustments */
+  .modal-card {
+    max-width: 95vw;
+    max-height: 90vh;
+    padding: 20px;
+    margin: 10px;
+  }
+
+  .plans-grid {
+    gap: 15px;
+  }
+}
+
+/* SMALL PHONES (< 480px) */
+@media (max-width: 480px) {
+  .main-header {
+    padding: 8px 8px;
+  }
+
+  .header-left {
+    gap: 6px;
+  }
+
+  .personality-btn {
+    padding: 4px 6px;
+    font-size: 0.65rem;
+  }
+
+  .mode-toggle-btn {
+    padding: 4px 6px;
+    font-size: 0.6rem;
+  }
+
+  .empty-chat-state h1 {
+    font-size: 1.5rem;
+  }
+
+  .chat-input-container {
+    padding: 8px 6px 14px;
+  }
+
+  .chat-input-bar {
+    padding: 4px 8px;
+    gap: 4px;
+  }
+
+  .chat-input-btn {
+    min-width: 34px;
+    min-height: 34px;
+    padding: 6px;
+  }
+
+  .chat-input-btn.send-msg {
+    min-width: 36px;
+    min-height: 36px;
+  }
+
+  .chat-bubble {
+    max-width: 95%;
+    padding: 10px 12px;
+    font-size: 0.85rem;
+  }
+
+  .messages-container {
+    padding: 10px 6px;
+  }
+
+  .sidebar {
+    width: 90%;
+  }
+
+  .feature-box {
+    padding: 12px;
+  }
+
+  .auth-card {
+    padding: 20px;
+  }
+
+  .setup-card {
+    padding: 20px;
+  }
+
+  .keys-grid {
+    grid-template-columns: 1fr;
   }
 }
