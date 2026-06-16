@@ -883,9 +883,27 @@ app.post('/api/chat', async (req, res) => {
   try {
     let finalPrompt = message;
 
-    // A. OPTIMIZE MODE — merged into single call (no separate API call)
+    // A. OPTIMIZE MODE — show restructured prompt + detailed answer
     if (mode === 'optimize') {
-      finalPrompt = `[OPTIMIZE INSTRUCTION: First, rewrite the following user query into a well-structured, grammatically complete sentence. Show the optimized query at the top of your response prefixed with "🔧 Optimized Query:". Then answer the optimized query in full detail.]\n\nUser's original query: ${message}`;
+      finalPrompt = `[OPTIMIZE MODE INSTRUCTIONS — FOLLOW EXACTLY]
+
+You received a raw, possibly messy user query. You must do TWO things in order:
+
+**STEP 1 — RESTRUCTURED PROMPT:**
+Rewrite the user's raw query into a clear, well-structured, grammatically correct, detailed prompt. This should be the kind of prompt that would get the BEST possible answer from an AI. Show it at the very top of your response in this exact format:
+
+---
+🔧 **Optimized Prompt:**
+> [Write the beautifully restructured, detailed version of the user's query here]
+---
+
+**STEP 2 — DETAILED ANSWER:**
+Now answer the optimized prompt above in FULL DETAIL. Give a thorough, comprehensive, well-organized response as if you received a perfect prompt. Use headings, bullet points, and clear explanations.
+
+IMPORTANT: Do NOT skip Step 1. The user MUST see the restructured prompt first, then the answer.
+IMPORTANT: Do NOT include any Mermaid diagrams, flowcharts, or visual diagrams unless the user's original query specifically asks for one.
+
+User's original raw query: ${message}`;
     }
 
     // B. WEB SEARCH — only for factual/current queries, 3s timeout to keep responses fast
@@ -949,7 +967,7 @@ app.post('/api/chat', async (req, res) => {
     systemInstruction += "SAFETY: Politely handle or refuse adult queries, illegal activities, or copyright infringement requests. Keep your content safe and appropriate for users of all ages. ";
     systemInstruction += "LANGUAGE AND CITATION: If the user asks in English, answer in English. If in Hinglish, answer in Hinglish. ";
     systemInstruction += "MANDATORY LINKS RULE: You MUST ALWAYS end EVERY response with a section titled '**📎 Official Sources & References:**' containing 2-5 real, authentic, official clickable links relevant to the topic. Format as markdown: [Website Name](https://url). Examples: Wikipedia, official docs, government sites, reputable news. NEVER skip this section. NEVER use fake URLs. ";
-    systemInstruction += "VISUAL DIAGRAMS: When the user asks for a mind map, diagram, flowchart, block diagram, tree, or graph, you MUST generate it using Mermaid.js syntax inside a ```mermaid code block. Follow these STRICT Mermaid rules: ";
+    systemInstruction += "VISUAL DIAGRAMS RULE: You must ONLY generate Mermaid.js diagrams when the user EXPLICITLY asks for a mind map, diagram, flowchart, block diagram, tree, chart, or graph. Do NOT include diagrams in regular answers. When diagrams ARE requested, use Mermaid.js syntax inside a ```mermaid code block. Follow these STRICT Mermaid rules: ";
     systemInstruction += "1. Use ONLY these diagram types: graph TD, graph LR, mindmap, flowchart TD, flowchart LR, sequenceDiagram, classDiagram, pie. ";
     systemInstruction += "2. Keep node labels SHORT (under 30 chars). Use quotes around labels with special characters: A[\"Label (info)\"]. ";
     systemInstruction += "3. Do NOT use HTML tags in labels. Do NOT use emojis in node IDs. ";
