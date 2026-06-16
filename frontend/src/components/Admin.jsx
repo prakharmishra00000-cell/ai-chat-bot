@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   ArrowLeft, Users, Eye, ShieldCheck, TrendingUp, Lock, 
   RefreshCw, Trash2, Plus, ShieldAlert, Cpu, Database, 
-  HelpCircle, Save, Calendar, AlertTriangle
+  HelpCircle, Save, Calendar, AlertTriangle, Upload, CreditCard
 } from 'lucide-react';
 
 function Admin({ onBack, email }) {
@@ -29,6 +29,14 @@ function Admin({ onBack, email }) {
   // Threat Audit state
   const [threatScanLoading, setThreatScanLoading] = useState(false);
   const [threatReport, setThreatReport] = useState('');
+
+  // Payment Settings state
+  const [payUpiId, setPayUpiId] = useState('6372843175@kotakbank');
+  const [payName, setPayName] = useState('Prakhar Mishra');
+  const [payQrPreview, setPayQrPreview] = useState(null);
+  const [hasCustomQR, setHasCustomQR] = useState(false);
+  const [payLoading, setPayLoading] = useState(false);
+  const [payMsg, setPayMsg] = useState('');
 
   const fetchPlans = async () => {
     try {
@@ -119,6 +127,101 @@ function Admin({ onBack, email }) {
     if (updated[planId] && updated[planId].features) {
       updated[planId].features = updated[planId].features.filter((_, idx) => idx !== featureIdx);
       setEditingPlans(updated);
+    }
+  };
+
+  // ===== PAYMENT SETTINGS HANDLERS =====
+  const fetchPaymentSettings = async () => {
+    try {
+      const res = await fetch('/api/admin/payment-settings');
+      if (res.ok) {
+        const data = await res.json();
+        setPayUpiId(data.receiverUpiId || '6372843175@kotakbank');
+        setPayName(data.receiverName || 'Prakhar Mishra');
+        setHasCustomQR(data.hasCustomQR || false);
+        setPayQrPreview(null);
+      }
+    } catch (e) {
+      console.error('Failed to fetch payment settings:', e);
+    }
+  };
+
+  const handleSavePaymentSettings = async () => {
+    setPayLoading(true);
+    setPayMsg('');
+    try {
+      const res = await fetch('/api/admin/payment-settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ receiverUpiId: payUpiId, receiverName: payName })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setPayMsg(data.message || 'Settings saved!');
+        setTimeout(() => setPayMsg(''), 3000);
+      } else {
+        setPayMsg('Error: ' + (data.error || 'Failed to save.'));
+      }
+    } catch (e) {
+      setPayMsg('Network error saving settings.');
+    } finally {
+      setPayLoading(false);
+    }
+  };
+
+  const handleQrFileSelect = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      setPayMsg('Error: File too large. Max 5MB.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const base64 = reader.result;
+      setPayQrPreview(base64);
+      setPayLoading(true);
+      setPayMsg('');
+      try {
+        const res = await fetch('/api/admin/upload-qr', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ imageData: base64 })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          setHasCustomQR(true);
+          setPayMsg(data.message || 'QR uploaded!');
+          setTimeout(() => setPayMsg(''), 3000);
+        } else {
+          setPayMsg('Error: ' + (data.error || 'Upload failed.'));
+        }
+      } catch (err) {
+        setPayMsg('Network error uploading QR.');
+      } finally {
+        setPayLoading(false);
+      }
+    };
+    reader.readAsDataURL(file);
+    e.target.value = ''; // reset file input
+  };
+
+  const handleDeleteQr = async () => {
+    setPayLoading(true);
+    try {
+      const res = await fetch('/api/admin/upload-qr', { method: 'DELETE' });
+      const data = await res.json();
+      if (res.ok) {
+        setHasCustomQR(false);
+        setPayQrPreview(null);
+        setPayMsg(data.message || 'QR removed.');
+        setTimeout(() => setPayMsg(''), 3000);
+      }
+    } catch (e) {
+      setPayMsg('Error removing QR.');
+    } finally {
+      setPayLoading(false);
     }
   };
 
@@ -256,6 +359,7 @@ function Admin({ onBack, email }) {
         <button className={`auth-tab ${activeTab === 'queries' ? 'active' : ''}`} onClick={() => setActiveTab('queries')}>Support Queries ({stats?.supportQueries?.length || 0})</button>
         <button className={`auth-tab ${activeTab === 'threats' ? 'active' : ''}`} onClick={() => setActiveTab('threats')}>Security Threat Assessment</button>
         <button className={`auth-tab ${activeTab === 'selfcode' ? 'active' : ''}`} onClick={() => setActiveTab('selfcode')}>AI Self-Coding Developer</button>
+        <button className={`auth-tab ${activeTab === 'payment' ? 'active' : ''}`} onClick={() => { setActiveTab('payment'); fetchPaymentSettings(); }}>Payment Settings</button>
       </div>
 
       {error && (
@@ -790,6 +894,113 @@ function Admin({ onBack, email }) {
               </div>
             </div>
           )}
+
+          {activeTab === 'payment' && (
+            <div className="glass-panel" style={{ padding: '30px', borderRadius: 'var(--radius-lg)', maxWidth: '700px' }}>
+              <h3 style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '1.25rem', color: 'var(--accent-cyan)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <CreditCard size={22} /> Payment & UPI Settings
+              </h3>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '25px' }}>
+                Configure the UPI ID where user payments will be credited. Upload a custom QR code or let the system auto-generate one.
+              </p>
+
+              {payMsg && (
+                <div style={{ color: '#00f2fe', background: 'rgba(0,242,254,0.1)', padding: '10px 14px', borderRadius: '8px', fontSize: '0.85rem', marginBottom: '20px' }}>
+                  {payMsg}
+                </div>
+              )}
+
+              {/* UPI ID */}
+              <div className="form-group" style={{ marginBottom: '20px' }}>
+                <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>Receiver UPI ID</label>
+                <input
+                  type="text"
+                  value={payUpiId}
+                  onChange={(e) => setPayUpiId(e.target.value)}
+                  placeholder="e.g. 6372843175@kotakbank"
+                  style={{ background: 'rgba(0,0,0,0.2)', color: 'var(--text-main)', border: '1px solid var(--border-glass)', fontSize: '1rem', fontFamily: 'monospace' }}
+                />
+                <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px' }}>All user payments will go to this UPI ID</p>
+              </div>
+
+              {/* Receiver Name */}
+              <div className="form-group" style={{ marginBottom: '25px' }}>
+                <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>Receiver Name</label>
+                <input
+                  type="text"
+                  value={payName}
+                  onChange={(e) => setPayName(e.target.value)}
+                  placeholder="e.g. Prakhar Mishra"
+                  style={{ background: 'rgba(0,0,0,0.2)', color: 'var(--text-main)', border: '1px solid var(--border-glass)' }}
+                />
+              </div>
+
+              {/* Save UPI Settings */}
+              <button
+                className="btn"
+                onClick={handleSavePaymentSettings}
+                disabled={payLoading}
+                style={{ width: '100%', padding: '14px', fontSize: '1rem', marginBottom: '30px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+              >
+                <Save size={18} /> {payLoading ? 'Saving...' : 'Save UPI Settings'}
+              </button>
+
+              {/* Divider */}
+              <hr style={{ border: 'none', borderTop: '1px solid var(--border-glass)', margin: '25px 0' }} />
+
+              {/* QR Code Upload */}
+              <h4 style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '1.1rem', color: 'var(--accent-cyan)', marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Upload size={18} /> Custom Payment QR Code
+              </h4>
+              <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '15px' }}>
+                Upload your UPI QR code image. This QR will be shown to users on the payment screen. If no QR is uploaded, an auto-generated one will be used.
+              </p>
+
+              {/* Current QR preview */}
+              {(payQrPreview || hasCustomQR) && (
+                <div style={{ textAlign: 'center', marginBottom: '20px', padding: '20px', background: 'rgba(0,0,0,0.2)', borderRadius: '12px', border: '1px dashed var(--border-glass-glow)' }}>
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '10px' }}>Current QR Code</p>
+                  <div style={{ display: 'inline-block', padding: '10px', background: '#fff', borderRadius: '10px' }}>
+                    <img
+                      src={payQrPreview || `/api/payment-qr?t=${Date.now()}`}
+                      alt="Payment QR"
+                      style={{ width: '200px', height: '200px', display: 'block', objectFit: 'contain' }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Upload button */}
+              <div style={{ display: 'flex', gap: '12px', marginBottom: '15px' }}>
+                <label
+                  className="btn btn-secondary"
+                  style={{ flex: 1, padding: '14px', fontSize: '0.9rem', cursor: 'pointer', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                >
+                  <Upload size={16} /> Browse & Upload QR Image
+                  <input
+                    type="file"
+                    accept="image/*"
+                    style={{ display: 'none' }}
+                    onChange={handleQrFileSelect}
+                  />
+                </label>
+
+                {hasCustomQR && (
+                  <button
+                    className="btn btn-secondary"
+                    onClick={handleDeleteQr}
+                    style={{ padding: '14px 20px', fontSize: '0.9rem', color: '#ff3366', display: 'flex', alignItems: 'center', gap: '6px' }}
+                  >
+                    <Trash2 size={16} /> Remove
+                  </button>
+                )}
+              </div>
+              <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                Supported formats: PNG, JPG, JPEG. Max size: 5MB
+              </p>
+            </div>
+          )}
+
         </>
       )}
     </div>

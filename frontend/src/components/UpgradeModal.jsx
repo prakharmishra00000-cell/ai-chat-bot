@@ -76,9 +76,21 @@ function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess }) {
   const [success, setSuccess] = useState('');
   const [copied, setCopied] = useState(false);
   const [utrVisible, setUtrVisible] = useState(false);
+  const [hasCustomQR, setHasCustomQR] = useState(false);
 
   // Detect mobile
   const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+  // Check if admin uploaded a custom QR
+  useEffect(() => {
+    const checkQR = async () => {
+      try {
+        const res = await fetch('/api/payment-qr', { method: 'HEAD' });
+        setHasCustomQR(res.ok);
+      } catch { setHasCustomQR(false); }
+    };
+    checkQR();
+  }, []);
 
   // Fetch dynamic plans from DB
   useEffect(() => {
@@ -411,21 +423,33 @@ function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess }) {
               </p>
             </div>
 
-            {/* QR Code for desktop scanning */}
-            {!isMobile && upiIntentUrl && (
+            {/* QR Code — uses admin-uploaded QR if available, else auto-generated */}
+            {!isMobile && (
               <div style={{ textAlign: 'center', marginBottom: '20px' }}>
                 <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '10px' }}>
                   📱 Scan this QR code with any UPI app on your phone
                 </p>
                 <div style={{ display: 'inline-block', padding: '12px', background: '#fff', borderRadius: '12px' }}>
                   <img 
-                    src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(upiIntentUrl)}`}
+                    src={hasCustomQR 
+                      ? `/api/payment-qr?t=${Date.now()}`
+                      : `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(upiIntentUrl)}`
+                    }
                     alt="UPI Payment QR Code"
-                    style={{ width: '220px', height: '220px', display: 'block' }}
+                    style={{ width: '220px', height: '220px', display: 'block', objectFit: 'contain' }}
+                    onError={(e) => {
+                      // Fallback to auto-generated if custom QR fails
+                      if (upiIntentUrl) {
+                        e.target.src = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(upiIntentUrl)}`;
+                      }
+                    }}
                   />
                 </div>
                 <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '8px' }}>
-                  Amount ₹{paymentAmount} will be pre-filled automatically
+                  Amount ₹{paymentAmount} {hasCustomQR ? '— enter amount manually if not pre-filled' : 'will be pre-filled automatically'}
+                </p>
+                <p style={{ fontSize: '0.7rem', color: 'var(--accent-cyan)', marginTop: '4px' }}>
+                  Payment will be credited to: {receiverUpiId}
                 </p>
               </div>
             )}

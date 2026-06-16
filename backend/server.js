@@ -1421,6 +1421,83 @@ app.post('/api/plans/update', (req, res) => {
   res.json({ success: true, message: 'Plans updated successfully.' });
 });
 
+// ==================== ADMIN PAYMENT SETTINGS (UPI ID + QR Upload) ====================
+const QR_IMAGE_PATH = path.join(__dirname, 'payment-qr.png');
+
+// GET payment settings for admin
+app.get('/api/admin/payment-settings', (req, res) => {
+  const config = readConfig();
+  if (!config) return res.json({ receiverUpiId: '6372843175@kotakbank', receiverName: 'Prakhar Mishra', hasCustomQR: false });
+  
+  res.json({
+    receiverUpiId: config.RECEIVER_UPI_ID || '6372843175@kotakbank',
+    receiverName: config.RECEIVER_NAME || 'Prakhar Mishra',
+    hasCustomQR: fs.existsSync(QR_IMAGE_PATH)
+  });
+});
+
+// POST update payment settings (UPI ID + Name)
+app.post('/api/admin/payment-settings', (req, res) => {
+  const { receiverUpiId, receiverName } = req.body;
+  if (!receiverUpiId) return res.status(400).json({ error: 'UPI ID is required.' });
+  
+  const config = readConfig();
+  if (!config) return res.status(500).json({ error: 'Config not initialized.' });
+  
+  config.RECEIVER_UPI_ID = receiverUpiId.trim();
+  config.RECEIVER_NAME = (receiverName || '').trim() || 'Prakhar Mishra';
+  writeConfig(config);
+  
+  console.log(`[ADMIN] Payment settings updated: UPI=${receiverUpiId}, Name=${receiverName}`);
+  res.json({ success: true, message: 'Payment settings updated successfully.' });
+});
+
+// POST upload custom QR code image (base64)
+app.post('/api/admin/upload-qr', (req, res) => {
+  try {
+    const { imageData } = req.body;
+    if (!imageData) return res.status(400).json({ error: 'No image data provided.' });
+    
+    // imageData should be base64 string (data:image/png;base64,...)
+    const base64Data = imageData.replace(/^data:image\/\w+;base64,/, '');
+    const buffer = Buffer.from(base64Data, 'base64');
+    
+    if (buffer.length > 5 * 1024 * 1024) {
+      return res.status(400).json({ error: 'QR image too large. Max 5MB.' });
+    }
+    
+    fs.writeFileSync(QR_IMAGE_PATH, buffer);
+    console.log(`[ADMIN] Custom QR code uploaded (${Math.round(buffer.length / 1024)} KB)`);
+    res.json({ success: true, message: 'QR code uploaded successfully.' });
+  } catch (err) {
+    console.error('[ADMIN] QR upload error:', err.message);
+    res.status(500).json({ error: 'Failed to save QR image.' });
+  }
+});
+
+// DELETE custom QR code (revert to auto-generated)
+app.delete('/api/admin/upload-qr', (req, res) => {
+  try {
+    if (fs.existsSync(QR_IMAGE_PATH)) {
+      fs.unlinkSync(QR_IMAGE_PATH);
+      console.log('[ADMIN] Custom QR code removed');
+    }
+    res.json({ success: true, message: 'Custom QR removed. Auto-generated QR will be used.' });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to remove QR.' });
+  }
+});
+
+// GET serve the QR code image to frontend
+app.get('/api/payment-qr', (req, res) => {
+  if (fs.existsSync(QR_IMAGE_PATH)) {
+    res.setHeader('Content-Type', 'image/png');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.sendFile(QR_IMAGE_PATH);
+  } else {
+    res.status(404).json({ error: 'No custom QR uploaded.' });
+  }
+});
 
 // ACTION ON PENDING APPROVAL REQUEST (APPROVE/REJECT) - ADMIN ONLY
 app.post('/api/admin/approvals/action', (req, res) => {
