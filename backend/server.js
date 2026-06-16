@@ -1034,67 +1034,14 @@ app.post('/api/chat', async (req, res) => {
   }
 });
 
-// ==================== UROPAY P2P UPI PAYMENT ENDPOINTS ====================
-// Workflow: User selects plan → UPI intent opens user's UPI app → User pays to our UPI ID
-// → UroPay companion app detects SMS → User enters 12-digit UTR → Backend verifies via UroPay API → Plan unlocks
+// ==================== SIMPLE UPI PAYMENT - ADMIN APPROVAL SYSTEM ====================
+// User pays via QR/UPI ID → enters UTR → submits for admin review → admin approves/rejects
 
-app.post('/api/payments/initiate', (req, res) => {
+app.post('/api/payment/submit-utr', (req, res) => {
   try {
-    const { email, planId } = req.body;
-    if (!email || !planId) {
-      return res.status(400).json({ error: 'Email and plan are required.' });
-    }
-
-    const db = readDB();
-    const config = readConfig();
-    const planInfo = db.plans && db.plans[planId];
-    if (!planInfo || !planInfo.price || planInfo.price <= 0) {
-      return res.status(400).json({ error: 'Invalid plan selected.' });
-    }
-
-    const amount = planInfo.price;
-    const receiverUpiId = config.RECEIVER_UPI_ID || '6372843175@kotakbank';
-    const receiverName = config.RECEIVER_NAME || 'Prakhar Mishra';
-    const transactionId = 'TXN_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8).toUpperCase();
-
-    // Store pending transaction
-    if (!db.transactions) db.transactions = [];
-    db.transactions.push({
-      id: transactionId,
-      email,
-      planId,
-      amount,
-      utr: null,
-      status: 'PENDING',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    });
-    writeDB(db);
-
-    // Build NPCI-compliant UPI Intent URI
-    const upiIntentUrl = `upi://pay?pa=${encodeURIComponent(receiverUpiId)}&pn=${encodeURIComponent(receiverName)}&am=${amount}&cu=INR&tn=${encodeURIComponent(transactionId)}`;
-
-    console.log(`[PAYMENT] Initiated: ${transactionId} | Plan: ${planId} | Amount: ₹${amount} | Email: ${email}`);
-
-    res.json({
-      success: true,
-      transactionId,
-      upiIntentUrl,
-      amount,
-      receiverUpiId,
-      receiverName
-    });
-  } catch (error) {
-    console.error('[PAYMENT] Initiation error:', error.message);
-    res.status(500).json({ error: 'Failed to initiate payment.' });
-  }
-});
-
-app.post('/api/payments/verify-utr', async (req, res) => {
-  try {
-    const { transactionId, utr } = req.body;
-    if (!transactionId || !utr) {
-      return res.status(400).json({ error: 'Transaction ID and UTR are required.' });
+    const { email, utr, planRequested } = req.body;
+    if (!email || !utr) {
+      return res.status(400).json({ error: 'Email and UTR number are required.' });
     }
 
     // Validate UTR format: exactly 12 numeric digits
@@ -1103,117 +1050,36 @@ app.post('/api/payments/verify-utr', async (req, res) => {
     }
 
     const db = readDB();
-    if (!db.transactions) db.transactions = [];
+    db.pendingApprovals = db.pendingApprovals || [];
 
-    // Find the transaction
-    const txnIndex = db.transactions.findIndex(t => t.id === transactionId);
-    if (txnIndex === -1) {
-      return res.status(404).json({ error: 'Transaction not found.' });
+    // Check if this UTR was already submitted
+    const exists = db.pendingApprovals.some(r => r.transactionId === utr);
+    if (exists) {
+      return res.status(400).json({ error: 'This UTR has already been submitted for verification.' });
     }
 
-    const txn = db.transactions[txnIndex];
+    const approvalRequest = {
+      id: 'req_' + Date.now(),
+      email,
+      plan: planRequested || 'standard',
+      transactionId: utr,
+      amount: 0,
+      status: 'pending',
+      date: new Date().toISOString()
+    };
 
-    // Prevent double-fulfillment
-    if (txn.status === 'SUCCESS') {
-      return res.status(400).json({ error: 'This transaction has already been verified and plan activated.' });
-    }
+    db.pendingApprovals.push(approvalRequest);
+    writeDB(db);
 
-    // Replay-attack prevention: check if UTR was used before
-    const utrUsed = db.transactions.some(t => t.utr === utr && t.status === 'SUCCESS');
-    if (utrUsed) {
-      return res.status(400).json({ error: 'This UTR has already been used for another transaction. Each UTR can only be used once.' });
-    }
+    console.log(`[PAYMENT] UTR submitted for approval: ${utr} by ${email}`);
 
-    // Verify via UroPay API (if configured)
-    const config = readConfig();
-    let verified = false;
-
-    if (config.P2P_API_KEY && config.P2P_API_URL) {
-      try {
-        const verifyUrl = `${config.P2P_API_URL}/verify`;
-        const verifyRes = await fetch(verifyUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${config.P2P_API_KEY}`
-          },
-          body: JSON.stringify({
-            utr: utr,
-            amount: txn.amount,
-            receiver_upi_id: config.RECEIVER_UPI_ID || '6372843175@kotakbank'
-          })
-        });
-
-        if (verifyRes.ok) {
-          const verifyData = await verifyRes.json();
-          if (verifyData.success || verifyData.status === 'confirmed' || verifyData.verified) {
-            verified = true;
-            console.log(`[PAYMENT] UroPay verified UTR: ${utr} for ₹${txn.amount}`);
-          } else {
-            console.warn(`[PAYMENT] UroPay could not confirm UTR: ${utr}`, verifyData);
-            return res.status(400).json({ error: 'Payment could not be verified yet. The UroPay system has not detected this payment. Please wait 1-2 minutes and try again.' });
-          }
-        } else {
-          console.warn(`[PAYMENT] UroPay API error:`, verifyRes.status);
-          // If API returns error but key is set, don't auto-approve
-          return res.status(400).json({ error: 'Payment verification service temporarily unavailable. Please try again in a few minutes.' });
-        }
-      } catch (apiErr) {
-        console.error('[PAYMENT] UroPay API call failed:', apiErr.message);
-        return res.status(500).json({ error: 'Payment verification service error. Please try again.' });
-      }
-    } else {
-      // No UroPay API key configured — auto-approve based on UTR submission (trust-based)
-      verified = true;
-      console.log(`[PAYMENT] Auto-approved (no UroPay API key): UTR ${utr} for ₹${txn.amount}`);
-    }
-
-    if (verified) {
-      // Mark transaction as SUCCESS
-      db.transactions[txnIndex].utr = utr;
-      db.transactions[txnIndex].status = 'SUCCESS';
-      db.transactions[txnIndex].updatedAt = new Date().toISOString();
-
-      // ACTIVATE THE PLAN for the user
-      const user = db.users[txn.email];
-      if (user) {
-        const planInfo = db.plans && db.plans[txn.planId];
-        const planDays = planInfo ? (planInfo.days || 30) : 30;
-        const expiryDate = new Date();
-        expiryDate.setDate(expiryDate.getDate() + planDays);
-
-        user.plan = txn.planId;
-        user.planExpiry = expiryDate.toISOString();
-        db.users[txn.email] = user;
-
-        console.log(`[PAYMENT] ✅ Plan activated: ${txn.email} → ${txn.planId} (expires: ${expiryDate.toISOString()})`);
-      }
-
-      // Save to order history
-      if (!db.orders) db.orders = [];
-      db.orders.push({
-        email: txn.email,
-        plan: txn.planId,
-        amount: txn.amount,
-        utr: utr,
-        paymentMethod: 'UPI_UROPAY',
-        transactionId: transactionId,
-        date: new Date().toISOString()
-      });
-
-      writeDB(db);
-
-      return res.json({
-        success: true,
-        message: `✅ Payment verified! Your ${txn.planId} plan has been activated successfully.`,
-        plan: txn.planId
-      });
-    }
-
-    return res.status(400).json({ error: 'Payment verification failed.' });
+    res.json({
+      success: true,
+      message: 'Your UTR has been submitted successfully! Your plan will be activated once the admin verifies your payment.'
+    });
   } catch (error) {
-    console.error('[PAYMENT] Verification error:', error.message);
-    res.status(500).json({ error: 'Payment verification failed. Please try again.' });
+    console.error('[PAYMENT] UTR submission error:', error.message);
+    res.status(500).json({ error: 'Failed to submit UTR.' });
   }
 });
 
@@ -1499,9 +1365,9 @@ app.get('/api/payment-qr', (req, res) => {
   }
 });
 
-// ACTION ON PENDING APPROVAL REQUEST (APPROVE/REJECT) - ADMIN ONLY
+// ACTION ON PENDING APPROVAL REQUEST - ADMIN SELECTS PLAN TO UNLOCK
 app.post('/api/admin/approvals/action', (req, res) => {
-  const { email, requestId, action } = req.body;
+  const { email, requestId, action, selectedPlan } = req.body;
   if (email !== 'prakharmishra00000@gmail.com') {
     return res.status(401).json({ error: 'UNAUTHORIZED' });
   }
@@ -1524,48 +1390,59 @@ app.post('/api/admin/approvals/action', (req, res) => {
     return res.status(400).json({ error: 'This request has already been processed.' });
   }
 
-  if (action === 'approve') {
-    approvalReq.status = 'approved';
-    
-    const planInfo = db.plans && db.plans[approvalReq.plan];
-    let days = 30;
-    let price = 99;
-    if (planInfo) {
-      days = planInfo.days || 30;
-      price = planInfo.price;
-    } else {
-      if (approvalReq.plan === 'standard') { days = 30; price = 99; }
-      else if (approvalReq.plan === 'better') { days = 90; price = 199; }
-      else if (approvalReq.plan === 'premium') { days = 365; price = 999; }
-    }
-
-    const expiryDate = new Date();
-    expiryDate.setDate(expiryDate.getDate() + days);
-
-    const user = getOrCreateUser(approvalReq.email);
-    user.plan = approvalReq.plan;
-    user.planExpiry = expiryDate.toISOString();
-    db.users[approvalReq.email] = user;
-
-    const txn = {
-      id: `txn_${Date.now()}`,
-      email: approvalReq.email,
-      amount: price,
-      plan: approvalReq.plan,
-      paymentRef: `DirectUPI_${approvalReq.transactionId}`,
-      date: new Date().toISOString()
-    };
-    db.transactions.push(txn);
-    writeDB(db);
-
-    return res.json({ success: true, message: 'UPI transaction approved and user plan upgraded.' });
-  } else if (action === 'reject') {
+  if (action === 'reject') {
     approvalReq.status = 'rejected';
     writeDB(db);
-    return res.json({ success: true, message: 'UPI transaction verification rejected.' });
-  } else {
-    return res.status(400).json({ error: 'Invalid action.' });
+    return res.json({ success: true, message: 'Payment verification rejected. User will be notified.' });
   }
+
+  // Admin is approving with a specific plan
+  // action should be 'approve' and selectedPlan should be 'standard', 'better', or 'premium'
+  const planToActivate = selectedPlan || action; // action itself could be the plan name
+  
+  // Map plan names to durations
+  const planConfigs = {
+    standard: { days: 30, price: 99, name: 'Standard Plan' },
+    better: { days: 90, price: 199, name: 'Better Plan' },
+    premium: { days: 365, price: 999, name: 'Premium Plan' }
+  };
+
+  const planConfig = planConfigs[planToActivate];
+  if (!planConfig) {
+    return res.status(400).json({ error: 'Invalid plan selection.' });
+  }
+
+  // Check if DB has custom plan config
+  const dbPlanInfo = db.plans && db.plans[planToActivate];
+  const days = dbPlanInfo ? (dbPlanInfo.days || planConfig.days) : planConfig.days;
+  const price = dbPlanInfo ? (dbPlanInfo.price || planConfig.price) : planConfig.price;
+
+  approvalReq.status = 'approved';
+  approvalReq.approvedPlan = planToActivate;
+  approvalReq.approvedAmount = price;
+
+  const expiryDate = new Date();
+  expiryDate.setDate(expiryDate.getDate() + days);
+
+  const user = getOrCreateUser(approvalReq.email);
+  user.plan = planToActivate;
+  user.planExpiry = expiryDate.toISOString();
+  db.users[approvalReq.email] = user;
+
+  // Log transaction
+  if (!db.transactions) db.transactions = [];
+  db.transactions.push({
+    id: `txn_${Date.now()}`,
+    email: approvalReq.email,
+    amount: price,
+    plan: planToActivate,
+    paymentRef: `UPI_${approvalReq.transactionId}`,
+    date: new Date().toISOString()
+  });
+  writeDB(db);
+
+  console.log(`[ADMIN] Plan approved: ${approvalReq.email} → ${planConfig.name} (₹${price}, ${days} days)`);
+  return res.json({ success: true, message: `${planConfig.name} (₹${price}) activated for ${approvalReq.email} for ${days} days.` });
 });
 
 // SUPPORT QUERY ENDPOINT

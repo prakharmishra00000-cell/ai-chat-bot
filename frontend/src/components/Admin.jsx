@@ -278,18 +278,18 @@ function Admin({ onBack, email }) {
   };
 
   // Handle Approve/Reject for UPI payment requests
-  const handleApprovalAction = async (requestId, action) => {
+  const handleApprovalAction = async (requestId, action, selectedPlan) => {
     setError('');
     setLoading(true);
     try {
       const res = await fetch('/api/admin/approvals/action', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, requestId, action })
+        body: JSON.stringify({ email, requestId, action, selectedPlan })
       });
       const data = await res.json();
       if (res.ok && data.success) {
-        alert(data.message || `Request successfully ${action}ed.`);
+        alert(data.message || `Request processed.`);
         fetchAdminStats(email);
       } else {
         setError(data.error || 'Failed to perform approval action.');
@@ -728,18 +728,32 @@ function Admin({ onBack, email }) {
                           </td>
                           <td>
                             {req.status === 'pending' ? (
-                              <div style={{ display: 'flex', gap: '10px' }}>
+                              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', minWidth: '200px' }}>
                                 <button 
                                   className="btn" 
-                                  onClick={() => handleApprovalAction(req.id, 'approve')}
-                                  style={{ padding: '6px 12px', fontSize: '0.75rem', background: 'var(--accent-neon-green)', color: '#000' }}
+                                  onClick={() => handleApprovalAction(req.id, 'approve', 'standard')}
+                                  style={{ padding: '5px 8px', fontSize: '0.7rem', background: 'var(--accent-neon-green)', color: '#000', fontWeight: 700 }}
                                 >
-                                  Approve
+                                  ₹99 Standard
                                 </button>
                                 <button 
-                                  className="btn btn-danger" 
+                                  className="btn" 
+                                  onClick={() => handleApprovalAction(req.id, 'approve', 'better')}
+                                  style={{ padding: '5px 8px', fontSize: '0.7rem', background: 'linear-gradient(135deg, #ffe259, #ffa751)', color: '#000', fontWeight: 700 }}
+                                >
+                                  ₹199 Better
+                                </button>
+                                <button 
+                                  className="btn" 
+                                  onClick={() => handleApprovalAction(req.id, 'approve', 'premium')}
+                                  style={{ padding: '5px 8px', fontSize: '0.7rem', background: 'linear-gradient(135deg, #ff3366, #ff6b9d)', color: '#fff', fontWeight: 700 }}
+                                >
+                                  ₹999 Premium
+                                </button>
+                                <button 
+                                  className="btn" 
                                   onClick={() => handleApprovalAction(req.id, 'reject')}
-                                  style={{ padding: '6px 12px', fontSize: '0.75rem' }}
+                                  style={{ padding: '5px 8px', fontSize: '0.7rem', background: 'rgba(255,255,255,0.1)', color: '#ff3366', border: '1px solid rgba(255,51,102,0.3)', fontWeight: 700 }}
                                 >
                                   Reject
                                 </button>
