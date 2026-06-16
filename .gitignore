@@ -1,0 +1,9 @@
+node_modules/
+frontend/node_modules/
+.env
+*.log
+dist/
+!frontend/dist/
+backend/config.json
+backend/db.json
+backend/backup/
