@@ -430,23 +430,29 @@ function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess }) {
               </div>
             </div>
 
-            {/* Pay via UPI App button (mobile) or manual instructions (desktop) */}
-            {isMobile && upiIntentUrl ? (
-              <button
-                type="button"
+            {/* Pay via UPI App button — opens native app picker on mobile */}
+            {upiIntentUrl && (
+              <a
+                href={upiIntentUrl}
                 className="btn"
-                onClick={handleOpenUpiApp}
-                style={{ width: '100%', padding: '16px', fontSize: '1.1rem', marginBottom: '20px' }}
+                style={{ 
+                  width: '100%', padding: '16px', fontSize: '1.1rem', marginBottom: '15px',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
+                  textDecoration: 'none', color: 'inherit', cursor: 'pointer'
+                }}
               >
-                Pay ₹{paymentAmount} via any UPI App
-              </button>
-            ) : (
-              <div style={{ textAlign: 'center', padding: '15px', background: 'rgba(0,0,0,0.2)', borderRadius: '8px', marginBottom: '20px' }}>
-                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>
-                  Open your UPI app (Google Pay, PhonePe, Paytm, etc.), send <strong style={{ color: 'var(--accent-cyan)' }}>₹{paymentAmount}</strong> to the UPI ID above.
-                </p>
-              </div>
+                💳 Pay ₹{paymentAmount} via any UPI App
+              </a>
             )}
+
+            <div style={{ textAlign: 'center', padding: '12px', background: 'rgba(0,0,0,0.2)', borderRadius: '8px', marginBottom: '20px' }}>
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', lineHeight: 1.6, margin: 0 }}>
+                {isMobile 
+                  ? 'Tap the button above → select your UPI app (GPay, PhonePe, Paytm) → amount ₹' + paymentAmount + ' will be pre-filled → enter your UPI PIN to complete payment'
+                  : 'Open your UPI app on your phone, send ₹' + paymentAmount + ' to the UPI ID shown above, then enter UTR below'
+                }
+              </p>
+            </div>
 
             <div style={{ textAlign: 'center', padding: '15px', background: 'rgba(255,227,77,0.08)', borderRadius: '8px', border: '1px solid rgba(255,227,77,0.2)', marginBottom: '20px' }}>
               <p style={{ fontSize: '0.85rem', color: '#ffe259', margin: 0 }}>
