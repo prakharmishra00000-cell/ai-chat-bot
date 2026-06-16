@@ -108,10 +108,15 @@ function Dashboard({
   useEffect(() => {
     const savedChats = localStorage.getItem(`chats_${currentUser.email}`);
     if (savedChats) {
-      const parsed = JSON.parse(savedChats);
-      setConversations(parsed);
-      if (parsed.length > 0) {
-        setActiveChatId(parsed[0].id);
+      try {
+        const parsed = JSON.parse(savedChats);
+        setConversations(parsed);
+        if (parsed.length > 0) {
+          setActiveChatId(parsed[0].id);
+        }
+      } catch (e) {
+        console.error('Corrupted chat history, resetting:', e);
+        localStorage.removeItem(`chats_${currentUser.email}`);
       }
     } else {
       // Start a welcome conversation automatically

@@ -85,13 +85,18 @@ function App() {
   useEffect(() => {
     const savedUser = localStorage.getItem('logged_in_user');
     if (savedUser) {
-      const userObj = JSON.parse(savedUser);
-      setCurrentUser(userObj);
-      fetchUserStatus(userObj.email);
-      if (userObj.email === 'prakharmishra00000@gmail.com') {
-        setView('owner_portal');
-      } else {
-        setView('chat');
+      try {
+        const userObj = JSON.parse(savedUser);
+        setCurrentUser(userObj);
+        fetchUserStatus(userObj.email);
+        if (userObj.email === 'prakharmishra00000@gmail.com') {
+          setView('owner_portal');
+        } else {
+          setView('chat');
+        }
+      } catch (e) {
+        console.error('Corrupted localStorage, clearing:', e);
+        localStorage.removeItem('logged_in_user');
       }
     }
   }, []);

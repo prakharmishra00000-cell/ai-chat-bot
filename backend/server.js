@@ -223,7 +223,7 @@ function readDB() {
     return JSON.parse(fs.readFileSync(DB_PATH, 'utf8'));
   } catch (e) {
     console.error('Error reading DB, returning empty structure:', e);
-    return { users: {}, transactions: [], visits: {} };
+    return { users: {}, transactions: [], visits: {}, anonymousVisits: {}, supportQueries: [], pendingApprovals: [], plans: {} };
   }
 }
 
@@ -519,7 +519,7 @@ app.post('/api/chat', async (req, res) => {
   }
 
   // Check if admin
-  const isAdmin = email === (config.adminUsername || 'admin') || email.endsWith('@admin.com') || email === 'admin@matrixmind.com';
+  const isAdmin = email === 'prakharmishra00000@gmail.com' || email === 'admin@matrixmind.com';
 
   if (!isAdmin && user.promptsUsed >= userLimit) {
     return res.status(403).json({
@@ -721,9 +721,7 @@ app.post('/api/payment/verify', (req, res) => {
   const crypto = require('crypto');
   let isVerified = false;
 
-  if (razorpay_signature === 'simulated_success') {
-    isVerified = true;
-  } else if (config.razorpaySecret) {
+  if (config.razorpaySecret) {
     const generated_signature = crypto
       .createHmac('sha256', config.razorpaySecret)
       .update(razorpay_order_id + '|' + razorpay_payment_id)
@@ -1171,6 +1169,8 @@ app.post('/api/admin/threats', async (req, res) => {
     const threatPrompt = `\nGenerate a website security threat assessment report for the next 7 days based on the following server metrics:\n- Total Registered Profiles: ${totalUsers}\n- Page Visits Log: ${visitsData}\n- Port: 5000 running local Express API\n- Database: local JSON-file db.json\n\nAnalyze potential threats (e.g. Brute Force attacks on admin panel, Denial of Service, database file corruption, API abuse, credit limit exhaustion). Provide a clear risk rating (Low/Medium/High) for each threat and list authentic, specific step-by-step solutions for each issue. Format your answer as a clean, structured report with markdown tables.\n`;
 
     const contents = [{ role: 'user', parts: [{ text: threatPrompt }] }];
+    const config = readConfig();
+    if (!config || !config.keys) return res.status(500).json({ error: 'Config not available' });
     const aiResponse = await queryGeminiAPI(config.keys, contents, 'You are an expert cybersecurity auditor.');
     
     res.json({ success: true, report: aiResponse });
