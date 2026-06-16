@@ -429,13 +429,25 @@ function Dashboard({
             });
             saveChatsToLocal(tempChatList);
 
-            // Call PPT generation API
-            const pptRes = await fetch('/api/generate-ppt', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                email: currentUser.email,
-                topic: userMessageText.replace(/\b(create|make|generate|build|prepare|design)\b\s*(a|an|the|my)?\s*(presentation|ppt|powerpoint|pptx|slides?)\b\s*(on|about|for|regarding)?\s*/gi, '').trim() || userMessageText,
+                // Extract clean topic name from the user message
+                let cleanTopic = userMessageText
+                  .replace(/\b(create|make|generate|build|prepare|design|give|write|draft)\b/gi, '')
+                  .replace(/\b(a|an|the|my|me|please|can you|could you|i want|i need)\b/gi, '')
+                  .replace(/\b(presentation|ppt|powerpoint|pptx|slides?)\b/gi, '')
+                  .replace(/\b(on|about|for|regarding|related to|based on|of|with)\b/gi, '')
+                  .replace(/\b(more|visuals?|texts?|images?|detailed|professional|beautiful|attractive)\b/gi, '')
+                  .replace(/\b(pages?|number|both)\b/gi, '')
+                  .replace(/\d+\s*(slide|page)/gi, '')
+                  .replace(/\s+/g, ' ')
+                  .trim();
+                if (cleanTopic.length < 3) cleanTopic = userMessageText.substring(0, 80);
+
+                const pptRes = await fetch('/api/generate-ppt', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    email: currentUser.email,
+                    topic: cleanTopic,
                 pageCount,
                 style
               })
