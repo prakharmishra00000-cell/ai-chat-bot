@@ -393,15 +393,11 @@ let activeKeyIndex = 0;
 async function queryGeminiAPI(keys, contents, systemInstruction) {
   const allErrors = [];
   
-  // Models with quota available — 1.5-flash has most free quota, 2.0-flash is exhausted on free tier
+  // Only fastest models with free-tier quota — ordered by speed
   const modelConfigs = [
     { model: 'gemini-1.5-flash', api: 'v1beta' },
-    { model: 'gemini-1.5-flash', api: 'v1' },
-    { model: 'gemini-2.5-flash', api: 'v1beta' },
-    { model: 'gemini-pro', api: 'v1beta' },
-    { model: 'gemini-pro', api: 'v1' },
     { model: 'gemini-2.0-flash', api: 'v1beta' },
-    { model: 'gemini-1.5-pro', api: 'v1beta' },
+    { model: 'gemini-pro', api: 'v1beta' },
   ];
 
   // Try each key with each model combination
@@ -414,7 +410,7 @@ async function queryGeminiAPI(keys, contents, systemInstruction) {
       const url = `https://generativelanguage.googleapis.com/${api}/models/${model}:generateContent?key=${activeKey}`;
       
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000);
+      const timeoutId = setTimeout(() => controller.abort(), 12000); // 12s max per attempt
 
       try {
         let payloadContents = JSON.parse(JSON.stringify(contents));
@@ -442,39 +438,31 @@ async function queryGeminiAPI(keys, contents, systemInstruction) {
           }
           const blockReason = responseData.candidates?.[0]?.finishReason || 'no-candidates';
           console.warn(`[GEMINI] Empty response from ${model}. Reason: ${blockReason}`);
-          continue; // Try next model
+          continue;
         }
 
         const errMessage = responseData.error?.message || response.statusText;
         console.warn(`[GEMINI] ❌ ${response.status}: Key ${keyPreview} | ${api}/${model} | ${errMessage.substring(0, 100)}`);
         
-        // 429 = quota exceeded for THIS model — try NEXT MODEL (not next key!)
         if (response.status === 429) {
-          continue; // Try next model config
+          continue; // Quota exceeded — try next model
         }
         
-        // 401/403 = invalid key — skip ALL models for this key
         if (response.status === 401 || response.status === 403) {
           allErrors.push(`Key ${keyPreview}: unauthorized`);
-          break; // Skip to next key
+          break; // Bad key — skip to next key
         }
         
-        // 404 = model not found — try next model
-        if (response.status === 404) {
-          continue;
-        }
-        
-        // Other errors — try next model
-        continue;
+        continue; // 404 or other — try next model
 
       } catch (error) {
         clearTimeout(timeoutId);
         if (error.name === 'AbortError') {
           console.warn(`[GEMINI] ⏱ TIMEOUT: Key ${keyPreview} | ${model}`);
-          continue; // Try next model
+          break; // Timeout = server slow, skip to next key
         }
         console.error(`[GEMINI] 💥 ERROR: Key ${keyPreview} | ${model}:`, error.message);
-        continue; // Try next model
+        continue;
       }
     }
   }
@@ -539,25 +527,26 @@ app.post('/api/chat', async (req, res) => {
       finalPrompt = `[OPTIMIZE INSTRUCTION: First, rewrite the following user query into a well-structured, grammatically complete sentence. Show the optimized query at the top of your response prefixed with "🔧 Optimized Query:". Then answer the optimized query in full detail.]\n\nUser's original query: ${message}`;
     }
 
-    // B. WEB GROUNDING SEARCH (with 5 second timeout to not block response)
+    // B. WEB SEARCH — only for factual/current queries, 3s timeout to keep responses fast
     let searchGroundingContext = '';
-    const needsSearch = /search|latest|news|weather|current|realtime|today|fact|who is|what is|what are|how to|how does|where|when|why|google|explain|tell me|information|guide|tutorial|review|compare|best|top|list|official|website|link|source|recommend/i.test(finalPrompt);
+    const needsSearch = /search|latest|news|weather|current|today|\b202[4-9]\b|who is|who won|score|price|stock|release|launch|update|trending/i.test(finalPrompt);
     
     if (needsSearch) {
       try {
-        console.log(`Executing web grounding search for: "${finalPrompt}"`);
+        console.log(`Executing web search for: "${finalPrompt.substring(0, 60)}..."`);
         const searchPromise = performWebSearch(finalPrompt);
-        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Search timeout')), 10000));
+        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Search timeout')), 3000));
         const searchResults = await Promise.race([searchPromise, timeoutPromise]);
         if (searchResults && searchResults.length > 0) {
-          searchGroundingContext = "\n\nReal-time Web Search Grounding Context:\n";
+          searchGroundingContext = "\n\nReal-time Web Search Results:\n";
           searchResults.forEach((res, i) => {
-            searchGroundingContext += `[${i + 1}] Source: "${res.title}" (${res.link})\nSnippet: ${res.snippet}\n\n`;
+            searchGroundingContext += `[${i + 1}] "${res.title}" (${res.link})\nSnippet: ${res.snippet}\n\n`;
           });
-          searchGroundingContext += "Use these search results to answer the user's prompt. Cite the source links directly in the answer in Markdown link format.";
+          searchGroundingContext += "Use these results to answer. Include source links in markdown format.";
         }
       } catch (e) {
-        console.warn('Web search skipped (timeout or error):', e.message);
+        console.warn('Web search skipped:', e.message);
+        // Continue without search — don't block the response
       }
     }
 
