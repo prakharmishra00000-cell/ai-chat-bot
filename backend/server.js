@@ -5,6 +5,7 @@ const path = require('path');
 const fetch = require('node-fetch');
 const Razorpay = require('razorpay');
 const { performWebSearch } = require('./search');
+const { generatePPT, parseSlideContent, DOWNLOADS_DIR } = require('./pptGenerator');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -529,6 +530,101 @@ app.get('/api/health', (req, res) => {
     envKeysFound: Object.keys(process.env).filter(k => k.includes('GEMINI')).length,
     timestamp: new Date().toISOString()
   });
+});
+
+// PPT File Download endpoint
+app.get('/api/download-ppt/:filename', (req, res) => {
+  const filePath = path.join(DOWNLOADS_DIR, req.params.filename);
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).json({ error: 'File not found or expired. Please generate again.' });
+  }
+  res.download(filePath, req.params.filename);
+});
+
+// PPT Generation endpoint
+app.post('/api/generate-ppt', async (req, res) => {
+  const { email, topic, pageCount, style } = req.body;
+  if (!email || !topic) {
+    return res.status(400).json({ error: 'Email and topic are required.' });
+  }
+  
+  let config = readConfig();
+  if (!config || !config.keys || config.keys.length === 0) {
+    return res.status(500).json({ error: 'API keys not configured.' });
+  }
+
+  const slideCount = Math.min(Math.max(parseInt(pageCount) || 8, 3), 25);
+  const stylePreference = style || 'balanced'; // 'text-heavy', 'visual', 'balanced'
+  
+  const pptPrompt = `Create a professional presentation on: "${topic}"
+
+STRICT RULES:
+- Generate exactly ${slideCount} content slides (do NOT include title or thank you slides, I will add those)
+- Style preference: ${stylePreference}
+- Each slide must have a clear title and 4-6 detailed bullet points
+- Use real, authentic, accurate information only
+- Include statistics, facts, and key data points where relevant
+- Make content educational, professional, and engaging
+
+OUTPUT FORMAT - You MUST use this EXACT format for every slide:
+
+SLIDE 1: [Title of first slide]
+- First detailed bullet point with specific information
+- Second detailed bullet point
+- Third bullet point with data/statistics if applicable
+- Fourth bullet point
+- Fifth bullet point (optional)
+
+SLIDE 2: [Title of second slide]
+- Bullet point 1
+- Bullet point 2
+- Bullet point 3
+- Bullet point 4
+
+Continue this pattern for all ${slideCount} slides.
+
+After ALL slides, add:
+SLIDE ${slideCount + 1}: Sources & References
+- List 3-5 official reference links as bullet points
+
+IMPORTANT: Do NOT use markdown formatting. Do NOT use ** for bold. Use plain text only. Start each slide with "SLIDE X:" exactly.`;
+
+  try {
+    console.log(`[PPT] Generating ${slideCount}-slide presentation on: "${topic}"`);
+    
+    const contents = [{ role: 'user', parts: [{ text: pptPrompt }] }];
+    const systemInstr = 'You are a professional presentation content creator. Generate structured slide content exactly in the format requested. Use accurate, real-world information. No markdown formatting.';
+    
+    const aiResponse = await queryGeminiAPI(config.keys, contents, systemInstr);
+    
+    // Parse AI response into slides
+    const slides = parseSlideContent(aiResponse);
+    
+    if (!slides || slides.length === 0) {
+      console.error('[PPT] Failed to parse slides from AI response');
+      return res.status(500).json({ error: 'Failed to generate slide content. Please try again.' });
+    }
+    
+    console.log(`[PPT] Parsed ${slides.length} slides, generating PPTX...`);
+    
+    // Generate the actual PPTX file
+    const result = await generatePPT(topic, slides, { style: stylePreference });
+    
+    const downloadUrl = `/api/download-ppt/${result.fileName}`;
+    
+    res.json({
+      success: true,
+      downloadUrl,
+      fileName: result.fileName,
+      slideCount: result.slideCount,
+      topic,
+      message: `✅ Presentation generated! ${result.slideCount} slides on "${topic}".`
+    });
+    
+  } catch (error) {
+    console.error('[PPT] Generation error:', error.message);
+    res.status(500).json({ error: 'Failed to generate presentation. ' + error.message });
+  }
 });
 
 // Key Diagnostic — tests each key individually to find exact errors

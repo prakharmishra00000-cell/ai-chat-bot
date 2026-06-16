@@ -397,7 +397,62 @@ function Dashboard({
       const responseData = await chatRes.json();
       
       if (chatRes.ok) {
-        const botResponseText = responseData.response;
+        let botResponseText = responseData.response;
+
+        // PPT GENERATION: Detect if user asked for a presentation
+        const isPPTRequest = /\b(presentation|ppt|powerpoint|pptx|slides)\b/i.test(userMessageText) && 
+                             /\b(create|make|generate|build|prepare|design)\b/i.test(userMessageText);
+        
+        if (isPPTRequest) {
+          try {
+            // Extract slide count from user message
+            const countMatch = userMessageText.match(/(\d+)\s*(slide|page|ppt)/i);
+            const pageCount = countMatch ? parseInt(countMatch[1]) : 8;
+            
+            // Detect style preference
+            let style = 'balanced';
+            if (/more\s*visual|image|picture|graphic/i.test(userMessageText)) style = 'visual';
+            if (/more\s*text|detailed|content|heavy/i.test(userMessageText)) style = 'text-heavy';
+
+            botResponseText += '\n\n⏳ **Generating your PowerPoint presentation...** Please wait.';
+            
+            // Show intermediate message
+            const tempMsg = {
+              id: 'msg_bot_' + Date.now(),
+              sender: 'bot',
+              text: botResponseText,
+              timestamp: new Date().toISOString()
+            };
+            const tempChatList = conversations.map(c => {
+              if (c.id === activeChatId) return { ...c, messages: [...updatedMessages, tempMsg] };
+              return c;
+            });
+            saveChatsToLocal(tempChatList);
+
+            // Call PPT generation API
+            const pptRes = await fetch('/api/generate-ppt', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                email: currentUser.email,
+                topic: userMessageText.replace(/\b(create|make|generate|build|prepare|design)\b\s*(a|an|the|my)?\s*(presentation|ppt|powerpoint|pptx|slides?)\b\s*(on|about|for|regarding)?\s*/gi, '').trim() || userMessageText,
+                pageCount,
+                style
+              })
+            });
+
+            const pptData = await pptRes.json();
+            
+            if (pptRes.ok && pptData.success) {
+              botResponseText += `\n\n✅ **Your presentation is ready!** (${pptData.slideCount} slides)\n\n📥 [**Click here to download your PPT**](${pptData.downloadUrl})\n\n*File: ${pptData.fileName}*`;
+            } else {
+              botResponseText += `\n\n⚠️ PPT generation failed: ${pptData.error || 'Unknown error'}. You can still use the information above to create your presentation manually.`;
+            }
+          } catch (pptErr) {
+            console.error('PPT generation error:', pptErr);
+            botResponseText += '\n\n⚠️ Could not generate PPT file. Please try again.';
+          }
+        }
 
         const botMsg = {
           id: 'msg_bot_' + Date.now(),
