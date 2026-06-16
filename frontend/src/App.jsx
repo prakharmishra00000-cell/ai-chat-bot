@@ -37,16 +37,45 @@ function App() {
       const res = await fetch('/api/setup/status');
       const data = await res.json();
       setSetupCompleted(data.setupCompleted);
-      if (data.setupCompleted) {
-        // Fetch public config details (Google Client ID, RZP key id) safely
-        // In this implementation, we simulate fetching public keys or query backend config status
-        setView('login');
-      } else {
+      if (!data.setupCompleted) {
         setView('setup');
+        return;
       }
+      // Setup is done — check if user is already logged in (auto-login)
+      const savedUser = localStorage.getItem('logged_in_user');
+      if (savedUser) {
+        try {
+          const userObj = JSON.parse(savedUser);
+          setCurrentUser(userObj);
+          fetchUserStatus(userObj.email);
+          if (userObj.email === 'prakharmishra00000@gmail.com') {
+            setView('owner_portal');
+          } else {
+            setView('chat');
+          }
+          return; // Already logged in — skip login screen
+        } catch (e) {
+          console.error('Corrupted localStorage, clearing:', e);
+          localStorage.removeItem('logged_in_user');
+        }
+      }
+      // No saved user — show login
+      setView('login');
     } catch (e) {
       console.error('Failed to query setup status:', e);
-      setView('setup'); // Force setup if error
+      // Even on error, try auto-login
+      const savedUser = localStorage.getItem('logged_in_user');
+      if (savedUser) {
+        try {
+          const userObj = JSON.parse(savedUser);
+          setCurrentUser(userObj);
+          setView('chat');
+          return;
+        } catch (err) {
+          localStorage.removeItem('logged_in_user');
+        }
+      }
+      setView('setup');
     }
   };
 
@@ -62,11 +91,9 @@ function App() {
       const data = await res.json();
       if (!data.error) {
         setUserPlanDetails(data);
-        // Check Expiry Reminders (Exactly 7 days and 3 days before expiry)
         if (data.plan !== 'free' && data.expiry) {
           const expiryDate = new Date(data.expiry);
           const daysLeft = Math.ceil((expiryDate - new Date()) / (1000 * 60 * 60 * 24));
-          
           if (daysLeft === 7 || daysLeft === 3) {
             const lastReminderClose = localStorage.getItem(`reminder_closed_${email}_${daysLeft}`);
             const todayStr = new Date().toISOString().split('T')[0];
@@ -80,26 +107,6 @@ function App() {
       console.error('Failed to load user status:', e);
     }
   };
-
-  // 3. User Login Sync
-  useEffect(() => {
-    const savedUser = localStorage.getItem('logged_in_user');
-    if (savedUser) {
-      try {
-        const userObj = JSON.parse(savedUser);
-        setCurrentUser(userObj);
-        fetchUserStatus(userObj.email);
-        if (userObj.email === 'prakharmishra00000@gmail.com') {
-          setView('owner_portal');
-        } else {
-          setView('chat');
-        }
-      } catch (e) {
-        console.error('Corrupted localStorage, clearing:', e);
-        localStorage.removeItem('logged_in_user');
-      }
-    }
-  }, []);
 
   // Update theme tag
   useEffect(() => {

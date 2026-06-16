@@ -391,16 +391,16 @@ app.post('/api/user/status', (req, res) => {
 let activeKeyIndex = 0;
 
 async function queryGeminiAPI(keys, contents, systemInstruction) {
-  const allErrors = [];
-  
-  // Only fastest models with free-tier quota — ordered by speed
+  // Models ordered by speed and free-tier availability
   const modelConfigs = [
     { model: 'gemini-1.5-flash', api: 'v1beta' },
+    { model: 'gemini-1.5-flash', api: 'v1' },
     { model: 'gemini-2.0-flash', api: 'v1beta' },
     { model: 'gemini-pro', api: 'v1beta' },
+    { model: 'gemini-pro', api: 'v1' },
   ];
 
-  // Try each key with each model combination
+  // Try each key with each model
   for (let keyAttempt = 0; keyAttempt < keys.length; keyAttempt++) {
     const keyIndex = (activeKeyIndex + keyAttempt) % keys.length;
     const activeKey = keys[keyIndex];
@@ -410,7 +410,7 @@ async function queryGeminiAPI(keys, contents, systemInstruction) {
       const url = `https://generativelanguage.googleapis.com/${api}/models/${model}:generateContent?key=${activeKey}`;
       
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 12000); // 12s max per attempt
+      const timeoutId = setTimeout(() => controller.abort(), 20000); // 20s per attempt
 
       try {
         let payloadContents = JSON.parse(JSON.stringify(contents));
@@ -433,41 +433,67 @@ async function queryGeminiAPI(keys, contents, systemInstruction) {
         if (response.ok) {
           if (responseData.candidates && responseData.candidates[0] && responseData.candidates[0].content) {
             console.log(`[GEMINI] ✅ SUCCESS: Key ${keyPreview} | ${api}/${model}`);
-            activeKeyIndex = keyIndex; // Remember which key worked
+            activeKeyIndex = keyIndex;
             return responseData.candidates[0].content.parts[0].text;
           }
-          const blockReason = responseData.candidates?.[0]?.finishReason || 'no-candidates';
-          console.warn(`[GEMINI] Empty response from ${model}. Reason: ${blockReason}`);
-          continue;
+          continue; // Empty response — try next model
         }
 
-        const errMessage = responseData.error?.message || response.statusText;
-        console.warn(`[GEMINI] ❌ ${response.status}: Key ${keyPreview} | ${api}/${model} | ${errMessage.substring(0, 100)}`);
+        const errMsg = (responseData.error?.message || '').substring(0, 80);
+        console.warn(`[GEMINI] ❌ ${response.status}: ${keyPreview} | ${api}/${model} | ${errMsg}`);
         
         if (response.status === 429) {
           continue; // Quota exceeded — try next model
         }
-        
         if (response.status === 401 || response.status === 403) {
-          allErrors.push(`Key ${keyPreview}: unauthorized`);
           break; // Bad key — skip to next key
         }
-        
-        continue; // 404 or other — try next model
+        continue; // Other error — try next model
 
       } catch (error) {
         clearTimeout(timeoutId);
         if (error.name === 'AbortError') {
-          console.warn(`[GEMINI] ⏱ TIMEOUT: Key ${keyPreview} | ${model}`);
-          break; // Timeout = server slow, skip to next key
+          console.warn(`[GEMINI] ⏱ TIMEOUT: ${keyPreview} | ${model}`);
+          continue; // Timeout — try next model
         }
-        console.error(`[GEMINI] 💥 ERROR: Key ${keyPreview} | ${model}:`, error.message);
+        console.error(`[GEMINI] 💥 ${keyPreview} | ${model}: ${error.message}`);
         continue;
       }
     }
   }
 
-  console.error(`[GEMINI] ALL COMBINATIONS FAILED after trying ${keys.length} keys × ${modelConfigs.length} models`);
+  // FINAL RETRY: Wait 2 seconds, then try the first working model one more time
+  console.log('[GEMINI] All attempts failed. Waiting 2s for final retry...');
+  await new Promise(r => setTimeout(r, 2000));
+  
+  for (const key of keys) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 25000);
+    try {
+      let payloadContents = JSON.parse(JSON.stringify(contents));
+      if (systemInstruction && payloadContents.length > 0 && payloadContents[0].role === 'user') {
+        payloadContents[0].parts[0].text = `[System Instruction: ${systemInstruction}]\n\n` + payloadContents[0].parts[0].text;
+      }
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: payloadContents }),
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+      const data = await response.json();
+      if (response.ok && data.candidates?.[0]?.content) {
+        console.log(`[GEMINI] ✅ FINAL RETRY SUCCESS`);
+        return data.candidates[0].content.parts[0].text;
+      }
+    } catch (e) {
+      clearTimeout(timeoutId);
+      continue;
+    }
+  }
+
+  console.error(`[GEMINI] ALL ATTEMPTS EXHAUSTED`);
   throw new Error('Our AI servers are currently busy. Please try again in a few seconds.');
 }
 
