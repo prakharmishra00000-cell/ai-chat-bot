@@ -7,7 +7,7 @@ const db = JSON.parse(fs.readFileSync(dbPath, 'utf8'));
 db.plans = {
     free: {
       id: "free",
-      name: "Free Tier",
+      name: "Free",
       price: 0,
       prompts: 30,
       featureLimits: { ppt: 3, mindmap: 5, matrix: 3, optimize: 3, masking: 5, interview: 3, workflow: 1, council: 1 },
@@ -31,7 +31,7 @@ db.plans = {
     },
     standard: {
       id: "standard",
-      name: "Standard Plan",
+      name: "Basic",
       price: 99,
       duration: "1 Month",
       days: 30,
@@ -54,7 +54,7 @@ db.plans = {
     },
     better: {
       id: "better",
-      name: "Better Plan",
+      name: "Pro",
       price: 199,
       duration: "3 Months",
       days: 90,
@@ -79,7 +79,7 @@ db.plans = {
     },
     premium: {
       id: "premium",
-      name: "Premium Plan",
+      name: "Pro Plus",
       price: 999,
       duration: "1 Year",
       days: 365,

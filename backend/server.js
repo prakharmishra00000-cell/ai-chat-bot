@@ -103,7 +103,7 @@ let dbInitData = {
   plans: {
     free: {
       id: "free",
-      name: "Free Tier",
+      name: "Free",
       price: 0,
       prompts: 30,
       featureLimits: { ppt: 3, mindmap: 5, matrix: 3, optimize: 3, masking: 5, interview: 3, workflow: 1, council: 1 },
@@ -127,7 +127,7 @@ let dbInitData = {
     },
     standard: {
       id: "standard",
-      name: "Standard Plan",
+      name: "Basic",
       price: 99,
       duration: "1 Month",
       days: 30,
@@ -150,7 +150,7 @@ let dbInitData = {
     },
     better: {
       id: "better",
-      name: "Better Plan",
+      name: "Pro",
       price: 199,
       duration: "3 Months",
       days: 90,
@@ -175,7 +175,7 @@ let dbInitData = {
     },
     premium: {
       id: "premium",
-      name: "Premium Plan",
+      name: "Pro Plus",
       price: 999,
       duration: "1 Year",
       days: 365,
@@ -2115,9 +2115,9 @@ app.post('/api/admin/approvals/action', (req, res) => {
   
   // Map plan names to durations
   const planConfigs = {
-    standard: { days: 30, price: 99, name: 'Standard Plan' },
-    better: { days: 90, price: 199, name: 'Better Plan' },
-    premium: { days: 365, price: 999, name: 'Premium Plan' }
+    standard: { days: 30, price: 99, name: 'Basic' },
+    better: { days: 90, price: 199, name: 'Pro' },
+    premium: { days: 365, price: 999, name: 'Pro Plus' }
   };
 
   const planConfig = planConfigs[planToActivate];

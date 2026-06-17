@@ -5,7 +5,7 @@ function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess }) {
   const fallbackPlans = [
     {
       id: 'free',
-      name: 'Free Tier',
+      name: 'Free',
       price: 0,
       duration: 'Forever',
       prompts: 30,
@@ -19,7 +19,7 @@ function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess }) {
     },
     {
       id: 'standard',
-      name: 'Standard Plan',
+      name: 'Basic',
       price: 99,
       duration: '1 Month',
       prompts: 100,
@@ -36,7 +36,7 @@ function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess }) {
     },
     {
       id: 'better',
-      name: 'Better Plan',
+      name: 'Pro',
       price: 199,
       duration: '3 Months',
       prompts: 150,
@@ -55,7 +55,7 @@ function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess }) {
     },
     {
       id: 'premium',
-      name: 'Premium Plan',
+      name: 'Pro Plus',
       price: 999,
       duration: '1 Year',
       prompts: 200,
