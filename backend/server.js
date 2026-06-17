@@ -532,6 +532,75 @@ app.post('/api/user/status', (req, res) => {
   });
 });
 
+// --- OS Ghost Backend Logic ---
+const ghostSessions = {};
+
+app.post('/api/ghost/command', async (req, res) => {
+  const { email, prompt, screenBase64 } = req.body;
+  if (!email || !prompt || !screenBase64) return res.status(400).json({ error: 'Missing data' });
+
+  try {
+    const config = readConfig();
+    if (!config || config.keys.length === 0) return res.status(500).json({ error: 'No API keys' });
+
+    const systemInstruction = `You are a System-Wide OS Ghost. Analyze this computer screenshot and the user's prompt. Map visual UI elements to JSON action coordinates to fulfill the user's goal. Estimate X,Y coordinates on a 1024x768 scale. Return strictly a JSON array of actions.
+Example:
+[
+  {"type": "mouse_move", "x": 100, "y": 200, "description": "Move to Documents folder"},
+  {"type": "mouse_click", "button": "left", "clicks": 2, "description": "Double click Documents"}
+]`;
+
+    const contents = [{
+      role: 'user',
+      parts: [
+        { text: prompt },
+        { inlineData: { mimeType: "image/jpeg", data: screenBase64.replace(/^data:image\/\w+;base64,/, "") } }
+      ]
+    }];
+
+    const aiResponse = await queryGeminiAPI(config.keys, contents, systemInstruction);
+    let actions = [];
+    try {
+      const jsonStr = aiResponse.replace(/```json/g, '').replace(/```/g, '').trim();
+      actions = JSON.parse(jsonStr);
+    } catch(e) {
+      actions = [{type: 'error', description: 'Failed to parse AI action output'}];
+    }
+
+    ghostSessions[email] = {
+      active: true,
+      pendingActions: actions,
+      approved: false
+    };
+
+    res.json({ success: true, actions });
+  } catch (err) {
+    res.status(500).json({ error: 'Internal error' });
+  }
+});
+
+app.post('/api/ghost/approve', (req, res) => {
+  const { email } = req.body;
+  if (ghostSessions[email]) {
+    ghostSessions[email].approved = true;
+    res.json({ success: true });
+  } else {
+    res.status(404).json({ error: 'Session not found' });
+  }
+});
+
+app.get('/api/ghost/poll-client', (req, res) => {
+  const { email } = req.query;
+  const session = ghostSessions[email];
+  if (session && session.approved) {
+    const actions = session.pendingActions;
+    delete ghostSessions[email];
+    res.json({ actions });
+  } else {
+    res.json({ actions: [] });
+  }
+});
+
 // GEMINI API ROTATION ENGINE
 let activeKeyIndex = 0;
 

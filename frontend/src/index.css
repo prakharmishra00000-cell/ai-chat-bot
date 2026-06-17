@@ -1,0 +1,71 @@
+
+/* OS Ghost Mode Classes */
+.ghost-active {
+  position: fixed;
+  right: 0;
+  top: 0;
+  height: 100vh;
+  width: 400px;
+  background: rgba(12, 21, 43, 0.45) !important;
+  backdrop-filter: blur(12px) saturate(150%);
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
+  z-index: 9999;
+  box-shadow: -10px 0 30px rgba(0, 0, 0, 0.5);
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.ghost-interceptor-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.6);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(5px);
+}
+
+.ghost-interceptor-box {
+  background: rgba(15, 20, 35, 0.95);
+  border: 1px solid rgba(255, 51, 102, 0.4);
+  padding: 30px;
+  border-radius: 16px;
+  width: 90%;
+  max-width: 500px;
+  box-shadow: 0 0 40px rgba(255, 51, 102, 0.2);
+}
+
+.ghost-interceptor-box h2 {
+  color: #ff3366;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 0;
+}
+
+.ghost-action-list {
+  background: rgba(0,0,0,0.3);
+  padding: 15px;
+  border-radius: 8px;
+  margin: 20px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ghost-action-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #00f2fe;
+  font-family: monospace;
+  font-size: 0.9rem;
+}
+
+.ghost-interceptor-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 15px;
+  margin-top: 20px;
+}
+
