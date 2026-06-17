@@ -561,8 +561,13 @@ Example:
     const aiResponse = await queryGeminiAPI(config.keys, contents, systemInstruction);
     let actions = [];
     try {
-      const jsonStr = aiResponse.replace(/```json/g, '').replace(/```/g, '').trim();
-      actions = JSON.parse(jsonStr);
+      const match = aiResponse.match(/\[.*\]/s);
+      if (match) {
+        actions = JSON.parse(match[0]);
+      } else {
+        const jsonStr = aiResponse.replace(/```json/g, '').replace(/```/g, '').trim();
+        actions = JSON.parse(jsonStr);
+      }
     } catch(e) {
       actions = [{type: 'error', description: 'Failed to parse AI action output'}];
     }
