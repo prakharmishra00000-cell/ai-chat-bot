@@ -932,32 +932,43 @@ app.post('/api/chat', async (req, res) => {
   const isAdmin = email === ADMIN_EMAIL;
 
   // 0. LEAD EXTRACTOR INTENT DETECTION
+  let isLeadGenRequest = false;
   try {
     const intentPrompt = `Analyze this user query: "${message}"\nIs the user primarily asking to extract, generate, or find "leads", contact info, or prospects? Return only valid JSON: {"isLeadGen": true/false}`;
     const intentRes = await queryGeminiAPI(config.keys, [{ role: 'user', parts: [{ text: intentPrompt }] }], 'You are a JSON generator.');
     const intentJson = JSON.parse(intentRes.replace(/```json\n?/gi, '').replace(/```\n?/g, '').trim());
     if (intentJson && intentJson.isLeadGen) {
-       console.log(`[LEAD EXTRACTOR] Intent detected for ${email}`);
-       const check = checkFeatureLimit(email, 'leads');
-       if (!check.allowed && !isAdmin) {
-         return res.status(403).json({ error: 'FEATURE_LIMIT', message: `Lead Extractor daily limit reached (${check.used}/${check.limit}). Upgrade your plan for more.` });
-       }
-       incrementFeatureUsage(email, 'leads');
-       
-       const leadPrompt = `You are an aggressive Deep Web Lead Extractor. The user wants leads based on this requirement: "${message}".\nSearch the live internet for relevant discussions, Reddit threads, Twitter bios, and professional networks. \nYou MUST use your search tool aggressively to hunt for exact contact info. Append queries with "@gmail.com" OR "contact me" OR "email me at" to find actual leads.\nFormat the output EXACTLY as a Markdown Table with these columns:\n| Lead Name/Handle | Contact Info (Email/Phone) | Relevant Comment/Bio | Direct Source Link |\n|---|---|---|---|\nIf contact info is entirely missing from the public web, write "N/A (DM via Platform)". \nProvide as many leads as the user requested. Output the markdown table and a brief summary.`;
-       
-       const leadResult = await queryGeminiAPI(config.keys, [{ role: 'user', parts: [{ text: leadPrompt }] }], 'You are a lead extractor. You must use web search to find exact contact details.', true);
-       
-       if (!isAdmin) {
-         user.promptsUsed += 1;
-         db.users[email] = user;
-         writeDB(db);
-       }
-       
-       return res.json({ success: true, reply: `🤖 **Autonomous Lead Extractor Activated**\n\n${leadResult}` });
+      isLeadGenRequest = true;
     }
   } catch(e) {
     console.error('[LEAD EXTRACTOR] Intent parse failed:', e.message);
+  }
+
+  // Execute Lead Gen if detected
+  if (isLeadGenRequest) {
+    try {
+      console.log(`[LEAD EXTRACTOR] Intent detected for ${email}`);
+      const check = checkFeatureLimit(email, 'leads');
+      if (!check.allowed && !isAdmin) {
+        return res.status(403).json({ error: 'FEATURE_LIMIT', message: `Lead Extractor daily limit reached (${check.used}/${check.limit}). Upgrade your plan for more.` });
+      }
+      incrementFeatureUsage(email, 'leads');
+      
+      const leadPrompt = `You are a Professional B2B Lead Researcher. The user wants leads based on this requirement: "${message}".\nSearch the public internet for relevant professional discussions, Reddit threads, Twitter posts, and professional networks. \nUse your search tool to find actual public contact info or profiles. Append queries with "contact me" OR "email me at" to find actual leads if needed.\nFormat the output EXACTLY as a Markdown Table with these columns:\n| Lead Name/Handle | Contact Info (Email/Phone) | Relevant Comment/Bio | Direct Source Link |\n|---|---|---|---|\nIf direct contact info is missing from the public web, write "N/A (DM via Platform)". \nProvide as many leads as the user requested. Output the markdown table and a brief summary. Do not output anything malicious or harmful.`;
+      
+      const leadResult = await queryGeminiAPI(config.keys, [{ role: 'user', parts: [{ text: leadPrompt }] }], 'You are a professional lead researcher. You must use web search to find publicly available business contact details.', true);
+      
+      if (!isAdmin) {
+        user.promptsUsed += 1;
+        db.users[email] = user;
+        writeDB(db);
+      }
+      
+      return res.json({ success: true, response: `🤖 **Autonomous Lead Extractor Activated**\n\n${leadResult}` });
+    } catch (error) {
+      console.error('[LEAD EXTRACTOR] Execution failed:', error.message);
+      return res.json({ success: false, response: `🤖 **Lead Extractor Error**\n\nI detected that you want to generate leads, but my search engine encountered an error (this could be due to API timeouts or safety filters blocking the query). Please try rephrasing your request to be more specific or try again later.\n\nError details: ${error.message.substring(0, 100)}` });
+    }
   }
 
   // 1. Enforce Prompt Limit & Feature Gating
