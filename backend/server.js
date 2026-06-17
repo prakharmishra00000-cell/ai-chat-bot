@@ -1013,6 +1013,7 @@ User's original raw query: ${message}`;
 
     // D. BIND CHAT HISTORY
     // Formulate the contents array for Gemini
+    systemInstruction += ' MANDATORY LINKS RULE: At the VERY END of your response, you MUST append a section titled \'**?? Official Sources & References:**\' providing 2-5 valid, authentic, clickable markdown links relevant to the topic. NEVER skip this rule.';
     const contents = [];
     
     // Map history to Gemini API format (role: user/model, parts: [{text: ...}])
@@ -1325,7 +1326,7 @@ Structure your response EXACTLY as follows:
 Use clear headings, bullet points, and bold text. Make it feel like a real executive strategy document. This should be a COMPLETE, ACTIONABLE blueprint — not a vague summary.`;
 
     const contents = [{ role: 'user', parts: [{ text: consensusPrompt }] }];
-    const consensusText = await queryGeminiAPI(config.keys, contents, 'You are a strategy synthesizer. Produce a comprehensive, well-formatted action plan.');
+    const consensusText = await queryGeminiAPI(config.keys, contents, 'You are a strategy synthesizer. Produce a comprehensive, well-formatted action plan. MANDATORY LINKS RULE: At the VERY END of your response, you MUST append a section titled \'**?? Official Sources & References:**\' providing 2-5 valid, authentic, clickable markdown links relevant to the topic. NEVER skip this rule.');
 
     console.log(`[COUNCIL] Consensus generated for ${email}`);
     res.json({ success: true, consensus: consensusText });
@@ -1509,7 +1510,7 @@ Generate the final consolidated macro report / action plan / outreach drafts to 
 Use clear headers, structured tables/lists, and detailed recommendations. Make it look like a highly professional final product.`;
 
     const contents = [{ role: 'user', parts: [{ text: consolidatePrompt }] }];
-    const finalReport = await queryGeminiAPI(config.keys, contents, 'You are a professional report compiler. Generate a detailed, structured final report.');
+    const finalReport = await queryGeminiAPI(config.keys, contents, 'You are a professional report compiler. Generate a detailed, structured final report. MANDATORY LINKS RULE: At the VERY END of your response, you MUST append a section titled \'**?? Official Sources & References:**\' providing 2-5 valid, authentic, clickable markdown links relevant to the topic. NEVER skip this rule.');
 
     console.log(`[WORKFLOW] Completed: ${workflowId} for ${email}`);
     res.json({ success: true, report: finalReport });
@@ -1659,9 +1660,10 @@ Based on these specific variables, please output a flawless, custom-tailored sol
     } else if (personality === 'analyst') {
       systemInstruction += "You are currently in ANALYST mode. You are a data Analyst and statistician. Answer step-by-step using tables, lists, and numbers. ";
     } else {
-      systemInstruction += "You are currently in STANDARD mode. A general-purpose assistant. If they ask for programming scripts, advise them to switch to Architect mode; however, since they completed the diagnostic parameters, provide a high-level explanation and code guidelines matching their choices. ";
+      systemInstruction += "You are currently in STANDARD mode. A general-purpose assistant. If they ask for programming scripts, advise them to switch to Architect mode; however, since they completed the diagnostic parameters, provide a high-level explanation and code guidelines matching their choices. MANDATORY LINKS RULE: At the VERY END of your response, you MUST append a section titled '**?? Official Sources & References:**' providing 2-5 valid, authentic, clickable markdown links relevant to the topic. NEVER skip this rule.";
     }
 
+    systemInstruction += ' MANDATORY LINKS RULE: At the VERY END of your response, you MUST append a section titled \'**?? Official Sources & References:**\' providing 2-5 valid, authentic, clickable markdown links relevant to the topic. NEVER skip this rule.';
     const contents = [];
     if (history && Array.isArray(history)) {
       history.forEach(item => {
