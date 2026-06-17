@@ -119,7 +119,7 @@ function App() {
     if (!currentUser?.email) return;
     const interval = setInterval(() => {
       fetchUserStatus(currentUser.email);
-    }, 60000); // Refresh every 60 seconds
+    }, 10000); // Refresh every 10 seconds for instant upgrades
     return () => clearInterval(interval);
   }, [currentUser?.email]);
 

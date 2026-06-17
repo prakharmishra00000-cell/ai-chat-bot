@@ -15,6 +15,7 @@ function Admin({ onBack, email }) {
   
   // Plans Editor state
   const [editingPlans, setEditingPlans] = useState({});
+  const [editingFeatureNames, setEditingFeatureNames] = useState({});
   const [newFeatureText, setNewFeatureText] = useState({});
   const [showFeaturePrompt, setShowFeaturePrompt] = useState(null); // planId
   const [newFeatureInput, setNewFeatureInput] = useState('');
@@ -43,7 +44,12 @@ function Admin({ onBack, email }) {
       const res = await fetch('/api/plans');
       if (res.ok) {
         const data = await res.json();
-        setEditingPlans(data);
+        if (data.plans) {
+          setEditingPlans(data.plans);
+          setEditingFeatureNames(data.featureNames || {});
+        } else {
+          setEditingPlans(data);
+        }
       }
     } catch (e) {
       console.error('Failed to fetch plans:', e);
@@ -91,7 +97,7 @@ function Admin({ onBack, email }) {
       const res = await fetch('/api/plans/update', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, plans: editingPlans })
+        body: JSON.stringify({ email, plans: editingPlans, featureNames: editingFeatureNames })
       });
       const data = await res.json();
       if (res.ok) {
@@ -557,6 +563,63 @@ function Admin({ onBack, email }) {
                 </button>
               </div>
 
+              <div className="glass-panel" style={{ padding: '20px', marginBottom: '20px', borderRadius: '16px' }}>
+                <h4 style={{ margin: '0 0 15px 0', fontSize: '1rem', color: 'var(--accent-cyan)' }}>Manage Feature Types</h4>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginBottom: '15px' }}>
+                  {Object.keys(editingFeatureNames).map(key => (
+                    <div key={key} style={{ background: 'rgba(0,0,0,0.3)', padding: '5px 10px', borderRadius: '6px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontWeight: 600, color: '#94a3b8' }}>{key}</span>
+                      <input 
+                        type="text" 
+                        value={editingFeatureNames[key]}
+                        onChange={(e) => {
+                          const updated = { ...editingFeatureNames };
+                          updated[key] = e.target.value;
+                          setEditingFeatureNames(updated);
+                        }}
+                        style={{ background: 'none', border: '1px solid var(--border-glass)', padding: '2px 5px', color: '#fff', fontSize: '0.8rem', borderRadius: '4px' }}
+                      />
+                    </div>
+                  ))}
+                </div>
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                  <input 
+                    type="text" 
+                    placeholder="Feature Key (e.g. autocoder)" 
+                    id="newFeatureKeyInput"
+                    style={{ background: 'rgba(0,0,0,0.3)', padding: '8px 12px', width: '200px' }}
+                  />
+                  <input 
+                    type="text" 
+                    placeholder="Display Name (e.g. Auto Coder)" 
+                    id="newFeatureNameInput"
+                    style={{ background: 'rgba(0,0,0,0.3)', padding: '8px 12px', width: '200px' }}
+                  />
+                  <button 
+                    className="btn"
+                    onClick={() => {
+                      const keyInput = document.getElementById('newFeatureKeyInput').value.trim();
+                      const nameInput = document.getElementById('newFeatureNameInput').value.trim();
+                      if (keyInput && nameInput && !editingFeatureNames[keyInput]) {
+                        setEditingFeatureNames({ ...editingFeatureNames, [keyInput]: nameInput });
+                        // Also initialize the limit to 0 in all plans so it shows up in the editor
+                        const updatedPlans = { ...editingPlans };
+                        Object.keys(updatedPlans).forEach(planId => {
+                          if (!updatedPlans[planId].featureLimits) updatedPlans[planId].featureLimits = {};
+                          updatedPlans[planId].featureLimits[keyInput] = 0;
+                        });
+                        setEditingPlans(updatedPlans);
+                        document.getElementById('newFeatureKeyInput').value = '';
+                        document.getElementById('newFeatureNameInput').value = '';
+                      }
+                    }}
+                    style={{ padding: '8px 15px', fontSize: '0.8rem' }}
+                  >
+                    Add New Feature
+                  </button>
+                </div>
+              </div>
+
               <div className="plans-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '20px', marginBottom: '20px' }}>
                 {Object.keys(editingPlans).map((planId) => {
                   const plan = editingPlans[planId];
@@ -626,6 +689,31 @@ function Admin({ onBack, email }) {
                           />
                         </div>
                       )}
+
+                      <div style={{ borderTop: '1px solid var(--border-glass)', marginTop: '10px', paddingTop: '15px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                          <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--accent-cyan)' }}>Feature Limits (per day, -1 for unlimited)</span>
+                        </div>
+                        {plan.featureLimits && Object.keys(editingFeatureNames).map((key) => {
+                          const fName = editingFeatureNames[key];
+                          return (
+                            <div key={key} className="form-group" style={{ marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <label style={{ fontSize: '0.75rem', fontWeight: 600, maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={fName}>{fName}</label>
+                              <input 
+                                type="number" 
+                                value={plan.featureLimits[key] !== undefined ? plan.featureLimits[key] : 0}
+                                onChange={(e) => {
+                                  const updated = { ...editingPlans };
+                                  if (!updated[planId].featureLimits) updated[planId].featureLimits = {};
+                                  updated[planId].featureLimits[key] = parseInt(e.target.value) || 0;
+                                  setEditingPlans(updated);
+                                }}
+                                style={{ background: 'rgba(0,0,0,0.3)', padding: '4px 8px', width: '80px', textAlign: 'center' }}
+                              />
+                            </div>
+                          );
+                        })}
+                      </div>
 
                       <div style={{ borderTop: '1px solid var(--border-glass)', marginTop: '10px', paddingTop: '15px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>

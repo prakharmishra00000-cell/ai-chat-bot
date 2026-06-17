@@ -202,6 +202,16 @@ let dbInitData = {
         "Valid for 365 Days"
       ]
     }
+  },
+  featureNames: {
+    ppt: "PPT Generator",
+    mindmap: "Mind Maps",
+    matrix: "Matrix Simulation",
+    optimize: "Prompt Optimization",
+    masking: "Data Masking",
+    interview: "Interview Mode",
+    workflow: "Workflow Sequencer",
+    council: "Council Room"
   }
 };
 
@@ -212,6 +222,7 @@ if (!fs.existsSync(DB_PATH)) {
     const currentDB = JSON.parse(fs.readFileSync(DB_PATH, 'utf8'));
     let updated = false;
     if (!currentDB.plans) { currentDB.plans = dbInitData.plans; updated = true; }
+    if (!currentDB.featureNames) { currentDB.featureNames = dbInitData.featureNames; updated = true; }
     if (!currentDB.supportQueries) { currentDB.supportQueries = []; updated = true; }
     if (!currentDB.anonymousVisits) { currentDB.anonymousVisits = {}; updated = true; }
     if (!currentDB.pendingApprovals) { currentDB.pendingApprovals = []; updated = true; }
@@ -1956,12 +1967,15 @@ app.post('/api/admin/stats', (req, res) => {
 // GET SUBSCRIPTION PLANS ENDPOINT
 app.get('/api/plans', (req, res) => {
   const db = readDB();
-  res.json(db.plans || {});
+  res.json({
+    plans: db.plans || {},
+    featureNames: db.featureNames || {}
+  });
 });
 
 // UPDATE SUBSCRIPTION PLANS ENDPOINT (ADMIN ONLY)
 app.post('/api/plans/update', (req, res) => {
-  const { email, plans } = req.body;
+  const { email, plans, featureNames } = req.body;
   if (email !== 'prakharmishra00000@gmail.com') {
     return res.status(401).json({ error: 'UNAUTHORIZED' });
   }
@@ -1979,6 +1993,9 @@ app.post('/api/plans/update', (req, res) => {
 
   const db = readDB();
   db.plans = plans;
+  if (featureNames) {
+    db.featureNames = featureNames;
+  }
   writeDB(db);
   res.json({ success: true, message: 'Plans updated successfully.' });
 });

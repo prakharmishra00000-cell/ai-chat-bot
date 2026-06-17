@@ -68,6 +68,7 @@ function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess }) {
   };
 
   const [dbPlans, setDbPlans] = useState(fallbackPlans);
+  const [featureNames, setFeatureNames] = useState({});
   const [utrInput, setUtrInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -87,9 +88,13 @@ function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess }) {
         const res = await fetch('/api/plans');
         if (res.ok) {
           const data = await res.json();
-          if (Object.keys(data).length > 0) {
+          if (data.featureNames) {
+            setFeatureNames(data.featureNames);
+          }
+          const plansObj = data.plans || data; // handle backward compat
+          if (Object.keys(plansObj).length > 0) {
             const ordered = ['standard', 'better', 'premium']
-              .map(id => data[id])
+              .map(id => plansObj[id])
               .filter(Boolean);
             if (ordered.length > 0) setDbPlans(ordered);
           }
@@ -222,18 +227,22 @@ function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess }) {
         <div className="plans-grid">
           {dbPlans.map((plan) => {
             const isActive = currentPlan === plan.id;
+            const isPopular = plan.popular;
             return (
               <div
                 key={plan.id}
-                className={`plan-card glass-panel ${plan.popular ? 'popular' : ''}`}
+                className={`plan-card glass-panel ${isPopular ? 'popular' : ''}`}
                 style={{
                   cursor: 'default',
                   border: isActive ? '2px solid var(--accent-cyan)' : '1px solid var(--border-glass)',
                   boxShadow: isActive ? 'var(--shadow-glow)' : 'none',
-                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                  position: 'relative',
+                  display: 'flex',
+                  flexDirection: 'column'
                 }}
               >
-                {plan.popular && <span className="plan-badge">Most Popular</span>}
+                {isPopular && <span className="plan-badge">Most Popular</span>}
                 <div style={{ marginBottom: '15px' }}>{iconsMap[plan.id] || <Zap size={32} color="#4facfe" />}</div>
                 <h3 className="plan-name">{plan.name}</h3>
 
@@ -247,12 +256,28 @@ function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess }) {
                 </div>
 
                 <ul className="plan-features">
-                  {plan.features.map((f, idx) => (
-                    <li key={idx}>
-                      <Check size={16} color="var(--accent-cyan)" />
-                      <span>{f}</span>
-                    </li>
-                  ))}
+                  {/* Render dynamic features if featureLimits exists, else fallback to hardcoded features array */}
+                  {(() => {
+                    let displayFeatures = plan.features || [];
+                    if (plan.featureLimits && Object.keys(featureNames).length > 0) {
+                      const baseFeatures = displayFeatures.filter(f => !f.includes('/day') && !f.includes('Unlimited') && !f.includes('Masking') && !f.includes('Workflow') && !f.includes('Council') && !f.includes('Interview') && !f.includes('PPT') && !f.includes('Mind Map') && !f.includes('Matrix') && !f.includes('Optimization'));
+                      const dynamicFeatures = [];
+                      Object.keys(plan.featureLimits).forEach(key => {
+                        const limit = plan.featureLimits[key];
+                        const name = featureNames[key] || key;
+                        if (limit > 0) dynamicFeatures.push(`${name} (${limit}/day)`);
+                        else if (limit === -1) dynamicFeatures.push(`${name} (Unlimited)`);
+                      });
+                      displayFeatures = [...baseFeatures, ...dynamicFeatures];
+                    }
+                    
+                    return displayFeatures.map((feature, idx) => (
+                      <li key={idx}>
+                        <Check size={16} color="var(--accent-cyan)" />
+                        <span>{feature}</span>
+                      </li>
+                    ));
+                  })()}
                 </ul>
 
                 {isActive && (
