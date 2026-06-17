@@ -900,7 +900,10 @@ Rewrite the user's raw query into a clear, well-structured, grammatically correc
 **STEP 2 — DETAILED ANSWER:**
 Now answer the optimized prompt above in FULL DETAIL. Give a thorough, comprehensive, well-organized response as if you received a perfect prompt. Use headings, bullet points, and clear explanations.
 
-IMPORTANT: Do NOT skip Step 1. The user MUST see the restructured prompt first, then the answer.
+**STEP 3 — OFFICIAL LINKS (MANDATORY):**
+You MUST end your response with a section titled '**📎 Official Sources & References:**' containing 2-5 real, authentic, clickable links relevant to the topic. Format: [Website Name](https://url). NEVER skip this section.
+
+IMPORTANT: Do NOT skip any step. The user MUST see: restructured prompt → answer → official links.
 IMPORTANT: Do NOT include any Mermaid diagrams, flowcharts, or visual diagrams unless the user's original query specifically asks for one.
 
 User's original raw query: ${message}`;
@@ -960,13 +963,13 @@ User's original raw query: ${message}`;
 
     // Multiverse simulation
     if (mode === 'matrix_simulation') {
-      systemInstruction += "CRITICAL: You are running in Multiverse/Matrix Simulation mode. Answer the question from an alternative multiverse/dimension perspective, offering a deep, mind-bending, sci-fi analytical reasoning but grounding it in realistic-sounding parallel laws of science/history. ";
+      systemInstruction += "CRITICAL: You are running in Multiverse/Matrix Simulation mode. Answer the question from an alternative multiverse/dimension perspective, offering a deep, mind-bending, sci-fi analytical reasoning but grounding it in realistic-sounding parallel laws of science/history. Even in Matrix Simulation mode, you MUST still end your response with '**📎 Official Sources & References:**' containing 2-5 real clickable links relevant to the topic. ";
     }
 
     // Safety and language instruction
     systemInstruction += "SAFETY: Politely handle or refuse adult queries, illegal activities, or copyright infringement requests. Keep your content safe and appropriate for users of all ages. ";
     systemInstruction += "LANGUAGE AND CITATION: If the user asks in English, answer in English. If in Hinglish, answer in Hinglish. ";
-    systemInstruction += "MANDATORY LINKS RULE: You MUST ALWAYS end EVERY response with a section titled '**📎 Official Sources & References:**' containing 2-5 real, authentic, official clickable links relevant to the topic. Format as markdown: [Website Name](https://url). Examples: Wikipedia, official docs, government sites, reputable news. NEVER skip this section. NEVER use fake URLs. ";
+    systemInstruction += "MANDATORY LINKS RULE (CRITICAL — NEVER SKIP): At the VERY END of EVERY single response, regardless of mode (normal, optimize, matrix simulation, or any other), you MUST include a section titled '**📎 Official Sources & References:**' containing 2-5 real, authentic, official clickable links relevant to the topic discussed. Format as markdown: [Website Name](https://url). Examples: Wikipedia, official docs, government sites, reputable news outlets. This section is ABSOLUTELY REQUIRED in every response without exception. If you skip this section, the response is considered INCOMPLETE and FAILED. NEVER use fake or made-up URLs. ";
     systemInstruction += "VISUAL DIAGRAMS RULE: You must ONLY generate Mermaid.js diagrams when the user EXPLICITLY asks for a mind map, diagram, flowchart, block diagram, tree, chart, or graph. Do NOT include diagrams in regular answers. When diagrams ARE requested, use Mermaid.js syntax inside a ```mermaid code block. Follow these STRICT Mermaid rules: ";
     systemInstruction += "1. Use ONLY these diagram types: graph TD, graph LR, mindmap, flowchart TD, flowchart LR, sequenceDiagram, classDiagram, pie. ";
     systemInstruction += "2. Keep node labels SHORT (under 30 chars). Use quotes around labels with special characters: A[\"Label (info)\"]. ";
