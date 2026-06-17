@@ -1058,6 +1058,253 @@ User's original raw query: ${message}`;
   }
 });
 
+// ==================== COUNCIL ROOM - MULTI-AGENT DEBATE (DESKTOP ONLY) ====================
+// Phase 1: Generate personas + Round 1 individual proposals
+app.post('/api/chat/council/start', async (req, res) => {
+  const { email, prompt } = req.body;
+  if (!email || !prompt) return res.status(400).json({ error: 'Email and prompt required.' });
+
+  const config = readConfig();
+  if (!config?.keys?.length) return res.status(500).json({ error: 'AI not configured.' });
+
+  try {
+    // Generate 3 personas + Round 1 in a single optimized call
+    const masterPrompt = `You are an AI Council Orchestrator. A user has a complex problem that needs adversarial debate from multiple expert perspectives.
+
+USER'S PROBLEM: "${prompt.substring(0, 500)}"
+
+YOUR TASK: Create 3 opposing expert personas specifically tailored to THIS problem domain, then generate each persona's initial detailed analysis.
+
+Return a JSON object with this EXACT structure. No markdown, no code blocks, ONLY pure valid JSON:
+{
+  "personas": [
+    {
+      "id": "pragmatist",
+      "name": "[Creative name for a hard-nosed pragmatist relevant to this domain]",
+      "emoji": "⚡",
+      "focus": "[Their specific focus area, 5-10 words]",
+      "color": "#ff6b6b",
+      "description": "[One-line stance description]"
+    },
+    {
+      "id": "creative",
+      "name": "[Creative name for an innovative risk-taker relevant to this domain]",
+      "emoji": "🎨",
+      "focus": "[Their specific focus area]",
+      "color": "#4ecdc4",
+      "description": "[One-line stance description]"
+    },
+    {
+      "id": "guardian",
+      "name": "[Creative name for a safety/ethics/compliance guardian relevant to this domain]",
+      "emoji": "🛡️",
+      "focus": "[Their specific focus area]",
+      "color": "#45b7d1",
+      "description": "[One-line stance description]"
+    }
+  ],
+  "round1": [
+    { "personaId": "pragmatist", "response": "[200-300 word detailed initial analysis from this persona's perspective. Be specific, data-driven, and stay in character. Include concrete recommendations.]" },
+    { "personaId": "creative", "response": "[200-300 word analysis...]" },
+    { "personaId": "guardian", "response": "[200-300 word analysis...]" }
+  ]
+}
+
+CRITICAL: Customize persona names and focus areas to match the problem domain. For medical questions use Doctor/Researcher/Patient-Advocate. For business use CFO/Innovator/Legal. For tech use Engineer/Designer/Security. Make each Round 1 response substantive and opinionated.`;
+
+    const contents = [{ role: 'user', parts: [{ text: masterPrompt }] }];
+    const raw = await queryGeminiAPI(config.keys, contents, 'You are a JSON generator. Return ONLY valid JSON, no markdown.');
+    
+    let result;
+    try {
+      const cleaned = raw.replace(/```json\n?/gi, '').replace(/```\n?/g, '').trim();
+      result = JSON.parse(cleaned);
+    } catch {
+      return res.status(500).json({ error: 'AI returned invalid format. Please retry.' });
+    }
+
+    console.log(`[COUNCIL] Started for ${email}: ${result.personas?.length || 0} personas created`);
+    res.json({ success: true, personas: result.personas, round1: result.round1 });
+  } catch (error) {
+    console.error('[COUNCIL] Start error:', error.message);
+    res.status(500).json({ error: 'Failed to start council. Try again.' });
+  }
+});
+
+// Phase 2: Cross-examination — agents critique each other
+app.post('/api/chat/council/debate', async (req, res) => {
+  const { email, prompt, personas, round1 } = req.body;
+  if (!email || !prompt || !personas || !round1) return res.status(400).json({ error: 'Missing debate data.' });
+
+  const config = readConfig();
+  if (!config?.keys?.length) return res.status(500).json({ error: 'AI not configured.' });
+
+  try {
+    const round1Summary = round1.map(r => {
+      const p = personas.find(x => x.id === r.personaId);
+      return `${p?.name || r.personaId}: "${r.response}"`;
+    }).join('\n\n');
+
+    const debatePrompt = `You are orchestrating Round 2 of an adversarial multi-agent debate. Each agent must now CRITIQUE the other agents' Round 1 proposals — find flaws, challenge assumptions, and defend their own position.
+
+ORIGINAL PROBLEM: "${prompt.substring(0, 300)}"
+
+ROUND 1 PROPOSALS:
+${round1Summary}
+
+THE 3 PERSONAS:
+${personas.map(p => `- ${p.name} (${p.id}): ${p.focus}`).join('\n')}
+
+Generate Round 2 cross-examination. Each agent must:
+1. Directly reference and critique specific points from the OTHER agents' proposals
+2. Point out flaws, risks, or blind spots in their reasoning
+3. Defend their own position against anticipated criticism
+
+Return ONLY valid JSON:
+{
+  "round2": [
+    { "personaId": "pragmatist", "response": "[200-300 words cross-examining the other two agents' proposals. Quote their specific claims and challenge them.]" },
+    { "personaId": "creative", "response": "[200-300 words...]" },
+    { "personaId": "guardian", "response": "[200-300 words...]" }
+  ]
+}`;
+
+    const contents = [{ role: 'user', parts: [{ text: debatePrompt }] }];
+    const raw = await queryGeminiAPI(config.keys, contents, 'Return ONLY valid JSON.');
+    
+    let result;
+    try {
+      const cleaned = raw.replace(/```json\n?/gi, '').replace(/```\n?/g, '').trim();
+      result = JSON.parse(cleaned);
+    } catch {
+      return res.status(500).json({ error: 'Cross-examination parsing failed.' });
+    }
+
+    res.json({ success: true, round2: result.round2 });
+  } catch (error) {
+    console.error('[COUNCIL] Debate error:', error.message);
+    res.status(500).json({ error: 'Cross-examination failed.' });
+  }
+});
+
+// Phase 3: User steers the debate — course correction
+app.post('/api/chat/council/steer', async (req, res) => {
+  const { email, prompt, personas, round1, round2, steerInput } = req.body;
+  if (!email || !steerInput || !personas) return res.status(400).json({ error: 'Missing steering data.' });
+
+  const config = readConfig();
+  if (!config?.keys?.length) return res.status(500).json({ error: 'AI not configured.' });
+
+  try {
+    const steerPrompt = `You are orchestrating Round 3 of a multi-agent debate. The human observer has watched the debate and now wants to REDIRECT the discussion with new constraints.
+
+ORIGINAL PROBLEM: "${prompt.substring(0, 200)}"
+
+THE 3 PERSONAS:
+${personas.map(p => `- ${p.name} (${p.id}): ${p.focus}`).join('\n')}
+
+HUMAN'S COURSE CORRECTION: "${steerInput}"
+
+Each agent must now re-analyze the problem incorporating the human's new direction. They should:
+1. Acknowledge the course correction
+2. Adapt their position to the new constraints
+3. Provide updated, specific recommendations
+4. Still maintain their unique persona perspective
+
+Return ONLY valid JSON:
+{
+  "round3": [
+    { "personaId": "pragmatist", "response": "[200-300 words updated analysis incorporating the human's steering...]" },
+    { "personaId": "creative", "response": "[200-300 words...]" },
+    { "personaId": "guardian", "response": "[200-300 words...]" }
+  ]
+}`;
+
+    const contents = [{ role: 'user', parts: [{ text: steerPrompt }] }];
+    const raw = await queryGeminiAPI(config.keys, contents, 'Return ONLY valid JSON.');
+    
+    let result;
+    try {
+      const cleaned = raw.replace(/```json\n?/gi, '').replace(/```\n?/g, '').trim();
+      result = JSON.parse(cleaned);
+    } catch {
+      return res.status(500).json({ error: 'Steering round parsing failed.' });
+    }
+
+    res.json({ success: true, round3: result.round3 });
+  } catch (error) {
+    console.error('[COUNCIL] Steer error:', error.message);
+    res.status(500).json({ error: 'Steering failed.' });
+  }
+});
+
+// Phase 4: Consensus — synthesize debate into final action plan
+app.post('/api/chat/council/consensus', async (req, res) => {
+  const { email, prompt, personas, rounds } = req.body;
+  if (!email || !prompt || !personas) return res.status(400).json({ error: 'Missing consensus data.' });
+
+  const config = readConfig();
+  if (!config?.keys?.length) return res.status(500).json({ error: 'AI not configured.' });
+
+  try {
+    // Build full debate transcript
+    let transcript = '';
+    if (rounds?.round1) {
+      transcript += 'ROUND 1 — INITIAL PROPOSALS:\n';
+      rounds.round1.forEach(r => {
+        const p = personas.find(x => x.id === r.personaId);
+        transcript += `${p?.name || r.personaId}: ${r.response}\n\n`;
+      });
+    }
+    if (rounds?.round2) {
+      transcript += 'ROUND 2 — CROSS-EXAMINATION:\n';
+      rounds.round2.forEach(r => {
+        const p = personas.find(x => x.id === r.personaId);
+        transcript += `${p?.name || r.personaId}: ${r.response}\n\n`;
+      });
+    }
+    if (rounds?.round3?.length > 0) {
+      transcript += 'ROUND 3 — STEERED ITERATION:\n';
+      rounds.round3.forEach(r => {
+        const p = personas.find(x => x.id === r.personaId);
+        transcript += `${p?.name || r.personaId}: ${r.response}\n\n`;
+      });
+    }
+
+    const consensusPrompt = `You are the Chief Synthesis Officer. A multi-agent adversarial debate has just concluded. Your job is to review all debate transcripts, filter out the hostile arguments, and distill the survivable, stress-tested ideas into a comprehensive, bulletproof action plan.
+
+ORIGINAL PROBLEM: "${prompt}"
+
+THE DEBATERS:
+${personas.map(p => `- ${p.name}: ${p.focus}`).join('\n')}
+
+FULL DEBATE TRANSCRIPT:
+${transcript}
+
+YOUR TASK — Generate the FINAL CONSENSUS DECISION:
+
+Structure your response EXACTLY as follows:
+1. Start with a bold title for the stress-tested strategy
+2. "The Core Play" — the main recommended action (2-3 sentences)
+3. For EACH persona, extract their KEY SURVIVING CONTRIBUTION as a named guardrail:
+   - "The [Persona Focus] Guardrail ([Persona Name]):" — their specific, actionable safeguard
+4. "Implementation Timeline" — concrete next steps with priorities
+5. "Risks Acknowledged" — remaining risks the team accepts
+6. "Why This Plan Survives" — 2-3 sentences on why this plan is superior to any single agent's proposal
+
+Use clear headings, bullet points, and bold text. Make it feel like a real executive strategy document. This should be a COMPLETE, ACTIONABLE blueprint — not a vague summary.`;
+
+    const contents = [{ role: 'user', parts: [{ text: consensusPrompt }] }];
+    const consensusText = await queryGeminiAPI(config.keys, contents, 'You are a strategy synthesizer. Produce a comprehensive, well-formatted action plan.');
+
+    console.log(`[COUNCIL] Consensus generated for ${email}`);
+    res.json({ success: true, consensus: consensusText });
+  } catch (error) {
+    console.error('[COUNCIL] Consensus error:', error.message);
+    res.status(500).json({ error: 'Consensus generation failed.' });
+  }
+});
+
 // ==================== SMART CHAT TITLE GENERATOR ====================
 // Generates a concise, descriptive title for a chat based on the first exchange
 app.post('/api/chat/generate-title', async (req, res) => {

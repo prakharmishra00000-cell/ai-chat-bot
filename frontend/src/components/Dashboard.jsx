@@ -2,9 +2,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   Menu, X, Plus, Search, Trash2, Send, Mic, Paperclip, 
   Camera, FileText, Image, Download, RotateCcw, ShieldCheck, 
-  BrainCircuit, LayoutGrid, Terminal, HelpCircle, Check, Info, LogOut, Shield
+  BrainCircuit, LayoutGrid, Terminal, HelpCircle, Check, Info, LogOut, Shield, Users
 } from 'lucide-react';
 import mermaid from 'mermaid';
+import CouncilRoom from './CouncilRoom';
 
 // Initialize Mermaid.js configuration
 try {
@@ -91,6 +92,37 @@ function Dashboard({
   // Anonymize Input feature
   const [anonymizeEnabled, setAnonymizeEnabled] = useState(false);
   const anonymizeMapRef = useRef({});
+
+  // Council Room state (desktop only)
+  const [councilMode, setCouncilMode] = useState(false);
+  const [councilPrompt, setCouncilPrompt] = useState('');
+  const isDesktop = typeof window !== 'undefined' && window.innerWidth > 1024;
+
+  const handleCallCouncil = () => {
+    if (!promptInput.trim()) return;
+    setCouncilPrompt(promptInput);
+    setCouncilMode(true);
+  };
+
+  const handleCouncilConsensus = (consensusText) => {
+    // Inject consensus result into the active chat as a bot message
+    const currentChat = conversations.find(c => c.id === activeChatId);
+    if (!currentChat) return;
+
+    const councilMsg = {
+      id: 'msg_council_' + Date.now(),
+      sender: 'bot',
+      text: `🏛️ **Council Room — Consensus Decision**\n\n${consensusText}`,
+      timestamp: new Date().toISOString()
+    };
+
+    const updated = conversations.map(c => {
+      if (c.id === activeChatId) return { ...c, messages: [...c.messages, councilMsg] };
+      return c;
+    });
+    saveChatsToLocal(updated);
+    setPromptInput('');
+  };
 
   // Anonymize: scan text and replace sensitive data with labels
   const anonymizeText = (text) => {
@@ -1023,6 +1055,20 @@ function Dashboard({
                 <Shield size={20} />
               </button>
 
+              {/* Call Council button (desktop only) */}
+              {isDesktop && (
+                <button 
+                  type="button" 
+                  className="chat-input-btn"
+                  onClick={handleCallCouncil}
+                  disabled={loading || !promptInput.trim()}
+                  title="Call Council — Multi-Agent Debate (Desktop Only)"
+                  style={promptInput.trim() ? { color: '#667eea' } : {}}
+                >
+                  <Users size={20} />
+                </button>
+              )}
+
               {/* Send message */}
               <button type="submit" className="chat-input-btn send-msg" disabled={loading}>
                 <Send size={20} />
@@ -1061,6 +1107,16 @@ function Dashboard({
             <button className="btn btn-secondary" onClick={stopCamera}>Close Camera</button>
           </div>
         </div>
+      )}
+
+      {/* Council Room overlay (desktop only) */}
+      {councilMode && (
+        <CouncilRoom
+          prompt={councilPrompt}
+          email={currentUser.email}
+          onClose={() => setCouncilMode(false)}
+          onConsensusComplete={handleCouncilConsensus}
+        />
       )}
     </div>
   );
