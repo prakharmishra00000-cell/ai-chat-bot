@@ -557,7 +557,7 @@ async function queryGeminiAPI(keys, contents, systemInstruction, enableWebSearch
       const url = `https://generativelanguage.googleapis.com/${api}/models/${model}:generateContent?key=${activeKey}`;
       
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 20000); // 20s per attempt
+      const timeoutId = setTimeout(() => controller.abort(), 40000); // 40s per attempt for search
 
       try {
         let payloadContents = JSON.parse(JSON.stringify(contents));
@@ -614,20 +614,20 @@ async function queryGeminiAPI(keys, contents, systemInstruction, enableWebSearch
     }
   }
 
-  // FINAL RETRY: Wait 2 seconds, then try gemini-3.5-flash on first 3 keys
+  // FINAL RETRY: Wait 2 seconds, then try gemini-2.5-flash on first 3 keys
   console.log('[GEMINI] All attempts failed. Waiting 2s for final retry...');
   await new Promise(r => setTimeout(r, 2000));
   
   for (let i = 0; i < Math.min(keys.length, 3); i++) {
     const key = keys[i];
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 25000);
+    const timeoutId = setTimeout(() => controller.abort(), 40000);
     try {
       let payloadContents = JSON.parse(JSON.stringify(contents));
       if (systemInstruction && payloadContents.length > 0 && payloadContents[0].role === 'user') {
         payloadContents[0].parts[0].text = `[System Instruction: ${systemInstruction}]\n\n` + payloadContents[0].parts[0].text;
       }
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${key}`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`;
       const requestPayloadFinal = { contents: payloadContents };
       if (enableWebSearch) requestPayloadFinal.tools = [{ googleSearch: {} }];
 
@@ -650,7 +650,7 @@ async function queryGeminiAPI(keys, contents, systemInstruction, enableWebSearch
   }
 
   console.error(`[GEMINI] ALL ${keys.length} KEYS EXHAUSTED — daily free-tier quota likely reached`);
-  throw new Error('Daily API quota exhausted on all keys. The free tier resets at midnight Pacific Time. Please try again later or upgrade your API keys to paid tier.');
+  return "I apologize, but all of my API keys have reached their daily quota limit, or the request timed out. Please try your request again later or upgrade my keys. Thank you!";
 }
 
 // Health Check — diagnose key loading issues
