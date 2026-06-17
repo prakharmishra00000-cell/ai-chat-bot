@@ -343,83 +343,7 @@ function Dashboard({
   // Interview Mode state
   const [interviewModeActive, setInterviewModeActive] = useState(false);
 
-  // OS Ghost Mode state
-  const [ghostModeActive, setGhostModeActive] = useState(false);
-  const [ghostActions, setGhostActions] = useState(null);
 
-  const toggleGhostMode = () => {
-    setGhostModeActive(!ghostModeActive);
-    setGhostActions(null);
-  };
-
-  const handleGhostCommand = async (prompt, messagesHistory) => {
-    try {
-      let screenBase64 = '';
-      try {
-        const stream = await navigator.mediaDevices.getDisplayMedia({ video: { displaySurface: "monitor" } });
-        const track = stream.getVideoTracks()[0];
-        const imageCapture = new ImageCapture(track);
-        const bitmap = await imageCapture.grabFrame();
-        
-        const canvas = document.createElement('canvas');
-        canvas.width = 1024;
-        canvas.height = 768;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(bitmap, 0, 0, 1024, 768);
-        screenBase64 = canvas.toDataURL('image/jpeg');
-        track.stop();
-      } catch (e) {
-        alert("Screen capture permission denied or not supported. OS Ghost requires full screen access.");
-        setLoading(false);
-        return;
-      }
-
-      const res = await fetch('/api/ghost/command', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: currentUser.email, prompt, screenBase64 })
-      });
-      const data = await res.json();
-      if (data.success) {
-        setGhostActions(data.actions);
-      } else {
-        alert("Ghost API Error: " + data.error);
-      }
-    } catch(e) {
-      console.error(e);
-      alert("Failed to communicate with Ghost API.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleApproveGhost = async () => {
-    try {
-      await fetch('/api/ghost/approve', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: currentUser.email })
-      });
-      setGhostActions(null);
-      
-      const currentChat = conversations.find(c => c.id === activeChatId);
-      if (currentChat) {
-         const sysMsg = {
-           id: 'msg_ghost_' + Date.now(),
-           sender: 'bot',
-           text: `👻 **OS Ghost Execution**\n\nThe approved action sequence has been sent to your local Ghost Client for execution. Move your physical mouse to the corner of your screen at any time to abort the failsafe.`,
-           timestamp: new Date().toISOString()
-         };
-         const updated = conversations.map(c => {
-           if (c.id === activeChatId) return { ...c, messages: [...c.messages, sysMsg] };
-           return c;
-         });
-         saveChatsToLocal(updated);
-      }
-    } catch (e) {
-       console.error(e);
-    }
-  };
 
   const handleCallCouncil = () => {
     if (!promptInput.trim()) return;
@@ -863,11 +787,6 @@ function Dashboard({
     setAttachment(null);
     setLoading(true);
 
-    if (ghostModeActive) {
-      await handleGhostCommand(originalRawInput, updatedMessages);
-      return;
-    }
-
     if (interviewModeActive) {
       try {
         const interviewStartRes = await fetch('/api/chat/interview/start', {
@@ -1279,7 +1198,7 @@ function Dashboard({
       </div>
 
       {/* Main chat viewport */}
-      <div className={`main-chat-area ${ghostModeActive ? 'ghost-active' : ''}`}>
+      <div className={`main-chat-area`}>
         <div className="main-header">
           <div className="header-row-top">
             {!sidebarOpen && (
@@ -1323,14 +1242,6 @@ function Dashboard({
                 onClick={() => setMode(prev => prev === 'matrix_simulation' ? 'normal' : 'matrix_simulation')}
               >
                 Matrix
-              </button>
-              <button 
-                className={`mode-toggle-btn ${ghostModeActive ? 'active' : ''}`}
-                onClick={toggleGhostMode}
-                style={{ background: ghostModeActive ? '#ff3366' : 'rgba(255,255,255,0.05)', color: '#fff', marginLeft: '10px', display: 'flex', alignItems: 'center' }}
-              >
-                <Cpu size={14} style={{ marginRight: '4px' }} />
-                Take the Wheel
               </button>
             </div>
           </div>
@@ -1587,28 +1498,6 @@ function Dashboard({
           <div style={{ display: 'flex', gap: '15px' }}>
             <button className="btn" onClick={capturePhoto}>Capture Photo</button>
             <button className="btn btn-secondary" onClick={stopCamera}>Close Camera</button>
-          </div>
-        </div>
-      )}
-
-      {/* OS Ghost Staging Interceptor */}
-      {ghostActions && (
-        <div className="ghost-interceptor-overlay">
-          <div className="ghost-interceptor-box glass-panel">
-            <h2><Cpu size={24} color="#ff3366" /> OS Ghost Interceptor</h2>
-            <p>The AI has analyzed your screen and proposed the following physical actions. Please review carefully.</p>
-            <div className="ghost-action-list">
-              {ghostActions.map((action, idx) => (
-                <div key={idx} className="ghost-action-item">
-                  <Check size={16} color="#00f2fe" />
-                  <span>{action.description || JSON.stringify(action)}</span>
-                </div>
-              ))}
-            </div>
-            <div className="ghost-interceptor-footer">
-              <button className="btn btn-secondary" onClick={() => setGhostActions(null)}>Abort</button>
-              <button className="btn" onClick={handleApproveGhost} style={{ background: '#ff3366' }}>Approve Action Sequence</button>
-            </div>
           </div>
         </div>
       )}
