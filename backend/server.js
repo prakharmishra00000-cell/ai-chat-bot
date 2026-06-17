@@ -543,7 +543,7 @@ app.post('/api/ghost/command', async (req, res) => {
     const config = readConfig();
     if (!config || config.keys.length === 0) return res.status(500).json({ error: 'No API keys' });
 
-    const systemInstruction = `You are a System-Wide OS Ghost. Analyze this computer screenshot and the user's prompt. Map visual UI elements to JSON action coordinates to fulfill the user's goal. Estimate X,Y coordinates on a 1024x768 scale. Return strictly a JSON array of actions.
+    const systemInstruction = `You are a System-Wide OS Ghost. Analyze this computer screenshot and the user's prompt. Map visual UI elements to JSON action coordinates to fulfill the user's goal. Estimate X,Y coordinates on a normalized 0 to 1000 scale (where 0,0 is top-left and 1000,1000 is bottom-right). Return strictly a JSON array of actions.
 Example:
 [
   {"type": "mouse_move", "x": 100, "y": 200, "description": "Move to Documents folder"},

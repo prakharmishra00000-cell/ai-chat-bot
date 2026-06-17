@@ -8,7 +8,7 @@ from PIL import ImageGrab
 # MatrixMind Bot Local OS Ghost Client
 # This script bridges the web dashboard's "Take the Wheel" button to your physical OS.
 
-SERVER_URL = "http://localhost:5000"  # Change this to your Render URL in production
+SERVER_URL = "https://ai-chat-bot-gykb.onrender.com"  # Change this to your Render URL in production
 USER_EMAIL = "prakharmishra00000@gmail.com" # Must match logged in email
 
 def capture_screen_base64():
@@ -27,10 +27,10 @@ def capture_screen_base64():
 def execute_action(action):
     try:
         if action['type'] == 'mouse_move':
-            # Map 1024x768 coordinates to actual screen size
+            # Map 1000x1000 normalized coordinates to actual screen size
             screen_w, screen_h = pyautogui.size()
-            target_x = int(action['x'] * (screen_w / 1024.0))
-            target_y = int(action['y'] * (screen_h / 768.0))
+            target_x = int(action['x'] * (screen_w / 1000.0))
+            target_y = int(action['y'] * (screen_h / 1000.0))
             print(f"[*] Moving mouse to ({target_x}, {target_y})")
             pyautogui.moveTo(target_x, target_y, duration=0.5)
 
