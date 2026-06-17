@@ -4,6 +4,20 @@ import { X, Check, Award, Flame, Zap, Copy, Loader, CheckCircle, AlertCircle } f
 function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess }) {
   const fallbackPlans = [
     {
+      id: 'free',
+      name: 'Free Tier',
+      price: 0,
+      duration: 'Forever',
+      prompts: 30,
+      efficiency: 'Standard Response Rate',
+      features: [
+        '30 daily prompts limit',
+        'Standard processing priority',
+        'Data Masking (5/day)',
+        'Interview Mode (3/day)'
+      ]
+    },
+    {
       id: 'standard',
       name: 'Standard Plan',
       price: 99,
@@ -93,7 +107,7 @@ function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess }) {
           }
           const plansObj = data.plans || data; // handle backward compat
           if (Object.keys(plansObj).length > 0) {
-            const ordered = ['standard', 'better', 'premium']
+            const ordered = ['free', 'standard', 'better', 'premium']
               .map(id => plansObj[id])
               .filter(Boolean);
             if (ordered.length > 0) setDbPlans(ordered);

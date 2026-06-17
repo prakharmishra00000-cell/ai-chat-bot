@@ -1026,7 +1026,7 @@ body {
 
 .modal-card {
   width: 100%;
-  max-width: 850px;
+  max-width: 1100px;
   padding: 40px;
   position: relative;
   max-height: 90vh;
@@ -1062,7 +1062,7 @@ body {
 
 .plans-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 20px;
 }
 
