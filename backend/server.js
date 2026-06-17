@@ -1058,6 +1058,51 @@ User's original raw query: ${message}`;
   }
 });
 
+// ==================== SMART CHAT TITLE GENERATOR ====================
+// Generates a concise, descriptive title for a chat based on the first exchange
+app.post('/api/chat/generate-title', async (req, res) => {
+  const { userMessage, botResponse } = req.body;
+  if (!userMessage) return res.status(400).json({ error: 'User message is required.' });
+
+  try {
+    const config = readConfig();
+    if (!config || !config.keys || config.keys.length === 0) {
+      // Fallback: extract title from user message
+      const fallback = userMessage.replace(/[^a-zA-Z0-9\s]/g, '').trim().substring(0, 50);
+      return res.json({ title: fallback || 'Chat' });
+    }
+
+    const titlePrompt = `Generate a short, descriptive topic title (3-6 words max) for a chat conversation that started with this user message:
+
+"${userMessage.substring(0, 200)}"
+
+${botResponse ? `The bot responded about: "${botResponse.substring(0, 200)}"` : ''}
+
+Rules:
+- Return ONLY the title text, nothing else
+- No quotes, no punctuation at the end, no prefixes
+- Make it specific and descriptive (e.g., "Evolution of Car Engines", "Python Web Scraping Tutorial", "Black Holes & Spacetime")
+- If the message is a greeting, use "General Conversation"
+- Maximum 6 words`;
+
+    const contents = [{ role: 'user', parts: [{ text: titlePrompt }] }];
+    const titleResponse = await queryGeminiAPI(config.keys, contents, 'You are a title generator. Return only the title.');
+    
+    let title = titleResponse.trim()
+      .replace(/^["']|["']$/g, '') // Remove surrounding quotes
+      .replace(/[.!?]+$/, '')       // Remove trailing punctuation
+      .substring(0, 60);            // Max 60 chars
+    
+    if (!title || title.length < 2) title = userMessage.substring(0, 40);
+
+    res.json({ title });
+  } catch (error) {
+    console.warn('[TITLE] Generation failed, using fallback:', error.message);
+    const fallback = userMessage.replace(/[^a-zA-Z0-9\s]/g, '').trim().substring(0, 50);
+    res.json({ title: fallback || 'Chat' });
+  }
+});
+
 // ==================== SIMPLE UPI PAYMENT - ADMIN APPROVAL SYSTEM ====================
 // User pays via QR/UPI ID → enters UTR → submits for admin review → admin approves/rejects
 

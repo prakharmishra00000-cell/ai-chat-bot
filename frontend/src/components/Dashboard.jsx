@@ -149,7 +149,7 @@ function Dashboard({
     const welcomeMessage = { id: Date.now(), sender: 'model', text: 'Welcome to MatrixMind! How can I assist you today?' };
     const newChat = {
       id: 'chat_' + Date.now(),
-      title: 'New Chat Topic ' + (conversations.length + 1),
+      title: 'New Conversation',
       messages: [welcomeMessage],
       personality: personality,
       created_at: new Date().toISOString()
@@ -357,10 +357,10 @@ function Dashboard({
 
     const updatedMessages = [...currentChat.messages, userMsg];
     
-    // Auto re-title the chat from prompt
+    // Use placeholder title initially — smart title will be generated after bot responds
     let chatTitle = currentChat.title;
     if (currentChat.messages.length === 0) {
-      chatTitle = userMessageText.substring(0, 30) + (userMessageText.length > 30 ? '...' : '');
+      chatTitle = userMessageText.substring(0, 40) + (userMessageText.length > 40 ? '...' : '');
     }
 
     const updatedChatList = conversations.map(c => {
@@ -487,6 +487,32 @@ function Dashboard({
 
         saveChatsToLocal(finalChatList);
         refreshUserStatus(); // Refresh daily counts
+
+        // Generate smart AI title for the chat (only for first message in this chat)
+        if (currentChat.messages.length === 0 || currentChat.title.startsWith('New Conversation')) {
+          try {
+            const titleRes = await fetch('/api/chat/generate-title', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                userMessage: userMessageText.substring(0, 200),
+                botResponse: botResponseText.substring(0, 200)
+              })
+            });
+            if (titleRes.ok) {
+              const titleData = await titleRes.json();
+              if (titleData.title && titleData.title.length > 1) {
+                const titledChatList = finalChatList.map(c => {
+                  if (c.id === activeChatId) return { ...c, title: titleData.title };
+                  return c;
+                });
+                saveChatsToLocal(titledChatList);
+              }
+            }
+          } catch (titleErr) {
+            console.warn('Smart title generation failed:', titleErr);
+          }
+        }
       } else {
         if (responseData.error === 'LIMIT_EXCEEDED') {
           alert("You have reached your daily prompt limit for today. Please upgrade your plan to unlock higher capacity.");
