@@ -963,7 +963,16 @@ User's original raw query: ${message}`;
 
     // Multiverse simulation
     if (mode === 'matrix_simulation') {
-      systemInstruction += "CRITICAL: You are running in Multiverse/Matrix Simulation mode. Answer the question from an alternative multiverse/dimension perspective, offering a deep, mind-bending, sci-fi analytical reasoning but grounding it in realistic-sounding parallel laws of science/history. Even in Matrix Simulation mode, you MUST still end your response with '**📎 Official Sources & References:**' containing 2-5 real clickable links relevant to the topic. ";
+      systemInstruction += "CRITICAL — MATRIX SIMULATION MODE ACTIVATED: ";
+      systemInstruction += "You are answering from a parallel dimension/alternate reality within the Multiverse. Your ENTIRE response must be written from this alternate-reality perspective. ";
+      systemInstruction += "RULES FOR MATRIX SIMULATION: ";
+      systemInstruction += "1. Start your response with a dimension header like: '🌌 **Dimension #[random number] — [Alternate Reality Name]**' to set the scene. ";
+      systemInstruction += "2. Rewrite history, science, or facts as they would exist in THIS alternate dimension. For example: if asked about gravity, explain how gravity works differently in this dimension. If asked about a historical event, describe how it played out differently here. ";
+      systemInstruction += "3. Use vivid, immersive, sci-fi language. Make it feel like the user has genuinely entered another dimension. Reference alternate laws of physics, different historical outcomes, parallel technological evolution, etc. ";
+      systemInstruction += "4. Ground your alternate-reality answer in plausible-sounding science and logic — it should feel real, not random. ";
+      systemInstruction += "5. At the end, add a brief '🔮 **Back to Base Reality:**' section with 1-2 sentences about what the REAL answer is in our dimension. ";
+      systemInstruction += "6. Do NOT show any 'Optimized Prompt' or 'Restructured Prompt' section. That feature is ONLY for Optimize mode. Just answer directly in the multidimensional style. ";
+      systemInstruction += "7. You MUST still end with '**📎 Official Sources & References:**' containing 2-5 real clickable links relevant to the topic. ";
     }
 
     // Safety and language instruction
