@@ -419,7 +419,7 @@ function checkFeatureLimit(email, feature) {
   const limit = limits[feature];
   const used = user.featureUsage?.[feature] || 0;
   
-  if (limit === -1) return { allowed: true, used, limit: -1 }; // unlimited
+  if (Number(limit) === -1) return { allowed: true, used, limit: -1 }; // unlimited
   return { allowed: used < limit, used, limit };
 }
 
@@ -897,7 +897,7 @@ app.post('/api/chat', async (req, res) => {
     }
   }
 
-  if (!isAdmin && user.promptsUsed >= userLimit) {
+  if (!isAdmin && Number(userLimit) !== -1 && user.promptsUsed >= Number(userLimit)) {
     return res.status(403).json({
       error: 'LIMIT_EXCEEDED',
       message: `You have reached your daily limit of ${userLimit} prompts. Please upgrade your plan.`
@@ -1536,7 +1536,7 @@ app.post('/api/chat/interview/start', async (req, res) => {
   const userLimit = planInfo ? planInfo.prompts : (user.plan === 'free' ? 30 : 100);
   const isAdmin = email === ADMIN_EMAIL;
 
-  if (!isAdmin && user.promptsUsed >= userLimit) {
+  if (!isAdmin && Number(userLimit) !== -1 && user.promptsUsed >= Number(userLimit)) {
     return res.status(403).json({
       error: 'LIMIT_EXCEEDED',
       message: `You have reached your daily limit of ${userLimit} prompts. Please upgrade your plan.`
@@ -1632,7 +1632,7 @@ app.post('/api/chat/interview/submit', async (req, res) => {
   const userLimit = planInfo ? planInfo.prompts : (user.plan === 'free' ? 30 : 100);
   const isAdmin = email === ADMIN_EMAIL;
 
-  if (!isAdmin && user.promptsUsed >= userLimit) {
+  if (!isAdmin && Number(userLimit) !== -1 && user.promptsUsed >= Number(userLimit)) {
     return res.status(403).json({
       error: 'LIMIT_EXCEEDED',
       message: `You have reached your daily limit of ${userLimit} prompts. Please upgrade your plan.`

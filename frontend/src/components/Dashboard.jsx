@@ -708,7 +708,7 @@ function Dashboard({
 
     // Check Plan limitations locally before calling backend
     if (userPlanDetails) {
-      if (userPlanDetails.promptsUsed >= userPlanDetails.limit) {
+      if (Number(userPlanDetails.limit) !== -1 && userPlanDetails.promptsUsed >= userPlanDetails.limit) {
         onTriggerUpgrade();
         return;
       }
@@ -1183,7 +1183,7 @@ function Dashboard({
                 {userPlanDetails?.plan ? userPlanDetails.plan.toUpperCase() : 'FREE'} PLAN
               </span>
               <span style={{ fontSize: '0.8rem', color: '#ffb86c', marginTop: '2px' }}>
-                Prompts Left Today: {Math.max(0, (userPlanDetails?.limit || 30) - (userPlanDetails?.promptsUsed || 0))} / {userPlanDetails?.limit || 30}
+                Prompts Left Today: {Number(userPlanDetails?.limit) === -1 ? 'Unlimited' : Math.max(0, (userPlanDetails?.limit || 30) - (userPlanDetails?.promptsUsed || 0)) + ' / ' + (userPlanDetails?.limit || 30)}
               </span>
             </div>
           </div>

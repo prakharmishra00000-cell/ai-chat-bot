@@ -280,7 +280,7 @@ function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess }) {
                         const limit = plan.featureLimits[key];
                         const name = featureNames[key] || key;
                         if (limit > 0) dynamicFeatures.push(`${name} (${limit}/day)`);
-                        else if (limit === -1) dynamicFeatures.push(`${name} (Unlimited)`);
+                        else if (Number(limit) === -1) dynamicFeatures.push(`${name} (Unlimited)`);
                       });
                       displayFeatures = [...baseFeatures, ...dynamicFeatures];
                     }
