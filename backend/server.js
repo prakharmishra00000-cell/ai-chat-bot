@@ -1483,6 +1483,163 @@ Use clear headers, structured tables/lists, and detailed recommendations. Make i
   }
 });
 
+// ==================== INTERVIEW MODE (REVERSE PROMPTING) ====================
+app.post('/api/chat/interview/start', async (req, res) => {
+  const { email, message, personality } = req.body;
+  if (!email || !message) return res.status(400).json({ error: 'Email and message are required.' });
+
+  // Check Plan limits
+  const db = readDB();
+  const user = getOrCreateUser(email);
+  const planInfo = db.plans && db.plans[user.plan];
+  const userLimit = planInfo ? planInfo.prompts : (user.plan === 'free' ? 30 : 100);
+  const isAdmin = email === ADMIN_EMAIL;
+
+  if (!isAdmin && user.promptsUsed >= userLimit) {
+    return res.status(403).json({
+      error: 'LIMIT_EXCEEDED',
+      message: `You have reached your daily limit of ${userLimit} prompts. Please upgrade your plan.`
+    });
+  }
+
+  const config = readConfig();
+  if (!config?.keys?.length) return res.status(500).json({ error: 'AI not configured.' });
+
+  try {
+    const analysisPrompt = `You are a diagnostic prompt analyzer. The user wants to write a prompt or run a request, but it is vague:
+"${message.substring(0, 500)}"
+
+Identify exactly 3 critical missing parameters/constraints required to produce a highly customized, functional, and flawless solution on the first try.
+Generate exactly 3 questions in a questionnaire.
+Each question type must be one of:
+- 'select' (a single-choice dropdown menu)
+- 'checkbox' (multiple choice checklist)
+- 'radio' (single-choice radio button list)
+
+Return a JSON object with this EXACT format. Do not use markdown, do not wrap in code blocks (no \`\`\`json), ONLY output valid raw JSON:
+{
+  "questions": [
+    {
+      "id": "param_1",
+      "type": "select",
+      "label": "[Question text, e.g. Target Operating System?]",
+      "options": ["Windows", "macOS", "Linux"]
+    },
+    {
+      "id": "param_2",
+      "type": "checkbox",
+      "label": "[Question text, e.g. What categories should be processed?]",
+      "options": ["Extensions (.pdf, .zip)", "Creation Date", "File Size"]
+    },
+    {
+      "id": "param_3",
+      "type": "radio",
+      "label": "[Question text, e.g. How to handle existing duplicates?]",
+      "options": ["Auto-rename suffix", "Overwrite files", "Skip duplicates"]
+    }
+  ]
+}`;
+
+    const contents = [{ role: 'user', parts: [{ text: analysisPrompt }] }];
+    const raw = await queryGeminiAPI(config.keys, contents, 'You are a JSON generator. Return only a valid JSON object.');
+    
+    let parsed;
+    try {
+      const cleaned = raw.replace(/```json\n?/gi, '').replace(/```\n?/g, '').trim();
+      parsed = JSON.parse(cleaned);
+    } catch (e) {
+      // Fallback questionnaire if parsing fails
+      parsed = {
+        questions: [
+          { id: 'param_1', type: 'select', label: 'Target Operating System?', options: ['Windows', 'macOS', 'Linux'] },
+          { id: 'param_2', type: 'checkbox', label: 'File Categorization Rule?', options: ['By Extension (.pdf, .jpg)', 'By Creation Date', 'By File Size'] },
+          { id: 'param_3', type: 'radio', label: 'Duplicate File Action?', options: ['Auto-rename with suffix', 'Overwrite', 'Skip file'] }
+        ]
+      };
+    }
+
+    res.json({ success: true, questions: parsed.questions });
+  } catch (error) {
+    console.error('[INTERVIEW] Start error:', error.message);
+    res.status(500).json({ error: 'Failed to generate diagnostic questions.' });
+  }
+});
+
+app.post('/api/chat/interview/submit', async (req, res) => {
+  const { email, originalPrompt, answers, history, personality } = req.body;
+  if (!email || !originalPrompt || !answers) return res.status(400).json({ error: 'Missing required parameters.' });
+
+  // Check Plan limits
+  const db = readDB();
+  const user = getOrCreateUser(email);
+  const planInfo = db.plans && db.plans[user.plan];
+  const userLimit = planInfo ? planInfo.prompts : (user.plan === 'free' ? 30 : 100);
+  const isAdmin = email === ADMIN_EMAIL;
+
+  if (!isAdmin && user.promptsUsed >= userLimit) {
+    return res.status(403).json({
+      error: 'LIMIT_EXCEEDED',
+      message: `You have reached your daily limit of ${userLimit} prompts. Please upgrade your plan.`
+    });
+  }
+
+  const config = readConfig();
+  if (!config?.keys?.length) return res.status(500).json({ error: 'AI not configured.' });
+
+  try {
+    // Format answers summary
+    const summary = answers.map(ans => `- **${ans.label}**: ${Array.isArray(ans.selection) ? ans.selection.join(', ') : ans.selection}`).join('\n');
+
+    let finalPrompt = `The user originally requested: "${originalPrompt}"
+To resolve prompt ambiguity, the user has completed a diagnostic questionnaire and selected these parameters:
+${summary}
+
+Based on these specific variables, please output a flawless, custom-tailored solution. If code or scripts are requested, write complete, production-ready, error-free code that targets these choices perfectly.`;
+
+    // Implement standard personality behavior
+    let systemInstruction = "You are MatrixMind, a super advanced, friendly AI Assistant. ";
+    if (personality === 'architect') {
+      systemInstruction += "You are currently in ARCHITECT mode. You are a senior-level technical Architect and full-stack developer. You must write complete, functional, production-ready code with no shortcuts. Explain sections, integrations, and dependencies. ";
+    } else if (personality === 'analyst') {
+      systemInstruction += "You are currently in ANALYST mode. You are a data Analyst and statistician. Answer step-by-step using tables, lists, and numbers. ";
+    } else {
+      systemInstruction += "You are currently in STANDARD mode. A general-purpose assistant. If they ask for programming scripts, advise them to switch to Architect mode; however, since they completed the diagnostic parameters, provide a high-level explanation and code guidelines matching their choices. ";
+    }
+
+    const contents = [];
+    if (history && Array.isArray(history)) {
+      history.forEach(item => {
+        contents.push({
+          role: item.sender === 'user' ? 'user' : 'model',
+          parts: [{ text: item.text }]
+        });
+      });
+    }
+
+    contents.push({
+      role: 'user',
+      parts: [{ text: finalPrompt }]
+    });
+
+    const aiResponse = await queryGeminiAPI(config.keys, contents, systemInstruction);
+
+    // Charge 1 prompt limit
+    user.promptsUsed += 1;
+    db.users[email] = user;
+    writeDB(db);
+
+    res.json({
+      success: true,
+      response: aiResponse,
+      promptsUsed: user.promptsUsed,
+      limit: userLimit
+    });
+  } catch (error) {
+    console.error('[INTERVIEW] Submit error:', error.message);
+    res.status(500).json({ error: 'Failed to compile optimized solution.' });
+  }
+});
+
 // ==================== SMART CHAT TITLE GENERATOR ====================
 // Generates a concise, descriptive title for a chat based on the first exchange
 app.post('/api/chat/generate-title', async (req, res) => {

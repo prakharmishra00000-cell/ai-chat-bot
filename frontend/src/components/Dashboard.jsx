@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   Menu, X, Plus, Search, Trash2, Send, Mic, Paperclip, 
   Camera, FileText, Image, Download, RotateCcw, ShieldCheck, 
-  BrainCircuit, LayoutGrid, Terminal, HelpCircle, Check, Info, LogOut, Shield, Users, Cpu, Play
+  BrainCircuit, LayoutGrid, Terminal, HelpCircle, Check, Info, LogOut, Shield, Users, Cpu, Play, Loader2
 } from 'lucide-react';
 import mermaid from 'mermaid';
 import CouncilRoom from './CouncilRoom';
@@ -66,6 +66,247 @@ function MermaidChart({ chartCode }) {
   );
 }
 
+// ==================== INTERVIEW MODE FORM WIDGET ====================
+function InterviewFormWidget({ message, currentUser, conversations, activeChatId, saveChatsToLocal, personality, refreshUserStatus }) {
+  const [selections, setSelections] = useState(() => {
+    const init = {};
+    message.questions.forEach(q => {
+      if (q.type === 'checkbox') {
+        init[q.id] = [];
+      } else {
+        init[q.id] = q.options && q.options.length > 0 ? q.options[0] : '';
+      }
+    });
+    return init;
+  });
+
+  const [loading, setLoading] = useState(false);
+
+  const handleValueChange = (qid, val) => {
+    if (message.submitted) return;
+    setSelections(prev => ({ ...prev, [qid]: val }));
+  };
+
+  const handleCheckboxChange = (qid, option, checked) => {
+    if (message.submitted) return;
+    setSelections(prev => {
+      const current = prev[qid] || [];
+      const updated = checked 
+        ? [...current, option]
+        : current.filter(o => o !== option);
+      return { ...prev, [qid]: updated };
+    });
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (loading || message.submitted) return;
+    setLoading(true);
+
+    const answersList = message.questions.map(q => ({
+      label: q.label,
+      selection: selections[q.id]
+    }));
+
+    try {
+      const res = await fetch('/api/chat/interview/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: currentUser.email,
+          originalPrompt: message.originalPrompt,
+          answers: answersList,
+          history: [],
+          personality: personality
+        })
+      });
+
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        const currentChat = conversations.find(c => c.id === activeChatId);
+        if (!currentChat) return;
+
+        const summaryText = `🔧 **Diagnostic Parameters Selected:**\n` + 
+          answersList.map(a => `- ${a.label}: *${Array.isArray(a.selection) ? a.selection.join(', ') : a.selection}*`).join('\n');
+
+        const userSummaryMsg = {
+          id: 'msg_user_param_' + Date.now(),
+          sender: 'user',
+          text: summaryText,
+          timestamp: new Date().toISOString()
+        };
+
+        const botResponseMsg = {
+          id: 'msg_bot_' + Date.now(),
+          sender: 'bot',
+          text: data.response,
+          timestamp: new Date().toISOString()
+        };
+
+        // Update the form message and append new messages
+        const updatedMessages = currentChat.messages.map(m => {
+          if (m.id === message.id) {
+            return { ...m, submitted: true, submittedAnswers: answersList };
+          }
+          return m;
+        });
+
+        const finalMessages = [...updatedMessages, userSummaryMsg, botResponseMsg];
+
+        const updatedChatList = conversations.map(c => {
+          if (c.id === activeChatId) {
+            return { ...c, messages: finalMessages };
+          }
+          return c;
+        });
+
+        saveChatsToLocal(updatedChatList);
+        refreshUserStatus();
+      } else {
+        alert(data.message || 'Failed to submit parameters.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Network error submitting parameters.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div style={{
+      background: 'rgba(255,255,255,0.03)',
+      border: '1px solid rgba(255,255,255,0.08)',
+      borderRadius: '12px',
+      padding: '16px',
+      marginTop: '10px',
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '14px'
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#bd93f9', fontWeight: 600, fontSize: '0.9rem' }}>
+        <Sparkles size={16} />
+        <span>Diagnostic Form — Interview Mode</span>
+      </div>
+
+      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        {message.questions.map((q) => (
+          <div key={q.id} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <label style={{ fontSize: '0.82rem', color: '#cbd5e1', fontWeight: 600 }}>{q.label}</label>
+            
+            {/* Dropdown Select */}
+            {q.type === 'select' && (
+              <select
+                disabled={message.submitted || loading}
+                value={selections[q.id]}
+                onChange={(e) => handleValueChange(q.id, e.target.value)}
+                style={{
+                  background: 'rgba(255,255,255,0.06)',
+                  border: '1px solid rgba(255,255,255,0.12)',
+                  borderRadius: '8px',
+                  padding: '8px 12px',
+                  color: '#fff',
+                  fontSize: '0.8rem',
+                  outline: 'none',
+                  cursor: 'pointer'
+                }}
+              >
+                {q.options.map(opt => (
+                  <option key={opt} value={opt} style={{ background: '#0f0f1e', color: '#fff' }}>{opt}</option>
+                ))}
+              </select>
+            )}
+
+            {/* Checkbox Group */}
+            {q.type === 'checkbox' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', paddingLeft: '4px' }}>
+                {q.options.map(opt => {
+                  const isChecked = selections[q.id]?.includes(opt);
+                  return (
+                    <label key={opt} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.78rem', color: '#e2e8f0', cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        disabled={message.submitted || loading}
+                        checked={isChecked}
+                        onChange={(e) => handleCheckboxChange(q.id, opt, e.target.checked)}
+                        style={{ accentColor: '#ff79c6' }}
+                      />
+                      <span>{opt}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Radio Button Group */}
+            {q.type === 'radio' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', paddingLeft: '4px' }}>
+                {q.options.map(opt => (
+                  <label key={opt} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.78rem', color: '#e2e8f0', cursor: 'pointer' }}>
+                    <input
+                      type="radio"
+                      name={`radio_${message.id}_${q.id}`}
+                      disabled={message.submitted || loading}
+                      checked={selections[q.id] === opt}
+                      onChange={() => handleValueChange(q.id, opt)}
+                      style={{ accentColor: '#ff79c6' }}
+                    />
+                    <span>{opt}</span>
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+
+        {!message.submitted ? (
+          <button
+            type="submit"
+            disabled={loading}
+            style={{
+              padding: '10px 16px',
+              borderRadius: '8px',
+              border: 'none',
+              background: 'linear-gradient(135deg, #ff79c6, #bd93f9)',
+              color: '#fff',
+              fontWeight: 700,
+              fontSize: '0.8rem',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              marginTop: '6px',
+              boxShadow: '0 4px 12px rgba(253, 121, 198, 0.25)'
+            }}
+          >
+            {loading && <Loader2 size={14} className="animate-spin" />}
+            <span>{loading ? 'Compiling Parameters...' : 'Submit Parameters'}</span>
+          </button>
+        ) : (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            fontSize: '0.75rem',
+            color: '#a3e635',
+            fontWeight: 700,
+            marginTop: '4px',
+            background: 'rgba(163,230,53,0.08)',
+            border: '1px solid rgba(163,230,53,0.15)',
+            padding: '6px 10px',
+            borderRadius: '6px'
+          }}>
+            <Check size={14} />
+            <span>Parameters Submitted successfully!</span>
+          </div>
+        )}
+      </form>
+    </div>
+  );
+}
+
 function Dashboard({ 
   currentUser, 
   userPlanDetails, 
@@ -98,6 +339,9 @@ function Dashboard({
   const [councilMode, setCouncilMode] = useState(false);
   const [councilPrompt, setCouncilPrompt] = useState('');
   const isDesktop = typeof window !== 'undefined' && window.innerWidth > 1024;
+
+  // Interview Mode state
+  const [interviewModeActive, setInterviewModeActive] = useState(false);
 
   const handleCallCouncil = () => {
     if (!promptInput.trim()) return;
@@ -523,6 +767,56 @@ function Dashboard({
     setPromptInput('');
     setAttachment(null);
     setLoading(true);
+
+    if (interviewModeActive) {
+      try {
+        const interviewStartRes = await fetch('/api/chat/interview/start', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: currentUser.email,
+            message: messageForServer,
+            personality: personality
+          })
+        });
+
+        const startData = await interviewStartRes.json();
+        
+        if (interviewStartRes.ok && startData.success) {
+          const botMsg = {
+            id: 'msg_bot_interview_' + Date.now(),
+            sender: 'bot',
+            type: 'interview_form',
+            text: 'I need to clarify some details before generating the solution. Please complete the diagnostic questions below:',
+            questions: startData.questions,
+            originalPrompt: originalRawInput,
+            submitted: false,
+            timestamp: new Date().toISOString()
+          };
+
+          const finalChatList = conversations.map(c => {
+            if (c.id === activeChatId) {
+              return {
+                ...c,
+                messages: [...updatedMessages, botMsg]
+              };
+            }
+            return c;
+          });
+
+          saveChatsToLocal(finalChatList);
+          setInterviewModeActive(false);
+        } else {
+          alert(`Error initializing Interview Mode: ${startData.message || 'Server error.'}`);
+        }
+      } catch (err) {
+        console.error(err);
+        alert('Network error initiating Interview Mode.');
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
 
     try {
       const chatRes = await fetch('/api/chat', {
@@ -995,6 +1289,19 @@ function Dashboard({
 
                       {/* Bot/User text */}
                       {renderMessageContent(m.text)}
+
+                      {/* Interview Mode Widget */}
+                      {m.type === 'interview_form' && (
+                        <InterviewFormWidget
+                          message={m}
+                          currentUser={currentUser}
+                          conversations={conversations}
+                          activeChatId={activeChatId}
+                          saveChatsToLocal={saveChatsToLocal}
+                          personality={personality}
+                          refreshUserStatus={refreshUserStatus}
+                        />
+                      )}
                     </div>
                   </div>
                 ))}
@@ -1030,6 +1337,20 @@ function Dashboard({
               }}>
                 <Shield size={14} />
                 <span><strong>Anonymize ON</strong> — Emails, phones, API keys & IPs will be masked before sending</span>
+              </div>
+            )}
+
+            {/* Interview Mode indicator */}
+            {interviewModeActive && (
+              <div style={{ 
+                display: 'flex', alignItems: 'center', gap: '8px', 
+                padding: '6px 14px', marginBottom: '6px',
+                background: 'rgba(189, 147, 249, 0.08)', 
+                border: '1px solid rgba(189, 147, 249, 0.2)',
+                borderRadius: '8px', fontSize: '0.75rem', color: '#bd93f9'
+              }}>
+                <HelpCircle size={14} />
+                <span><strong>Interview Mode ON</strong> — The AI will generate a dynamic clarifying form instead of an immediate generic response</span>
               </div>
             )}
 
@@ -1109,6 +1430,17 @@ function Dashboard({
                 style={promptInput.trim() ? { color: '#00f2fe' } : {}}
               >
                 <Cpu size={20} />
+              </button>
+
+              {/* Interview Mode toggle */}
+              <button 
+                type="button" 
+                className={`chat-input-btn ${interviewModeActive ? 'interview-active' : ''}`}
+                onClick={() => setInterviewModeActive(!interviewModeActive)}
+                title={interviewModeActive ? 'Interview Mode ON — AI will ask clarifying questions first' : 'Interview Mode OFF — click to activate interactive questions'}
+                style={interviewModeActive ? { color: '#bd93f9', background: 'rgba(189, 147, 249, 0.15)', borderRadius: '8px' } : {}}
+              >
+                <HelpCircle size={20} />
               </button>
 
               {/* Send message */}
