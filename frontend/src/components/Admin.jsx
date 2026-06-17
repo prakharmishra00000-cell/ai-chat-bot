@@ -60,6 +60,7 @@ function Admin({ onBack, email }) {
     if (email !== 'prakharmishra00000@gmail.com') return;
 
     fetchAdminStats(email);
+    fetchPlans();
     
     // Auto-poll stats/approvals/backups every 10 seconds to keep dashboard updated globally
     const interval = setInterval(() => {
@@ -79,7 +80,6 @@ function Admin({ onBack, email }) {
       const data = await res.json();
       if (res.ok) {
         setStats(data);
-        fetchPlans();
       } else {
         setError(data.error || 'Unauthorized admin access.');
       }
