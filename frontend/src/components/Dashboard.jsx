@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   Menu, X, Plus, Search, Trash2, Send, Mic, Paperclip, 
   Camera, FileText, Image, Download, RotateCcw, ShieldCheck, 
-  BrainCircuit, LayoutGrid, Terminal, HelpCircle, Check, Info, LogOut
+  BrainCircuit, LayoutGrid, Terminal, HelpCircle, Check, Info, LogOut, Shield
 } from 'lucide-react';
 import mermaid from 'mermaid';
 
@@ -87,6 +87,74 @@ function Dashboard({
   const [personality, setPersonality] = useState('standard'); // 'standard', 'architect', 'analyst'
   const [mode, setMode] = useState('normal'); // 'normal', 'matrix_simulation', 'optimize'
   const [loading, setLoading] = useState(false);
+
+  // Anonymize Input feature
+  const [anonymizeEnabled, setAnonymizeEnabled] = useState(false);
+  const anonymizeMapRef = useRef({});
+
+  // Anonymize: scan text and replace sensitive data with labels
+  const anonymizeText = (text) => {
+    const map = {};
+    let counter = { email: 0, phone: 0, apikey: 0, ip: 0, upi: 0, name: 0 };
+    let result = text;
+
+    // Emails
+    result = result.replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, (match) => {
+      counter.email++;
+      const label = `[REDACTED_EMAIL_${counter.email}]`;
+      map[label] = match;
+      return label;
+    });
+
+    // Phone numbers (Indian & international formats)
+    result = result.replace(/(\+?\d{1,4}[\s-]?)?(\(?\d{2,5}\)?[\s-]?)?\d{3,5}[\s-]?\d{3,5}/g, (match) => {
+      if (match.replace(/[\s\-()]/g, '').length >= 10) {
+        counter.phone++;
+        const label = `[REDACTED_PHONE_${counter.phone}]`;
+        map[label] = match;
+        return label;
+      }
+      return match;
+    });
+
+    // API keys / tokens (long alphanumeric strings 20+ chars)
+    result = result.replace(/\b[A-Za-z0-9_\-]{20,}\b/g, (match) => {
+      // Skip if it looks like a normal word or URL path
+      if (/^[a-z]+$/i.test(match)) return match;
+      if (match.length < 24) return match;
+      counter.apikey++;
+      const label = `[REDACTED_KEY_${counter.apikey}]`;
+      map[label] = match;
+      return label;
+    });
+
+    // IP addresses
+    result = result.replace(/\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/g, (match) => {
+      counter.ip++;
+      const label = `[REDACTED_IP_${counter.ip}]`;
+      map[label] = match;
+      return label;
+    });
+
+    // UPI IDs
+    result = result.replace(/[a-zA-Z0-9._%+-]+@[a-z]{2,}bank\b/gi, (match) => {
+      counter.upi++;
+      const label = `[REDACTED_UPI_${counter.upi}]`;
+      map[label] = match;
+      return label;
+    });
+
+    return { anonymized: result, map };
+  };
+
+  // De-anonymize: replace labels back with original values
+  const deanonymizeText = (text, map) => {
+    let result = text;
+    for (const [label, original] of Object.entries(map)) {
+      result = result.split(label).join(original);
+    }
+    return result;
+  };
 
   // Attachment states
   const [attachment, setAttachment] = useState(null); // { name: '', mimeType: '', base64: '' }
@@ -343,7 +411,16 @@ function Dashboard({
     const currentChat = conversations.find(c => c.id === activeChatId);
     if (!currentChat) return;
 
-    const userMessageText = promptInput;
+    let userMessageText = promptInput;
+    let activeAnonymizeMap = {};
+
+    // Anonymize if enabled
+    if (anonymizeEnabled) {
+      const { anonymized, map } = anonymizeText(userMessageText);
+      userMessageText = anonymized;
+      activeAnonymizeMap = map;
+      anonymizeMapRef.current = map;
+    }
     const activeAttachment = attachment;
 
     // Append user message immediately to local state
@@ -398,6 +475,11 @@ function Dashboard({
       
       if (chatRes.ok) {
         let botResponseText = responseData.response;
+
+        // De-anonymize bot response if anonymize was used
+        if (anonymizeEnabled && Object.keys(activeAnonymizeMap).length > 0) {
+          botResponseText = deanonymizeText(botResponseText, activeAnonymizeMap);
+        }
 
         // PPT GENERATION: Detect if user asked for a presentation
         const isPPTRequest = /\b(presentation|ppt|powerpoint|pptx|slides)\b/i.test(userMessageText) && 
@@ -870,6 +952,20 @@ function Dashboard({
         <div className="chat-input-container">
           <div className="chat-input-bar-wrapper">
             
+            {/* Anonymize indicator */}
+            {anonymizeEnabled && (
+              <div style={{ 
+                display: 'flex', alignItems: 'center', gap: '8px', 
+                padding: '6px 14px', marginBottom: '6px',
+                background: 'rgba(0, 242, 254, 0.08)', 
+                border: '1px solid rgba(0, 242, 254, 0.2)',
+                borderRadius: '8px', fontSize: '0.75rem', color: '#00f2fe'
+              }}>
+                <Shield size={14} />
+                <span><strong>Anonymize ON</strong> — Emails, phones, API keys & IPs will be masked before sending</span>
+              </div>
+            )}
+
             {/* Attachment preview above bar */}
             {attachment && (
               <div className="attachment-preview-card">
@@ -909,6 +1005,17 @@ function Dashboard({
                 title="Voice Input (English/Hinglish)"
               >
                 <Mic size={20} />
+              </button>
+
+              {/* Anonymize toggle */}
+              <button 
+                type="button" 
+                className={`chat-input-btn ${anonymizeEnabled ? 'anonymize-active' : ''}`}
+                onClick={() => setAnonymizeEnabled(!anonymizeEnabled)}
+                title={anonymizeEnabled ? 'Anonymize ON — sensitive data will be masked' : 'Anonymize OFF — click to protect sensitive data'}
+                style={anonymizeEnabled ? { color: '#00f2fe', background: 'rgba(0, 242, 254, 0.15)', borderRadius: '8px' } : {}}
+              >
+                <Shield size={20} />
               </button>
 
               {/* Send message */}
