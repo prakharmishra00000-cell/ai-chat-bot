@@ -411,23 +411,28 @@ function Dashboard({
     const currentChat = conversations.find(c => c.id === activeChatId);
     if (!currentChat) return;
 
-    let userMessageText = promptInput;
+    // Store original raw input (what user sees in their chat bubble)
+    const originalRawInput = promptInput;
+
+    // Prepare the message that will be SENT to the server
+    let messageForServer = promptInput;
     let activeAnonymizeMap = {};
 
-    // Anonymize if enabled
+    // Anonymize if enabled — masking runs locally in the browser before any data leaves
     if (anonymizeEnabled) {
-      const { anonymized, map } = anonymizeText(userMessageText);
-      userMessageText = anonymized;
-      activeAnonymizeMap = map;
+      const { anonymized, map } = anonymizeText(promptInput);
+      messageForServer = anonymized; // This is what goes over the internet
+      activeAnonymizeMap = map;       // Translation map stays in browser memory only
       anonymizeMapRef.current = map;
+      console.log('[ANONYMIZE] Local masking applied. Items masked:', Object.keys(map).length);
     }
     const activeAttachment = attachment;
 
-    // Append user message immediately to local state
+    // Append user message immediately to local state — user sees their ORIGINAL text
     const userMsg = {
       id: 'msg_user_' + Date.now(),
       sender: 'user',
-      text: userMessageText,
+      text: originalRawInput, // User always sees their raw, unmasked input
       attachment: activeAttachment ? { name: activeAttachment.name, mimeType: activeAttachment.mimeType, base64: activeAttachment.base64 } : null,
       timestamp: new Date().toISOString()
     };
@@ -437,7 +442,7 @@ function Dashboard({
     // Use placeholder title initially — smart title will be generated after bot responds
     let chatTitle = currentChat.title;
     if (currentChat.messages.length === 0) {
-      chatTitle = userMessageText.substring(0, 40) + (userMessageText.length > 40 ? '...' : '');
+      chatTitle = originalRawInput.substring(0, 40) + (originalRawInput.length > 40 ? '...' : '');
     }
 
     const updatedChatList = conversations.map(c => {
@@ -463,8 +468,8 @@ function Dashboard({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: currentUser.email,
-          message: userMessageText,
-          history: currentChat.messages.slice(-10), // Send last 10 messages for context
+          message: messageForServer, // MASKED version sent over the internet
+          history: currentChat.messages.slice(-10),
           personality: personality,
           mode: mode,
           attachment: activeAttachment
@@ -482,19 +487,19 @@ function Dashboard({
         }
 
         // PPT GENERATION: Detect if user asked for a presentation
-        const isPPTRequest = /\b(presentation|ppt|powerpoint|pptx|slides)\b/i.test(userMessageText) && 
-                             /\b(create|make|generate|build|prepare|design)\b/i.test(userMessageText);
+        const isPPTRequest = /\b(presentation|ppt|powerpoint|pptx|slides)\b/i.test(originalRawInput) && 
+                             /\b(create|make|generate|build|prepare|design)\b/i.test(originalRawInput);
         
         if (isPPTRequest) {
           try {
             // Extract slide count from user message
-            const countMatch = userMessageText.match(/(\d+)\s*(slide|page|ppt)/i);
+            const countMatch = originalRawInput.match(/(\d+)\s*(slide|page|ppt)/i);
             const pageCount = countMatch ? parseInt(countMatch[1]) : 8;
             
             // Detect style preference
             let style = 'balanced';
-            if (/more\s*visual|image|picture|graphic/i.test(userMessageText)) style = 'visual';
-            if (/more\s*text|detailed|content|heavy/i.test(userMessageText)) style = 'text-heavy';
+            if (/more\s*visual|image|picture|graphic/i.test(originalRawInput)) style = 'visual';
+            if (/more\s*text|detailed|content|heavy/i.test(originalRawInput)) style = 'text-heavy';
 
             botResponseText += '\n\n⏳ **Generating your PowerPoint presentation...** Please wait.';
             
@@ -512,7 +517,7 @@ function Dashboard({
             saveChatsToLocal(tempChatList);
 
                 // Extract clean topic name from the user message
-                let cleanTopic = userMessageText
+                let cleanTopic = originalRawInput
                   .replace(/\b(create|make|generate|build|prepare|design|give|write|draft)\b/gi, '')
                   .replace(/\b(a|an|the|my|me|please|can you|could you|i want|i need)\b/gi, '')
                   .replace(/\b(presentation|ppt|powerpoint|pptx|slides?)\b/gi, '')
@@ -522,7 +527,7 @@ function Dashboard({
                   .replace(/\d+\s*(slide|page)/gi, '')
                   .replace(/\s+/g, ' ')
                   .trim();
-                if (cleanTopic.length < 3) cleanTopic = userMessageText.substring(0, 80);
+                if (cleanTopic.length < 3) cleanTopic = originalRawInput.substring(0, 80);
 
                 const pptRes = await fetch('/api/generate-ppt', {
                   method: 'POST',
@@ -577,7 +582,7 @@ function Dashboard({
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                userMessage: userMessageText.substring(0, 200),
+                userMessage: originalRawInput.substring(0, 200),
                 botResponse: botResponseText.substring(0, 200)
               })
             });
