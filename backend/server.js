@@ -277,8 +277,8 @@ function writeConfig(config) {
 }
 
 const https = require('https');
-const CLOUD_DB_HOST = 'jsonbase.com';
-const CLOUD_DB_PATH = '/matrixmind_production_db_8a7b6c5d4e3f2g1h/db';
+const CLOUD_DB_HOST = 'extendsclass.com';
+const CLOUD_DB_PATH = '/api/json-storage/bin/efdebab';
 
 function syncDBToCloud(data) {
   try {
