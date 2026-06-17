@@ -2,10 +2,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   Menu, X, Plus, Search, Trash2, Send, Mic, Paperclip, 
   Camera, FileText, Image, Download, RotateCcw, ShieldCheck, 
-  BrainCircuit, LayoutGrid, Terminal, HelpCircle, Check, Info, LogOut, Shield, Users
+  BrainCircuit, LayoutGrid, Terminal, HelpCircle, Check, Info, LogOut, Shield, Users, Cpu, Play
 } from 'lucide-react';
 import mermaid from 'mermaid';
 import CouncilRoom from './CouncilRoom';
+import WorkflowPanel from './WorkflowPanel';
 
 // Initialize Mermaid.js configuration
 try {
@@ -118,6 +119,35 @@ function Dashboard({
 
     const updated = conversations.map(c => {
       if (c.id === activeChatId) return { ...c, messages: [...c.messages, councilMsg] };
+      return c;
+    });
+    saveChatsToLocal(updated);
+    setPromptInput('');
+  };
+
+  // Workflow Sequencer states
+  const [workflowMode, setWorkflowMode] = useState(false);
+  const [workflowGoal, setWorkflowGoal] = useState('');
+
+  const handleCallWorkflow = () => {
+    if (!promptInput.trim()) return;
+    setWorkflowGoal(promptInput);
+    setWorkflowMode(true);
+  };
+
+  const handleWorkflowComplete = (finalReport) => {
+    const currentChat = conversations.find(c => c.id === activeChatId);
+    if (!currentChat) return;
+
+    const workflowMsg = {
+      id: 'msg_workflow_' + Date.now(),
+      sender: 'bot',
+      text: `⚙️ **Workflow Execution — Final Report**\n\n${finalReport}`,
+      timestamp: new Date().toISOString()
+    };
+
+    const updated = conversations.map(c => {
+      if (c.id === activeChatId) return { ...c, messages: [...c.messages, workflowMsg] };
       return c;
     });
     saveChatsToLocal(updated);
@@ -1069,6 +1099,18 @@ function Dashboard({
                 </button>
               )}
 
+              {/* Execute Workflow Sequence button */}
+              <button 
+                type="button" 
+                className="chat-input-btn"
+                onClick={handleCallWorkflow}
+                disabled={loading || !promptInput.trim()}
+                title="Execute Workflow Sequence"
+                style={promptInput.trim() ? { color: '#00f2fe' } : {}}
+              >
+                <Cpu size={20} />
+              </button>
+
               {/* Send message */}
               <button type="submit" className="chat-input-btn send-msg" disabled={loading}>
                 <Send size={20} />
@@ -1116,6 +1158,16 @@ function Dashboard({
           email={currentUser.email}
           onClose={() => setCouncilMode(false)}
           onConsensusComplete={handleCouncilConsensus}
+        />
+      )}
+
+      {/* Workflow Sequencer overlay */}
+      {workflowMode && (
+        <WorkflowPanel
+          prompt={workflowGoal}
+          email={currentUser.email}
+          onClose={() => setWorkflowMode(false)}
+          onWorkflowComplete={handleWorkflowComplete}
         />
       )}
     </div>
