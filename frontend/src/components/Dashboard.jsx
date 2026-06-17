@@ -726,6 +726,23 @@ function Dashboard({
 
     // Anonymize if enabled — masking runs locally in the browser before any data leaves
     if (anonymizeEnabled) {
+      try {
+        const trackRes = await fetch('/api/feature/track', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: currentUser.email, feature: 'masking' })
+        });
+        const trackData = await trackRes.json();
+        if (!trackRes.ok) {
+          setLoading(false);
+          onTriggerUpgrade();
+          alert(trackData.message || 'Daily limit reached for Data Masking. Please upgrade.');
+          return;
+        }
+      } catch (e) {
+        console.warn('Failed to track masking feature limit:', e);
+      }
+
       const { anonymized, map } = anonymizeText(promptInput);
       messageForServer = anonymized; // This is what goes over the internet
       activeAnonymizeMap = map;       // Translation map stays in browser memory only

@@ -106,10 +106,14 @@ let dbInitData = {
       name: "Free Tier",
       price: 0,
       prompts: 30,
-      featureLimits: { ppt: 3, mindmap: 5, matrix: 3, optimize: 3 },
+      featureLimits: { ppt: 3, mindmap: 5, matrix: 3, optimize: 3, masking: 5, interview: 3, workflow: 1, council: 1 },
       features: [
         "30 daily prompts limit",
         "All features unlocked (Trial)",
+        "Data Masking (5/day)",
+        "Interview Mode (3/day)",
+        "Workflow Sequencer (1/day)",
+        "Council Room (1/day)",
         "PPT Generator (3/day)",
         "Mind Maps (5/day)",
         "Matrix Simulation (3/day)",
@@ -128,10 +132,12 @@ let dbInitData = {
       duration: "1 Month",
       days: 30,
       prompts: 100,
-      featureLimits: { ppt: 5, mindmap: 8, matrix: 5, optimize: 5 },
+      featureLimits: { ppt: 5, mindmap: 8, matrix: 5, optimize: 5, masking: 20, interview: 10, workflow: 0, council: 0 },
       features: [
         "100 daily prompts limit",
         "Standard processing priority",
+        "Data Masking (20/day)",
+        "Interview Mode (10/day)",
         "PPT Generator (5/day)",
         "Mind Maps (8/day)",
         "Matrix Simulation (5/day)",
@@ -149,10 +155,13 @@ let dbInitData = {
       duration: "3 Months",
       days: 90,
       prompts: 150,
-      featureLimits: { ppt: 7, mindmap: 10, matrix: 10, optimize: 10 },
+      featureLimits: { ppt: 7, mindmap: 10, matrix: 10, optimize: 10, masking: 50, interview: 30, workflow: 10, council: 0 },
       features: [
         "150 daily prompts limit",
         "Better processing priority",
+        "Data Masking (50/day)",
+        "Interview Mode (30/day)",
+        "Workflow Sequencer (10/day)",
         "PPT Generator (7/day)",
         "Mind Maps (10/day)",
         "Matrix Simulation (10/day)",
@@ -171,10 +180,14 @@ let dbInitData = {
       duration: "1 Year",
       days: 365,
       prompts: 200,
-      featureLimits: { ppt: 10, mindmap: 15, matrix: -1, optimize: -1 },
+      featureLimits: { ppt: 10, mindmap: 15, matrix: -1, optimize: -1, masking: -1, interview: -1, workflow: -1, council: -1 },
       features: [
         "200 daily prompts limit",
         "Maximum processing priority",
+        "Data Masking (Unlimited)",
+        "Interview Mode (Unlimited)",
+        "Workflow Sequencer (Unlimited)",
+        "Council Room (Unlimited)",
         "PPT Generator (10/day)",
         "Mind Maps (15/day)",
         "Matrix Simulation (Unlimited)",
@@ -351,14 +364,14 @@ function getOrCreateUser(email) {
       promptsUsed: 0,
       lastResetDate: today,
       planExpiry: null,
-      featureUsage: { ppt: 0, mindmap: 0, matrix: 0, optimize: 0 }
+      featureUsage: { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, interview: 0, workflow: 0, council: 0 }
     };
     db.users[email] = user;
     writeDB(db);
   } else {
     // Ensure featureUsage field exists (for existing users)
     if (!user.featureUsage) {
-      user.featureUsage = { ppt: 0, mindmap: 0, matrix: 0, optimize: 0 };
+      user.featureUsage = { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, interview: 0, workflow: 0, council: 0 };
     }
 
     // Check Plan Expiry
@@ -375,7 +388,7 @@ function getOrCreateUser(email) {
     // Daily Reset at Midnight (prompts + feature usage)
     if (user.lastResetDate !== today) {
       user.promptsUsed = 0;
-      user.featureUsage = { ppt: 0, mindmap: 0, matrix: 0, optimize: 0 };
+      user.featureUsage = { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, interview: 0, workflow: 0, council: 0 };
       user.lastResetDate = today;
       db.users[email] = user;
       writeDB(db);
@@ -391,7 +404,7 @@ function checkFeatureLimit(email, feature) {
   const user = getOrCreateUser(email);
   const db = readDB();
   const planInfo = db.plans && db.plans[user.plan];
-  const limits = planInfo?.featureLimits || { ppt: 3, mindmap: 5, matrix: 3, optimize: 3 };
+  const limits = planInfo?.featureLimits || { ppt: 3, mindmap: 5, matrix: 3, optimize: 3, masking: 5, interview: 3, workflow: 1, council: 1 };
   const limit = limits[feature];
   const used = user.featureUsage?.[feature] || 0;
   
@@ -406,7 +419,7 @@ function incrementFeatureUsage(email, feature) {
   const db = readDB();
   const user = db.users[email];
   if (user) {
-    if (!user.featureUsage) user.featureUsage = { ppt: 0, mindmap: 0, matrix: 0, optimize: 0 };
+    if (!user.featureUsage) user.featureUsage = { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, interview: 0, workflow: 0, council: 0 };
     user.featureUsage[feature] = (user.featureUsage[feature] || 0) + 1;
     db.users[email] = user;
     writeDB(db);
@@ -450,7 +463,7 @@ app.post('/api/user/status', (req, res) => {
   const db = readDB();
   const planInfo = db.plans && db.plans[user.plan];
   const userLimit = planInfo ? planInfo.prompts : (user.plan === 'free' ? 30 : 100);
-  const featureLimits = planInfo?.featureLimits || { ppt: 3, mindmap: 5, matrix: 3, optimize: 3 };
+  const featureLimits = planInfo?.featureLimits || { ppt: 3, mindmap: 5, matrix: 3, optimize: 3, masking: 5, interview: 3, workflow: 1, council: 1 };
   const isAdmin = email === ADMIN_EMAIL;
   
   res.json({
@@ -459,8 +472,8 @@ app.post('/api/user/status', (req, res) => {
     promptsUsed: user.promptsUsed,
     limit: userLimit,
     expiry: user.planExpiry,
-    featureUsage: isAdmin ? { ppt: 0, mindmap: 0, matrix: 0, optimize: 0 } : (user.featureUsage || { ppt: 0, mindmap: 0, matrix: 0, optimize: 0 }),
-    featureLimits: isAdmin ? { ppt: -1, mindmap: -1, matrix: -1, optimize: -1 } : featureLimits
+    featureUsage: isAdmin ? { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, interview: 0, workflow: 0, council: 0 } : (user.featureUsage || { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, interview: 0, workflow: 0, council: 0 }),
+    featureLimits: isAdmin ? { ppt: -1, mindmap: -1, matrix: -1, optimize: -1, masking: -1, interview: -1, workflow: -1, council: -1 } : featureLimits
   });
 });
 
@@ -1064,6 +1077,11 @@ app.post('/api/chat/council/start', async (req, res) => {
   const { email, prompt } = req.body;
   if (!email || !prompt) return res.status(400).json({ error: 'Email and prompt required.' });
 
+  const check = checkFeatureLimit(email, 'council');
+  if (!check.allowed) {
+    return res.status(403).json({ error: 'FEATURE_LIMIT', message: `Council Room daily limit reached (${check.used}/${check.limit}). Upgrade your plan for more.` });
+  }
+
   const config = readConfig();
   if (!config?.keys?.length) return res.status(500).json({ error: 'AI not configured.' });
 
@@ -1124,6 +1142,7 @@ CRITICAL: Customize persona names and focus areas to match the problem domain. F
     }
 
     console.log(`[COUNCIL] Started for ${email}: ${result.personas?.length || 0} personas created`);
+    incrementFeatureUsage(email, 'council');
     res.json({ success: true, personas: result.personas, round1: result.round1 });
   } catch (error) {
     console.error('[COUNCIL] Start error:', error.message);
@@ -1310,6 +1329,11 @@ app.post('/api/workflow/start', async (req, res) => {
   const { email, goal } = req.body;
   if (!email || !goal) return res.status(400).json({ error: 'Email and goal required.' });
 
+  const check = checkFeatureLimit(email, 'workflow');
+  if (!check.allowed) {
+    return res.status(403).json({ error: 'FEATURE_LIMIT', message: `Workflow Sequencer daily limit reached (${check.used}/${check.limit}). Upgrade your plan for more.` });
+  }
+
   const config = readConfig();
   if (!config?.keys?.length) return res.status(500).json({ error: 'AI not configured.' });
 
@@ -1346,6 +1370,7 @@ Return a JSON array of exactly 4 steps in this format. No markdown, no code bloc
 
     const workflowId = 'wf_' + Date.now();
     console.log(`[WORKFLOW] Started: ${workflowId} for ${email}`);
+    incrementFeatureUsage(email, 'workflow');
     res.json({ success: true, workflowId, steps });
   } catch (error) {
     console.error('[WORKFLOW] Start error:', error.message);
@@ -1488,6 +1513,11 @@ app.post('/api/chat/interview/start', async (req, res) => {
   const { email, message, personality } = req.body;
   if (!email || !message) return res.status(400).json({ error: 'Email and message are required.' });
 
+  const check = checkFeatureLimit(email, 'interview');
+  if (!check.allowed) {
+    return res.status(403).json({ error: 'FEATURE_LIMIT', message: `Interview Mode daily limit reached (${check.used}/${check.limit}). Upgrade your plan for more.` });
+  }
+
   // Check Plan limits
   const db = readDB();
   const user = getOrCreateUser(email);
@@ -1558,11 +1588,26 @@ Return a JSON object with this EXACT format. Do not use markdown, do not wrap in
       };
     }
 
+    incrementFeatureUsage(email, 'interview');
     res.json({ success: true, questions: parsed.questions });
   } catch (error) {
     console.error('[INTERVIEW] Start error:', error.message);
     res.status(500).json({ error: 'Failed to generate diagnostic questions.' });
   }
+});
+
+// Track Standalone Feature Usage (e.g. Local Data Masking)
+app.post('/api/feature/track', (req, res) => {
+  const { email, feature } = req.body;
+  if (!email || !feature) return res.status(400).json({ error: 'Email and feature required.' });
+
+  const check = checkFeatureLimit(email, feature);
+  if (!check.allowed) {
+    return res.status(403).json({ error: 'FEATURE_LIMIT', message: `Daily limit reached for ${feature} (${check.used}/${check.limit}). Upgrade your plan for more.` });
+  }
+
+  incrementFeatureUsage(email, feature);
+  res.json({ success: true, used: check.used + 1, limit: check.limit });
 });
 
 app.post('/api/chat/interview/submit', async (req, res) => {

@@ -13,6 +13,8 @@ function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess }) {
       features: [
         '100 daily prompts limit',
         'Standard processing priority',
+        'Data Masking (20/day)',
+        'Interview Mode (10/day)',
         'Includes Web Grounding Search',
         'Standard AI rotation support',
         'Valid for 30 Days'
@@ -29,6 +31,9 @@ function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess }) {
       features: [
         '150 daily prompts limit',
         'Better response processing priority',
+        'Data Masking (50/day)',
+        'Interview Mode (30/day)',
+        'Workflow Sequencer (10/day)',
         'Web Search & Matrix groundings',
         'Priority AI rotation support',
         'Valid for 90 Days'
@@ -44,6 +49,10 @@ function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess }) {
       features: [
         '200 daily prompts limit',
         'Maximum processing priority',
+        'Data Masking (Unlimited)',
+        'Interview Mode (Unlimited)',
+        'Workflow Sequencer (Unlimited)',
+        'Council Room (Unlimited)',
         'Live Diagrams & Mind maps',
         'Ultimate key-rotation priority',
         'Valid for 365 Days'
