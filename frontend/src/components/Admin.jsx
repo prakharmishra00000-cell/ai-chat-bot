@@ -630,6 +630,20 @@ function Admin({ onBack, email }) {
                       </h4>
                       
                       <div className="form-group" style={{ marginBottom: '15px' }}>
+                        <label style={{ fontSize: '0.75rem', fontWeight: 600 }}>Plan Name</label>
+                        <input 
+                          type="text" 
+                          value={plan.name || ''} 
+                          onChange={(e) => {
+                            const updated = { ...editingPlans };
+                            updated[planId].name = e.target.value;
+                            setEditingPlans(updated);
+                          }}
+                          style={{ background: 'rgba(0,0,0,0.3)', padding: '8px 12px' }}
+                        />
+                      </div>
+
+                      <div className="form-group" style={{ marginBottom: '15px' }}>
                         <label style={{ fontSize: '0.75rem', fontWeight: 600 }}>Plan Price (₹)</label>
                         <input 
                           type="number" 

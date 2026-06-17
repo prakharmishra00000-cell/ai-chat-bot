@@ -79,7 +79,7 @@ db.plans = {
     },
     premium: {
       id: "premium",
-      name: "Pro Plus",
+      name: "Ultimate",
       price: 999,
       duration: "1 Year",
       days: 365,

@@ -55,7 +55,7 @@ function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess }) {
     },
     {
       id: 'premium',
-      name: 'Pro Plus',
+      name: 'Ultimate',
       price: 999,
       duration: '1 Year',
       prompts: 200,

@@ -106,7 +106,7 @@ let dbInitData = {
       name: "Free",
       price: 0,
       prompts: 30,
-      featureLimits: { ppt: 3, mindmap: 5, matrix: 3, optimize: 3, masking: 5, interview: 3, workflow: 1, council: 1 },
+      featureLimits: { ppt: 3, mindmap: 5, matrix: 3, optimize: 3, masking: 5, interview: 3, workflow: 1, council: 1, leads: -1 },
       features: [
         "30 daily prompts limit",
         "All features unlocked (Trial)",
@@ -132,7 +132,7 @@ let dbInitData = {
       duration: "1 Month",
       days: 30,
       prompts: 100,
-      featureLimits: { ppt: 5, mindmap: 8, matrix: 5, optimize: 5, masking: 20, interview: 10, workflow: 0, council: 0 },
+      featureLimits: { ppt: 5, mindmap: 8, matrix: 5, optimize: 5, masking: 20, interview: 10, workflow: 0, council: 0, leads: 10 },
       features: [
         "100 daily prompts limit",
         "Standard processing priority",
@@ -155,7 +155,7 @@ let dbInitData = {
       duration: "3 Months",
       days: 90,
       prompts: 150,
-      featureLimits: { ppt: 7, mindmap: 10, matrix: 10, optimize: 10, masking: 50, interview: 30, workflow: 10, council: 0 },
+      featureLimits: { ppt: 7, mindmap: 10, matrix: 10, optimize: 10, masking: 50, interview: 30, workflow: 10, council: 0, leads: 50 },
       features: [
         "150 daily prompts limit",
         "Better processing priority",
@@ -175,12 +175,12 @@ let dbInitData = {
     },
     premium: {
       id: "premium",
-      name: "Pro Plus",
+      name: "Ultimate",
       price: 999,
       duration: "1 Year",
       days: 365,
       prompts: 200,
-      featureLimits: { ppt: 10, mindmap: 15, matrix: -1, optimize: -1, masking: -1, interview: -1, workflow: -1, council: -1 },
+      featureLimits: { ppt: 10, mindmap: 15, matrix: -1, optimize: -1, masking: -1, interview: -1, workflow: -1, council: -1, leads: -1 },
       features: [
         "200 daily prompts limit",
         "Maximum processing priority",
@@ -211,7 +211,8 @@ let dbInitData = {
     masking: "Data Masking",
     interview: "Interview Mode",
     workflow: "Workflow Sequencer",
-    council: "Council Room"
+    council: "Council Room",
+    leads: "Lead Extractor"
   }
 };
 
@@ -419,14 +420,14 @@ function getOrCreateUser(email) {
       promptsUsed: 0,
       lastResetDate: today,
       planExpiry: null,
-      featureUsage: { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, interview: 0, workflow: 0, council: 0 }
+      featureUsage: { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, interview: 0, workflow: 0, council: 0, leads: 0 }
     };
     db.users[email] = user;
     writeDB(db);
   } else {
     // Ensure featureUsage field exists (for existing users)
     if (!user.featureUsage) {
-      user.featureUsage = { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, interview: 0, workflow: 0, council: 0 };
+      user.featureUsage = { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, interview: 0, workflow: 0, council: 0, leads: 0 };
     }
 
     // Check Plan Expiry
@@ -443,7 +444,7 @@ function getOrCreateUser(email) {
     // Daily Reset at Midnight (prompts + feature usage)
     if (user.lastResetDate !== today) {
       user.promptsUsed = 0;
-      user.featureUsage = { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, interview: 0, workflow: 0, council: 0 };
+      user.featureUsage = { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, interview: 0, workflow: 0, council: 0, leads: 0 };
       user.lastResetDate = today;
       db.users[email] = user;
       writeDB(db);
@@ -459,7 +460,7 @@ function checkFeatureLimit(email, feature) {
   const user = getOrCreateUser(email);
   const db = readDB();
   const planInfo = db.plans && db.plans[user.plan];
-  const limits = planInfo?.featureLimits || { ppt: 3, mindmap: 5, matrix: 3, optimize: 3, masking: 5, interview: 3, workflow: 1, council: 1 };
+  const limits = planInfo?.featureLimits || { ppt: 3, mindmap: 5, matrix: 3, optimize: 3, masking: 5, interview: 3, workflow: 1, council: 1, leads: -1 };
   const limit = limits[feature];
   const used = user.featureUsage?.[feature] || 0;
   
@@ -474,7 +475,7 @@ function incrementFeatureUsage(email, feature) {
   const db = readDB();
   const user = db.users[email];
   if (user) {
-    if (!user.featureUsage) user.featureUsage = { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, interview: 0, workflow: 0, council: 0 };
+    if (!user.featureUsage) user.featureUsage = { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, interview: 0, workflow: 0, council: 0, leads: 0 };
     user.featureUsage[feature] = (user.featureUsage[feature] || 0) + 1;
     db.users[email] = user;
     writeDB(db);
@@ -518,7 +519,7 @@ app.post('/api/user/status', (req, res) => {
   const db = readDB();
   const planInfo = db.plans && db.plans[user.plan];
   const userLimit = planInfo ? planInfo.prompts : (user.plan === 'free' ? 30 : 100);
-  const featureLimits = planInfo?.featureLimits || { ppt: 3, mindmap: 5, matrix: 3, optimize: 3, masking: 5, interview: 3, workflow: 1, council: 1 };
+  const featureLimits = planInfo?.featureLimits || { ppt: 3, mindmap: 5, matrix: 3, optimize: 3, masking: 5, interview: 3, workflow: 1, council: 1, leads: -1 };
   const isAdmin = email === ADMIN_EMAIL;
   
   res.json({
@@ -527,8 +528,8 @@ app.post('/api/user/status', (req, res) => {
     promptsUsed: user.promptsUsed,
     limit: userLimit,
     expiry: user.planExpiry,
-    featureUsage: isAdmin ? { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, interview: 0, workflow: 0, council: 0 } : (user.featureUsage || { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, interview: 0, workflow: 0, council: 0 }),
-    featureLimits: isAdmin ? { ppt: -1, mindmap: -1, matrix: -1, optimize: -1, masking: -1, interview: -1, workflow: -1, council: -1 } : featureLimits
+    featureUsage: isAdmin ? { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, interview: 0, workflow: 0, council: 0, leads: 0 } : (user.featureUsage || { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, interview: 0, workflow: 0, council: 0, leads: 0 }),
+    featureLimits: isAdmin ? { ppt: -1, mindmap: -1, matrix: -1, optimize: -1, masking: -1, interview: -1, workflow: -1, council: -1, leads: -1 } : featureLimits
   });
 });
 
@@ -537,7 +538,7 @@ app.post('/api/user/status', (req, res) => {
 // GEMINI API ROTATION ENGINE
 let activeKeyIndex = 0;
 
-async function queryGeminiAPI(keys, contents, systemInstruction) {
+async function queryGeminiAPI(keys, contents, systemInstruction, enableWebSearch = false) {
   // Models confirmed WORKING as of June 2026 — ordered by preference
   const modelConfigs = [
     { model: 'gemini-3.5-flash', api: 'v1beta' },
@@ -566,10 +567,15 @@ async function queryGeminiAPI(keys, contents, systemInstruction) {
 
         console.log(`[GEMINI] Trying Key ${keyPreview} | ${api}/${model}`);
 
+        const requestPayload = { contents: payloadContents };
+        if (enableWebSearch) {
+           requestPayload.tools = [{ googleSearch: {} }];
+        }
+
         const response = await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ contents: payloadContents }),
+          body: JSON.stringify(requestPayload),
           signal: controller.signal
         });
 
@@ -622,10 +628,13 @@ async function queryGeminiAPI(keys, contents, systemInstruction) {
         payloadContents[0].parts[0].text = `[System Instruction: ${systemInstruction}]\n\n` + payloadContents[0].parts[0].text;
       }
       const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${key}`;
+      const requestPayloadFinal = { contents: payloadContents };
+      if (enableWebSearch) requestPayloadFinal.tools = [{ googleSearch: {} }];
+
       const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contents: payloadContents }),
+        body: JSON.stringify(requestPayloadFinal),
         signal: controller.signal
       });
       clearTimeout(timeoutId);
@@ -918,15 +927,45 @@ app.post('/api/chat', async (req, res) => {
   const { email, message, history, personality, mode, attachment } = req.body;
   if (!email) return res.status(400).json({ error: 'Email is required.' });
 
-  // 1. Enforce Prompt Limit & Feature Gating
   const db = readDB();
   const user = getOrCreateUser(email);
+  const isAdmin = email === ADMIN_EMAIL;
+
+  // 0. LEAD EXTRACTOR INTENT DETECTION
+  try {
+    const intentPrompt = `Analyze this user query: "${message}"\nIs the user primarily asking to extract, generate, or find "leads", contact info, or prospects? Return only valid JSON: {"isLeadGen": true/false}`;
+    const intentRes = await queryGeminiAPI(config.keys, [{ role: 'user', parts: [{ text: intentPrompt }] }], 'You are a JSON generator.');
+    const intentJson = JSON.parse(intentRes.replace(/```json\n?/gi, '').replace(/```\n?/g, '').trim());
+    if (intentJson && intentJson.isLeadGen) {
+       console.log(`[LEAD EXTRACTOR] Intent detected for ${email}`);
+       const check = checkFeatureLimit(email, 'leads');
+       if (!check.allowed && !isAdmin) {
+         return res.status(403).json({ error: 'FEATURE_LIMIT', message: `Lead Extractor daily limit reached (${check.used}/${check.limit}). Upgrade your plan for more.` });
+       }
+       incrementFeatureUsage(email, 'leads');
+       
+       const leadPrompt = `You are an aggressive Deep Web Lead Extractor. The user wants leads based on this requirement: "${message}".\nSearch the live internet for relevant discussions, Reddit threads, Twitter bios, and professional networks. \nYou MUST use your search tool aggressively to hunt for exact contact info. Append queries with "@gmail.com" OR "contact me" OR "email me at" to find actual leads.\nFormat the output EXACTLY as a Markdown Table with these columns:\n| Lead Name/Handle | Contact Info (Email/Phone) | Relevant Comment/Bio | Direct Source Link |\n|---|---|---|---|\nIf contact info is entirely missing from the public web, write "N/A (DM via Platform)". \nProvide as many leads as the user requested. Output the markdown table and a brief summary.`;
+       
+       const leadResult = await queryGeminiAPI(config.keys, [{ role: 'user', parts: [{ text: leadPrompt }] }], 'You are a lead extractor. You must use web search to find exact contact details.', true);
+       
+       if (!isAdmin) {
+         user.promptsUsed += 1;
+         db.users[email] = user;
+         writeDB(db);
+       }
+       
+       return res.json({ success: true, reply: `🤖 **Autonomous Lead Extractor Activated**\n\n${leadResult}` });
+    }
+  } catch(e) {
+    console.error('[LEAD EXTRACTOR] Intent parse failed:', e.message);
+  }
+
+  // 1. Enforce Prompt Limit & Feature Gating
   const planInfo = db.plans && db.plans[user.plan];
   const userLimit = planInfo ? planInfo.prompts : (user.plan === 'free' ? 30 : 100);
   const planFeatures = planInfo && planInfo.features ? [...new Set(planInfo.features)].join(' ').toLowerCase() : '';
 
   // Feature usage limits (matrix, optimize, mindmap)
-  const isAdmin = email === ADMIN_EMAIL;
   
   if (!isAdmin) {
     if (mode === 'matrix_simulation') {
@@ -2165,7 +2204,7 @@ app.post('/api/admin/approvals/action', (req, res) => {
   const planConfigs = {
     standard: { days: 30, price: 99, name: 'Basic' },
     better: { days: 90, price: 199, name: 'Pro' },
-    premium: { days: 365, price: 999, name: 'Pro Plus' }
+    premium: { days: 365, price: 999, name: 'Ultimate' }
   };
 
   const planConfig = planConfigs[planToActivate];
