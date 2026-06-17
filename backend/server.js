@@ -276,6 +276,50 @@ function writeConfig(config) {
   }
 }
 
+const https = require('https');
+const CLOUD_DB_HOST = 'jsonbase.com';
+const CLOUD_DB_PATH = '/matrixmind_production_db_8a7b6c5d4e3f2g1h/db';
+
+function syncDBToCloud(data) {
+  try {
+    const payload = JSON.stringify(data);
+    const options = {
+      hostname: CLOUD_DB_HOST,
+      path: CLOUD_DB_PATH,
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(payload)
+      }
+    };
+    const req = https.request(options, (res) => { res.on('data', () => {}); });
+    req.on('error', (e) => console.error('Cloud Sync Error:', e.message));
+    req.write(payload);
+    req.end();
+  } catch (e) {
+    console.error("Cloud DB Sync failed:", e);
+  }
+}
+
+function fetchDBFromCloud(callback) {
+  try {
+    const req = https.get(`https://${CLOUD_DB_HOST}${CLOUD_DB_PATH}`, (res) => {
+      let body = '';
+      res.on('data', chunk => body += chunk);
+      res.on('end', () => {
+        try {
+          const data = JSON.parse(body);
+          if (data && data.plans) callback(data);
+          else callback(null);
+        } catch(e) { callback(null); }
+      });
+    });
+    req.on('error', () => callback(null));
+  } catch(e) {
+    callback(null);
+  }
+}
+
 function readDB() {
   try {
     return JSON.parse(fs.readFileSync(DB_PATH, 'utf8'));
@@ -288,6 +332,7 @@ function readDB() {
 function writeDB(data) {
   try {
     fs.writeFileSync(DB_PATH, JSON.stringify(data, null, 2), 'utf8');
+    syncDBToCloud(data); // Fire and forget cloud backup
     return true;
   } catch (e) {
     console.error('Error writing DB:', e);
@@ -320,7 +365,6 @@ app.post('/api/setup', (req, res) => {
   if (cleanKeys.length === 0) {
     return res.status(400).json({ error: 'At least one valid Gemini API Key is required.' });
   }
-
   const success = writeConfig({
     keys: cleanKeys,
     RECEIVER_UPI_ID: '6372843175@kotakbank',
