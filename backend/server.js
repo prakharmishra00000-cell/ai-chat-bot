@@ -52,17 +52,22 @@ function bootstrapConfigFromEnv() {
   
   if (envKeys.length > 0) {
     try {
+      let existingConfig = {};
+      if (fs.existsSync(CONFIG_PATH)) {
+        try { existingConfig = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8')); } catch (e) {}
+      }
+
       const configData = {
         keys: envKeys,
-        RECEIVER_UPI_ID: process.env.RECEIVER_UPI_ID || '6372843175@kotakbank',
-        RECEIVER_NAME: process.env.RECEIVER_NAME || 'Prakhar Mishra',
-        googleClientId: process.env.GOOGLE_CLIENT_ID || process.env.GOOGLE_OAUTH_CLIENT_ID || '',
-        adminUsername: process.env.ADMIN_USERNAME || 'prakhar mishra',
-        adminPassword: process.env.ADMIN_PASSWORD || 'prakhar@2025',
-        smtpUser: process.env.SMTP_USER || process.env.SMTP_EMAIL || '',
-        smtpPass: process.env.SMTP_PASS || process.env.SMTP_PASSWORD || process.env.SMTP_APP_PASSWORD || '',
-        firebaseDbUrl: process.env.FIREBASE_DB_URL || '',
-        firebaseServiceAccount: process.env.FIREBASE_SERVICE_ACCOUNT || ''
+        RECEIVER_UPI_ID: process.env.RECEIVER_UPI_ID || existingConfig.RECEIVER_UPI_ID || '6372843175@kotakbank',
+        RECEIVER_NAME: process.env.RECEIVER_NAME || existingConfig.RECEIVER_NAME || 'Prakhar Mishra',
+        googleClientId: process.env.GOOGLE_CLIENT_ID || process.env.GOOGLE_OAUTH_CLIENT_ID || existingConfig.googleClientId || '',
+        adminUsername: process.env.ADMIN_USERNAME || existingConfig.adminUsername || 'prakhar mishra',
+        adminPassword: process.env.ADMIN_PASSWORD || existingConfig.adminPassword || 'prakhar@2025',
+        smtpUser: process.env.SMTP_USER || process.env.SMTP_EMAIL || existingConfig.smtpUser || '',
+        smtpPass: process.env.SMTP_PASS || process.env.SMTP_PASSWORD || process.env.SMTP_APP_PASSWORD || existingConfig.smtpPass || '',
+        firebaseDbUrl: process.env.FIREBASE_DB_URL || existingConfig.firebaseDbUrl || '',
+        firebaseServiceAccount: process.env.FIREBASE_SERVICE_ACCOUNT || existingConfig.firebaseServiceAccount || ''
       };
       fs.writeFileSync(CONFIG_PATH, JSON.stringify(configData, null, 2));
       console.log(`[STARTUP] Successfully bootstrapped config.json with ${envKeys.length} API key(s).`);

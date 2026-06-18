@@ -114,6 +114,8 @@ function Login({ onLogin, onShowLegal, onShowSetup }) {
     try {
       google.accounts.id.initialize({
         client_id: clientId,
+        context: 'use',
+        ux_mode: 'popup',
         callback: (response) => {
           try {
             // Decode the JWT credential payload to extract user's email

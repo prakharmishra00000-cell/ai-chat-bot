@@ -58,6 +58,8 @@ function OwnerSecureLogin({ onSuccess, onBack }) {
     try {
       google.accounts.id.initialize({
         client_id: clientId,
+        context: 'use',
+        ux_mode: 'popup',
         callback: (response) => {
           try {
             const base64Url = response.credential.split('.')[1];
