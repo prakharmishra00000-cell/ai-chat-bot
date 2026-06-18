@@ -83,15 +83,16 @@ function Login({ onLogin, onShowLegal, onShowSetup }) {
     fetch('/api/visit/anonymous', { method: 'POST' }).catch(err => console.error(err));
   }, []);
 
-  // Poll for the Google SDK to load
+  // Poll for the Google SDK and the DOM container to be ready
   useEffect(() => {
-    if (!googleClientId) return;
+    if (!googleClientId || !isConfigLoaded) return;
 
     const checkSDK = setInterval(() => {
       /* global google */
-      if (typeof google !== 'undefined') {
+      const container = document.getElementById('google-real-btn-container');
+      if (typeof google !== 'undefined' && container) {
         clearInterval(checkSDK);
-        initRealGoogleGSI(googleClientId);
+        initRealGoogleGSI(googleClientId, container);
       }
     }, 100);
 
@@ -105,9 +106,9 @@ function Login({ onLogin, onShowLegal, onShowSetup }) {
       clearInterval(checkSDK);
       clearTimeout(timeout);
     };
-  }, [googleClientId]);
+  }, [googleClientId, isConfigLoaded]);
 
-  const initRealGoogleGSI = (clientId) => {
+  const initRealGoogleGSI = (clientId, container) => {
     /* global google */
     if (typeof google === 'undefined') {
       console.warn('Google GSI SDK not loaded in browser.');
@@ -152,9 +153,9 @@ function Login({ onLogin, onShowLegal, onShowSetup }) {
         }
       });
 
-      // Render the official Google Button inside our container
+      // Render the official Google Button inside our container safely
       google.accounts.id.renderButton(
-        document.getElementById('google-real-btn-container'),
+        container,
         { theme: 'outline', size: 'large', width: 380 }
       );
       
