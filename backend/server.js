@@ -2892,6 +2892,23 @@ cron.schedule('0 * * * *', () => {
   }
 });
 
+// --- GLOBAL CRASH PREVENTION ---
+process.on('uncaughtException', (err) => {
+  console.error('[CRITICAL] Uncaught Exception:', err);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[CRITICAL] Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
+app.use((err, req, res, next) => {
+  console.error('[EXPRESS GLOBAL ERROR]', err);
+  if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
+    return res.status(400).json({ error: "Malformed JSON payload" });
+  }
+  res.status(500).json({ error: "Internal Server Error" });
+});
+
 // START EXPRESS SERVER
 app.listen(PORT, () => {
   console.log(`Super Advanced AI Bot Server running on http://localhost:${PORT}`);
