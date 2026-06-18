@@ -1113,10 +1113,10 @@ REQUIREMENTS:
 <!DOCTYPE html>
 <html>...</html>
 \`\`\`
-5. Provide a VERY short 1-2 sentence description above the code block. DO NOT provide lengthy explanations, tutorials, or breakdowns. Save your tokens! Maximize tokens spent on the actual code complexity and bug fixes.
-6. The app MUST handle its logic locally in the browser where possible, or simulate responses if it's a "bot".${credentialsInjection}
+5. **CREDENTIAL DETECTION**: Analyze the requested app/feature. If it requires ANY external API keys or credentials (e.g., Firebase, OpenAI, Stripe, OpenWeather), you MUST list them explicitly at the VERY TOP of your response (above the code block) under the exact heading: "⚠️ **REQUIRED CREDENTIALS:**". List exactly what they need to add to their local Setup Panel. If none are needed, omit this.
+6. The app MUST handle its logic locally in the browser where possible, or simulate responses if it's a "bot". Furthermore, 100% of the frontend and backend logic requested must be done BY YOU within the generated file. Do not ask the user to add code. Do not give them instructions to deploy backends. You must do all the heavy lifting.${credentialsInjection}
 
-CRITICAL: Return nothing else but the short intro and the HTML code block.`;
+CRITICAL: Return nothing else but the short intro (including credential warnings if any) and the HTML code block.`;
     }
 
     // A. OPTIMIZE MODE — show restructured prompt + detailed answer

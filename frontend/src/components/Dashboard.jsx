@@ -997,6 +997,32 @@ function Dashboard({
           return c;
         });
 
+        // AUTO-DOWNLOAD ZIP FOR APP GENERATION
+        if (mode === 'generate') {
+          const blockRegex = /```html\s*\n([\s\S]*?)```/;
+          const match = blockRegex.exec(botResponseText);
+          if (match && match[1]) {
+            const htmlCode = match[1].trim();
+            setLivePreviewApp(htmlCode); // Auto-open live preview
+            try {
+              Promise.all([
+                import('jszip'),
+                import('file-saver')
+              ]).then(([JSZipModule, FileSaverModule]) => {
+                const JSZip = JSZipModule.default;
+                const saveAs = FileSaverModule.saveAs;
+                const zip = new JSZip();
+                zip.file("index.html", htmlCode);
+                zip.generateAsync({ type: "blob" }).then((content) => {
+                  saveAs(content, "MatrixMind_GeneratedApp.zip");
+                });
+              }).catch(err => console.error("Auto-zip module load failed", err));
+            } catch (err) {
+              console.error("Auto-zip failed", err);
+            }
+          }
+        }
+
         saveChatsToLocal(finalChatList);
         refreshUserStatus(); // Refresh daily counts
 
