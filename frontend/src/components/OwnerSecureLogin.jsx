@@ -85,8 +85,11 @@ function OwnerSecureLogin({ onSuccess, onBack }) {
 
       google.accounts.id.renderButton(
         document.getElementById('owner-google-btn-container'),
-        { theme: 'outline', size: 'large', width: 320 }
+        { theme: 'outline', size: 'large', width: 300 }
       );
+      
+      // Automatically show the "One Tap" popup to choose emails linked to device
+      google.accounts.id.prompt();
     } catch (err) {
       console.error('GSI Init error:', err);
     }

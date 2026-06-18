@@ -152,6 +152,9 @@ function Login({ onLogin, onShowLegal, onShowSetup }) {
         document.getElementById('google-real-btn-container'),
         { theme: 'outline', size: 'large', width: 380 }
       );
+      
+      // Automatically show the "One Tap" popup in the top right to choose emails linked to device
+      google.accounts.id.prompt();
     } catch (err) {
       console.error('Error initializing Google Identity Services:', err);
     }
