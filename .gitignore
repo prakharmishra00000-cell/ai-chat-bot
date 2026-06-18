@@ -7,3 +7,6 @@ dist/
 backend/config.json
 backend/db.json
 backend/backup/
+backend_backup/
+*.bak
+*.backup.*

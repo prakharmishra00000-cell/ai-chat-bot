@@ -14,7 +14,8 @@ function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess }) {
         '30 daily prompts limit',
         'Standard processing priority',
         'Data Masking (5/day)',
-        'Interview Mode (3/day)'
+        'Interview Mode (3/day)',
+        'Knowledge Graph (5/day)'
       ]
     },
     {
@@ -31,6 +32,7 @@ function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess }) {
         'Interview Mode (10/day)',
         'Includes Web Grounding Search',
         'Standard AI rotation support',
+        'Knowledge Graph (10/day)',
         'Valid for 30 Days'
       ]
     },
@@ -50,6 +52,7 @@ function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess }) {
         'Workflow Sequencer (10/day)',
         'Web Search & Matrix groundings',
         'Priority AI rotation support',
+        'Knowledge Graph (30/day)',
         'Valid for 90 Days'
       ]
     },
@@ -69,6 +72,7 @@ function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess }) {
         'Council Room (Unlimited)',
         'Live Diagrams & Mind maps',
         'Ultimate key-rotation priority',
+        'Knowledge Graph (Unlimited)',
         'Valid for 365 Days'
       ]
     }
@@ -365,7 +369,7 @@ function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess }) {
                   {(() => {
                     let displayFeatures = plan.features || [];
                     if (plan.featureLimits && Object.keys(featureNames).length > 0) {
-                      const baseFeatures = displayFeatures.filter(f => !f.includes('/day') && !f.includes('Unlimited') && !f.includes('Masking') && !f.includes('Workflow') && !f.includes('Council') && !f.includes('Interview') && !f.includes('PPT') && !f.includes('Mind Map') && !f.includes('Matrix') && !f.includes('Optimization'));
+                      const baseFeatures = displayFeatures.filter(f => !f.includes('/day') && !f.includes('Unlimited') && !f.includes('Masking') && !f.includes('Workflow') && !f.includes('Council') && !f.includes('Interview') && !f.includes('PPT') && !f.includes('Mind Map') && !f.includes('Matrix') && !f.includes('Optimization') && !f.includes('Graph'));
                       const dynamicFeatures = [];
                       Object.keys(plan.featureLimits).forEach(key => {
                         const limit = plan.featureLimits[key];

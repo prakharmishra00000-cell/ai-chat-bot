@@ -145,7 +145,7 @@ let dbInitData = {
       name: "Free",
       price: 0,
       prompts: 30,
-      featureLimits: { ppt: 3, mindmap: 5, matrix: 3, optimize: 3, masking: 5, interview: 3, workflow: 1, council: 1, leads: -1 },
+      featureLimits: { ppt: 3, mindmap: 5, matrix: 3, optimize: 3, masking: 5, interview: 3, workflow: 1, council: 1, leads: -1, graph: 5 },
       features: [
         "30 daily prompts limit",
         "All features unlocked (Trial)",
@@ -171,7 +171,7 @@ let dbInitData = {
       duration: "1 Month",
       days: 30,
       prompts: 100,
-      featureLimits: { ppt: 5, mindmap: 8, matrix: 5, optimize: 5, masking: 20, interview: 10, workflow: 0, council: 0, leads: 10 },
+      featureLimits: { ppt: 5, mindmap: 8, matrix: 5, optimize: 5, masking: 20, interview: 10, workflow: 0, council: 0, leads: 10, graph: 10 },
       features: [
         "100 daily prompts limit",
         "Standard processing priority",
@@ -194,7 +194,7 @@ let dbInitData = {
       duration: "3 Months",
       days: 90,
       prompts: 150,
-      featureLimits: { ppt: 7, mindmap: 10, matrix: 10, optimize: 10, masking: 50, interview: 30, workflow: 10, council: 0, leads: 50 },
+      featureLimits: { ppt: 7, mindmap: 10, matrix: 10, optimize: 10, masking: 50, interview: 30, workflow: 10, council: 0, leads: 50, graph: 30 },
       features: [
         "150 daily prompts limit",
         "Better processing priority",
@@ -219,7 +219,7 @@ let dbInitData = {
       duration: "1 Year",
       days: 365,
       prompts: 200,
-      featureLimits: { ppt: 10, mindmap: 15, matrix: -1, optimize: -1, masking: -1, interview: -1, workflow: -1, council: -1, leads: -1 },
+      featureLimits: { ppt: 10, mindmap: 15, matrix: -1, optimize: -1, masking: -1, interview: -1, workflow: -1, council: -1, leads: -1, graph: -1 },
       features: [
         "200 daily prompts limit",
         "Maximum processing priority",
@@ -249,9 +249,10 @@ let dbInitData = {
     optimize: "Prompt Optimization",
     masking: "Data Masking",
     interview: "Interview Mode",
-    workflow: "Workflow Sequencer",
-    council: "Council Room",
-    leads: "Lead Extractor"
+    workflow: "Workflow Sequences",
+    council: "AI Council Debates",
+    leads: "Lead Generation",
+    graph: "Knowledge Graph"
   }
 };
 
@@ -596,14 +597,14 @@ function getOrCreateUser(email) {
       promptsUsed: 0,
       lastResetDate: today,
       planExpiry: null,
-      featureUsage: { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, interview: 0, workflow: 0, council: 0, leads: 0 }
+      featureUsage: { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, interview: 0, workflow: 0, council: 0, leads: 0, graph: 0 }
     };
     db.users[email] = user;
     writeDB(db);
   } else {
     // Ensure featureUsage field exists (for existing users)
     if (!user.featureUsage) {
-      user.featureUsage = { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, interview: 0, workflow: 0, council: 0, leads: 0 };
+      user.featureUsage = { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, interview: 0, workflow: 0, council: 0, leads: 0, graph: 0 };
     }
 
     // Check Plan Expiry
@@ -620,7 +621,7 @@ function getOrCreateUser(email) {
     // Daily Reset at Midnight (prompts + feature usage)
     if (user.lastResetDate !== today) {
       user.promptsUsed = 0;
-      user.featureUsage = { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, interview: 0, workflow: 0, council: 0, leads: 0 };
+      user.featureUsage = { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, interview: 0, workflow: 0, council: 0, leads: 0, graph: 0 };
       user.lastResetDate = today;
       db.users[email] = user;
       writeDB(db);
@@ -636,7 +637,7 @@ function checkFeatureLimit(email, feature) {
   const user = getOrCreateUser(email);
   const db = readDB();
   const planInfo = db.plans && db.plans[user.plan];
-  const limits = planInfo?.featureLimits || { ppt: 3, mindmap: 5, matrix: 3, optimize: 3, masking: 5, interview: 3, workflow: 1, council: 1, leads: -1 };
+  const limits = planInfo?.featureLimits || { ppt: 3, mindmap: 5, matrix: 3, optimize: 3, masking: 5, interview: 3, workflow: 1, council: 1, leads: -1, graph: 5 };
   const limit = limits[feature];
   const used = user.featureUsage?.[feature] || 0;
   
@@ -651,7 +652,7 @@ function incrementFeatureUsage(email, feature) {
   const db = readDB();
   const user = db.users[email];
   if (user) {
-    if (!user.featureUsage) user.featureUsage = { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, interview: 0, workflow: 0, council: 0, leads: 0 };
+    if (!user.featureUsage) user.featureUsage = { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, interview: 0, workflow: 0, council: 0, leads: 0, graph: 0 };
     user.featureUsage[feature] = (user.featureUsage[feature] || 0) + 1;
     db.users[email] = user;
     writeDB(db);
@@ -701,7 +702,7 @@ app.post('/api/user/status', async (req, res) => {
   const db = readDB();
   const planInfo = db.plans && db.plans[user.plan];
   const userLimit = planInfo ? planInfo.prompts : (user.plan === 'free' ? 30 : 100);
-  const featureLimits = planInfo?.featureLimits || { ppt: 3, mindmap: 5, matrix: 3, optimize: 3, masking: 5, interview: 3, workflow: 1, council: 1, leads: -1 };
+  const featureLimits = planInfo?.featureLimits || { ppt: 3, mindmap: 5, matrix: 3, optimize: 3, masking: 5, interview: 3, workflow: 1, council: 1, leads: -1, graph: 5 };
   const isAdmin = email === ADMIN_EMAIL;
   
   res.json({
@@ -710,8 +711,8 @@ app.post('/api/user/status', async (req, res) => {
     promptsUsed: user.promptsUsed,
     limit: userLimit,
     expiry: user.planExpiry,
-    featureUsage: isAdmin ? { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, interview: 0, workflow: 0, council: 0, leads: 0 } : (user.featureUsage || { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, interview: 0, workflow: 0, council: 0, leads: 0 }),
-    featureLimits: isAdmin ? { ppt: -1, mindmap: -1, matrix: -1, optimize: -1, masking: -1, interview: -1, workflow: -1, council: -1, leads: -1 } : featureLimits
+    featureUsage: isAdmin ? { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, interview: 0, workflow: 0, council: 0, leads: 0, graph: 0 } : (user.featureUsage || { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, interview: 0, workflow: 0, council: 0, leads: 0, graph: 0 }),
+    featureLimits: isAdmin ? { ppt: -1, mindmap: -1, matrix: -1, optimize: -1, masking: -1, interview: -1, workflow: -1, council: -1, leads: -1, graph: -1 } : featureLimits
   });
 });
 
@@ -1193,7 +1194,7 @@ app.post('/api/chat', async (req, res) => {
   
   console.log(`[CHAT] Processing request with ${config.keys.length} API key(s). First key prefix: ${config.keys[0].substring(0, 6)}...`);
 
-  const { email, message, history, personality, mode, attachment, appCredentials } = req.body;
+  const { email, message, history, personality, mode, attachment, appCredentials, isGraphRequest } = req.body;
   if (!email) return res.status(400).json({ error: 'Email is required.' });
 
   const db = readDB();
@@ -1260,6 +1261,12 @@ app.post('/api/chat', async (req, res) => {
         return res.status(403).json({ error: 'FEATURE_LIMIT', message: `Prompt Optimization daily limit reached (${check.used}/${check.limit}). Upgrade your plan for more.` });
       }
     }
+    if (isGraphRequest) {
+      const check = checkFeatureLimit(email, 'graph');
+      if (!check.allowed) {
+        return res.status(403).json({ error: 'FEATURE_LIMIT', message: `Knowledge Graph Canvas daily limit reached (${check.used}/${check.limit}). Upgrade your plan for more.` });
+      }
+    }
   }
 
   if (!isAdmin && Number(userLimit) !== -1 && user.promptsUsed >= Number(userLimit)) {
@@ -1271,6 +1278,11 @@ app.post('/api/chat', async (req, res) => {
 
   try {
     let finalPrompt = message;
+
+    // GRAPH CANVAS MODE
+    if (isGraphRequest) {
+      finalPrompt = `Act as a database parser. Do not write text greetings. Analyze the following request and output a strict JSON object containing two arrays: 'nodes' (id, label, group) and 'links' (source, target, relationship).\n\nUser Request: "${message}"\n\nReturn ONLY raw JSON. Do not wrap in markdown or code blocks.`;
+    }
 
     // AA. GENERATE APP MODE
     if (mode === 'generate') {
@@ -1331,7 +1343,7 @@ User's original raw query: ${message}`;
 
     // B. WEB SEARCH — only for factual/current queries, 3s timeout to keep responses fast
     let searchGroundingContext = '';
-    const needsSearch = mode !== 'generate' && /search|latest|news|weather|current|today|\b202[4-9]\b|who is|who won|score|price|stock|release|launch|update|trending/i.test(finalPrompt);
+    const needsSearch = !isGraphRequest && mode !== 'generate' && /search|latest|news|weather|current|today|\b202[4-9]\b|who is|who won|score|price|stock|release|launch|update|trending/i.test(finalPrompt);
     
     if (needsSearch) {
       try {
@@ -1355,61 +1367,64 @@ User's original raw query: ${message}`;
     // C. SYSTEM INSTRUCTION / PERSONALITY
     let systemInstruction = "You are MatrixMind, a super advanced, friendly AI Assistant. ";
     
-    // Strict Personality enforcement
-    if (personality === 'architect') {
-      systemInstruction += "You are currently in ARCHITECT mode. You are a senior-level technical Architect and full-stack developer. ";
-      systemInstruction += "STRICT RULES FOR ARCHITECT MODE: ";
-      systemInstruction += "1. You MUST answer ALL coding, programming, scripting, app development, web development, bot building, and technical architecture queries. ";
-      systemInstruction += "2. When asked to write a script or code, you MUST provide the COMPLETE, ERROR-FREE, PRODUCTION-READY code in a SINGLE response. Never give partial code. Never say 'rest of the code remains same'. Include EVERY line. ";
-      systemInstruction += "3. Along with the code, explain: (a) What each section does, (b) How to integrate it, (c) How to run it, (d) Any dependencies needed. ";
-      systemInstruction += "4. Output diagrams using Mermaid.js syntax block when requested. ";
-      systemInstruction += "5. If the user asks a general knowledge or statistics query that does NOT involve coding/architecture, respond: '⚠️ This query is better suited for a different personality mode. Please switch to **Standard** mode for general queries or **Analyst** mode for statistics and data analysis.' Do NOT answer the query. ";
-
-    } else if (personality === 'analyst') {
-      systemInstruction += "You are currently in ANALYST mode. You are a professional data Analyst and statistician. ";
-      systemInstruction += "STRICT RULES FOR ANALYST MODE: ";
-      systemInstruction += "1. You MUST analyze problems, statistics, data, trends, lists, comparisons, graphs, and logic. ";
-      systemInstruction += "2. Break down complex facts step-by-step using tables, bullet points, charts, and explain findings thoroughly with numbers and percentages. ";
-      systemInstruction += "3. If the user asks a coding/programming/script query, respond: '⚠️ This query requires code generation. Please switch to **Architect** mode to get complete, production-ready scripts and technical solutions.' Do NOT write code. ";
-      systemInstruction += "4. If the user asks a casual general knowledge query, respond: '⚠️ This is a general query. Please switch to **Standard** mode for the best casual and informative response.' Do NOT answer it. ";
-
+    if (isGraphRequest) {
+      systemInstruction = "You are a pure JSON data generation engine. Output ONLY valid JSON containing 'nodes' and 'links' arrays. No markdown, no text.";
     } else {
-      systemInstruction += "You are currently in STANDARD mode. You are a helpful general-purpose assistant. ";
-      systemInstruction += "STRICT RULES FOR STANDARD MODE: ";
-      systemInstruction += "1. Answer general knowledge, facts, explanations, daily life queries, and casual conversations. ";
-      systemInstruction += "2. If the user asks you to write code, scripts, programs, or anything related to programming/development, respond: '⚠️ For code generation and technical scripts, please switch to **Architect** mode. The Architect personality is specifically designed to provide complete, error-free, production-ready code.' Do NOT write code. ";
-      systemInstruction += "3. If the user asks for detailed statistical analysis, data breakdowns, trend analysis, or complex comparisons, respond: '⚠️ For detailed statistical analysis and data breakdowns, please switch to **Analyst** mode. The Analyst personality specializes in data-driven insights.' Do NOT provide deep analysis. ";
-    }
+      // Strict Personality enforcement
+      if (personality === 'architect') {
+        systemInstruction += "You are currently in ARCHITECT mode. You are a senior-level technical Architect and full-stack developer. ";
+        systemInstruction += "STRICT RULES FOR ARCHITECT MODE: ";
+        systemInstruction += "1. You MUST answer ALL coding, programming, scripting, app development, web development, bot building, and technical architecture queries. ";
+        systemInstruction += "2. When asked to write a script or code, you MUST provide the COMPLETE, ERROR-FREE, PRODUCTION-READY code in a SINGLE response. Never give partial code. Never say 'rest of the code remains same'. Include EVERY line. ";
+        systemInstruction += "3. Along with the code, explain: (a) What each section does, (b) How to integrate it, (c) How to run it, (d) Any dependencies needed. ";
+        systemInstruction += "4. Output diagrams using Mermaid.js syntax block when requested. ";
+        systemInstruction += "5. If the user asks a general knowledge or statistics query that does NOT involve coding/architecture, respond: '⚠️ This query is better suited for a different personality mode. Please switch to **Standard** mode for general queries or **Analyst** mode for statistics and data analysis.' Do NOT answer the query. ";
 
-    // Multiverse simulation
-    if (mode === 'matrix_simulation') {
-      systemInstruction += "CRITICAL — MATRIX SIMULATION MODE ACTIVATED: ";
-      systemInstruction += "You are answering from a parallel dimension/alternate reality within the Multiverse. Your ENTIRE response must be written from this alternate-reality perspective. ";
-      systemInstruction += "RULES FOR MATRIX SIMULATION: ";
-      systemInstruction += "1. Start your response with a dimension header like: '🌌 **Dimension #[random number] — [Alternate Reality Name]**' to set the scene. ";
-      systemInstruction += "2. Rewrite history, science, or facts as they would exist in THIS alternate dimension. For example: if asked about gravity, explain how gravity works differently in this dimension. If asked about a historical event, describe how it played out differently here. ";
-      systemInstruction += "3. Use vivid, immersive, sci-fi language. Make it feel like the user has genuinely entered another dimension. Reference alternate laws of physics, different historical outcomes, parallel technological evolution, etc. ";
-      systemInstruction += "4. Ground your alternate-reality answer in plausible-sounding science and logic — it should feel real, not random. ";
-      systemInstruction += "5. At the end, add a brief '🔮 **Back to Base Reality:**' section with 1-2 sentences about what the REAL answer is in our dimension. ";
-      systemInstruction += "6. Do NOT show any 'Optimized Prompt' or 'Restructured Prompt' section. That feature is ONLY for Optimize mode. Just answer directly in the multidimensional style. ";
-      systemInstruction += "7. You MUST still end with '**📎 Official Sources & References:**' containing 2-5 real clickable links relevant to the topic. ";
-    }
+      } else if (personality === 'analyst') {
+        systemInstruction += "You are currently in ANALYST mode. You are a professional data Analyst and statistician. ";
+        systemInstruction += "STRICT RULES FOR ANALYST MODE: ";
+        systemInstruction += "1. You MUST analyze problems, statistics, data, trends, lists, comparisons, graphs, and logic. ";
+        systemInstruction += "2. Break down complex facts step-by-step using tables, bullet points, charts, and explain findings thoroughly with numbers and percentages. ";
+        systemInstruction += "3. If the user asks a coding/programming/script query, respond: '⚠️ This query requires code generation. Please switch to **Architect** mode to get complete, production-ready scripts and technical solutions.' Do NOT write code. ";
+        systemInstruction += "4. If the user asks a casual general knowledge query, respond: '⚠️ This is a general query. Please switch to **Standard** mode for the best casual and informative response.' Do NOT answer it. ";
 
-    // Safety and language instruction
-    systemInstruction += "SAFETY: Politely handle or refuse adult queries, illegal activities, or copyright infringement requests. Keep your content safe and appropriate for users of all ages. ";
-    systemInstruction += "LANGUAGE AND CITATION: If the user asks in English, answer in English. If in Hinglish, answer in Hinglish. ";
-    systemInstruction += "MANDATORY LINKS RULE (CRITICAL — NEVER SKIP): At the VERY END of EVERY single response, regardless of mode (normal, optimize, matrix simulation, or any other), you MUST include a section titled '**📎 Official Sources & References:**' containing 2-5 real, authentic, official clickable links relevant to the topic discussed. Format as markdown: [Website Name](https://url). Examples: Wikipedia, official docs, government sites, reputable news outlets. This section is ABSOLUTELY REQUIRED in every response without exception. If you skip this section, the response is considered INCOMPLETE and FAILED. NEVER use fake or made-up URLs. ";
-    systemInstruction += "VISUAL DIAGRAMS RULE: You must ONLY generate Mermaid.js diagrams when the user EXPLICITLY asks for a mind map, diagram, flowchart, block diagram, tree, chart, or graph. Do NOT include diagrams in regular answers. When diagrams ARE requested, use Mermaid.js syntax inside a ```mermaid code block. Follow these STRICT Mermaid rules: ";
-    systemInstruction += "1. Use ONLY these diagram types: graph TD, graph LR, mindmap, flowchart TD, flowchart LR, sequenceDiagram, classDiagram, pie. ";
-    systemInstruction += "2. Keep node labels SHORT (under 30 chars). Use quotes around labels with special characters: A[\"Label (info)\"]. ";
-    systemInstruction += "3. Do NOT use HTML tags in labels. Do NOT use emojis in node IDs. ";
-    systemInstruction += "4. For mind maps use: ```mermaid\\nmindmap\\n  root((Topic))\\n    Branch1\\n      Sub1\\n    Branch2\\n      Sub2\\n```. ";
-    systemInstruction += "5. Always produce VALID Mermaid syntax that renders without errors. Test your output mentally before writing. ";
-    systemInstruction += "RESPONSE SPEED: Keep your response concise yet complete. Respond within a single message. Do not split answers across multiple messages.";
+      } else {
+        systemInstruction += "You are currently in STANDARD mode. You are a helpful general-purpose assistant. ";
+        systemInstruction += "STRICT RULES FOR STANDARD MODE: ";
+        systemInstruction += "1. Answer general knowledge, facts, explanations, daily life queries, and casual conversations. ";
+        systemInstruction += "2. If the user asks you to write code, scripts, programs, or anything related to programming/development, respond: '⚠️ For code generation and technical scripts, please switch to **Architect** mode. The Architect personality is specifically designed to provide complete, error-free, production-ready code.' Do NOT write code. ";
+        systemInstruction += "3. If the user asks for detailed statistical analysis, data breakdowns, trend analysis, or complex comparisons, respond: '⚠️ For detailed statistical analysis and data breakdowns, please switch to **Analyst** mode. The Analyst personality specializes in data-driven insights.' Do NOT provide deep analysis. ";
+      }
+
+      // Multiverse simulation
+      if (mode === 'matrix_simulation') {
+        systemInstruction += "CRITICAL — MATRIX SIMULATION MODE ACTIVATED: ";
+        systemInstruction += "You are answering from a parallel dimension/alternate reality within the Multiverse. Your ENTIRE response must be written from this alternate-reality perspective. ";
+        systemInstruction += "RULES FOR MATRIX SIMULATION: ";
+        systemInstruction += "1. Start your response with a dimension header like: '🌌 **Dimension #[random number] — [Alternate Reality Name]**' to set the scene. ";
+        systemInstruction += "2. Rewrite history, science, or facts as they would exist in THIS alternate dimension. For example: if asked about gravity, explain how gravity works differently in this dimension. If asked about a historical event, describe how it played out differently here. ";
+        systemInstruction += "3. Use vivid, immersive, sci-fi language. Make it feel like the user has genuinely entered another dimension. Reference alternate laws of physics, different historical outcomes, parallel technological evolution, etc. ";
+        systemInstruction += "4. Ground your alternate-reality answer in plausible-sounding science and logic — it should feel real, not random. ";
+        systemInstruction += "5. At the end, add a brief '🔮 **Back to Base Reality:**' section with 1-2 sentences about what the REAL answer is in our dimension. ";
+        systemInstruction += "6. Do NOT show any 'Optimized Prompt' or 'Restructured Prompt' section. That feature is ONLY for Optimize mode. Just answer directly in the multidimensional style. ";
+        systemInstruction += "7. You MUST still end with '**📎 Official Sources & References:**' containing 2-5 real clickable links relevant to the topic. ";
+      }
+
+      // Safety and language instruction
+      systemInstruction += "SAFETY: Politely handle or refuse adult queries, illegal activities, or copyright infringement requests. Keep your content safe and appropriate for users of all ages. ";
+      systemInstruction += "LANGUAGE AND CITATION: If the user asks in English, answer in English. If in Hinglish, answer in Hinglish. ";
+      systemInstruction += "MANDATORY LINKS RULE (CRITICAL — NEVER SKIP): At the VERY END of EVERY single response, regardless of mode (normal, optimize, matrix simulation, or any other), you MUST include a section titled '**📎 Official Sources & References:**' containing 2-5 real, authentic, official clickable links relevant to the topic discussed. Format as markdown: [Website Name](https://url). Examples: Wikipedia, official docs, government sites, reputable news outlets. This section is ABSOLUTELY REQUIRED in every response without exception. If you skip this section, the response is considered INCOMPLETE and FAILED. NEVER use fake or made-up URLs. ";
+      systemInstruction += "VISUAL DIAGRAMS RULE: You must ONLY generate Mermaid.js diagrams when the user EXPLICITLY asks for a mind map, diagram, flowchart, block diagram, tree, chart, or graph. Do NOT include diagrams in regular answers. When diagrams ARE requested, use Mermaid.js syntax inside a ```mermaid code block. Follow these STRICT Mermaid rules: ";
+      systemInstruction += "1. Use ONLY these diagram types: graph TD, graph LR, mindmap, flowchart TD, flowchart LR, sequenceDiagram, classDiagram, pie. ";
+      systemInstruction += "2. Keep node labels SHORT (under 30 chars). Use quotes around labels with special characters: A[\"Label (info)\"]. ";
+      systemInstruction += "3. Do NOT use HTML tags in labels. Do NOT use emojis in node IDs. ";
+      systemInstruction += "4. For mind maps use: ```mermaid\\nmindmap\\n  root((Topic))\\n    Branch1\\n      Sub1\\n    Branch2\\n      Sub2\\n```. ";
+      systemInstruction += "5. Always produce VALID Mermaid syntax that renders without errors. Test your output mentally before writing. ";
+      systemInstruction += "RESPONSE SPEED: Keep your response concise yet complete. Respond within a single message. Do not split answers across multiple messages.";
+      systemInstruction += " MANDATORY LINKS RULE: At the VERY END of your response, you MUST append a section titled '**📎 Official Sources & References:**' providing 2-5 valid, authentic, clickable markdown links relevant to the topic. NEVER skip this rule.";
+    }
 
     // D. BIND CHAT HISTORY
-    // Formulate the contents array for Gemini
-    systemInstruction += " MANDATORY LINKS RULE: At the VERY END of your response, you MUST append a section titled '**📎 Official Sources & References:**' providing 2-5 valid, authentic, clickable markdown links relevant to the topic. NEVER skip this rule.";
     const contents = [];
     
     // Map history to Gemini API format (role: user/model, parts: [{text: ...}])
@@ -1455,6 +1470,23 @@ User's original raw query: ${message}`;
     // E. CALL GEMINI ENGINE
     const aiResponse = await queryGeminiAPI(config.keys, contents, systemInstruction);
 
+    let finalResponse = aiResponse;
+    if (isGraphRequest) {
+      try {
+        const cleaned = aiResponse.replace(/```json/gi, '').replace(/```/g, '').trim();
+        const firstBrace = cleaned.indexOf('{');
+        const lastBrace = cleaned.lastIndexOf('}');
+        if (firstBrace >= 0 && lastBrace >= 0) {
+          finalResponse = cleaned.substring(firstBrace, lastBrace + 1);
+        } else {
+          throw new Error("No JSON object found");
+        }
+      } catch (e) {
+        console.error('[GRAPH] JSON parse error:', e.message);
+        finalResponse = JSON.stringify({ nodes: [], links: [], error: true });
+      }
+    }
+
     // F. INCREMENT USAGE
     user.promptsUsed += 1;
     db.users[email] = user;
@@ -1463,11 +1495,12 @@ User's original raw query: ${message}`;
     // Increment feature-specific usage
     if (mode === 'matrix_simulation') incrementFeatureUsage(email, 'matrix');
     if (mode === 'optimize') incrementFeatureUsage(email, 'optimize');
+    if (isGraphRequest) incrementFeatureUsage(email, 'graph');
     // Mindmap: detect if response contains mermaid diagram
-    if (/mindmap|flowchart|graph|diagram/i.test(message)) incrementFeatureUsage(email, 'mindmap');
+    if (!isGraphRequest && /mindmap|flowchart|graph|diagram/i.test(message)) incrementFeatureUsage(email, 'mindmap');
 
     res.json({
-      response: aiResponse,
+      response: finalResponse,
       optimizedPrompt: mode === 'optimize' ? finalPrompt : null,
       promptsUsed: user.promptsUsed,
       limit: userLimit

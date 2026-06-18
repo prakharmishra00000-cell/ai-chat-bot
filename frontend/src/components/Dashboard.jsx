@@ -7,6 +7,7 @@ import {
 import mermaid from 'mermaid';
 import CouncilRoom from './CouncilRoom';
 import WorkflowPanel from './WorkflowPanel';
+import KnowledgeGraph from './KnowledgeGraph';
 
 // Initialize Mermaid.js configuration
 try {
@@ -341,6 +342,8 @@ function Dashboard({
   const [mode, setMode] = useState('normal'); // 'normal', 'matrix_simulation', 'optimize', 'generate'
   const [loading, setLoading] = useState(false);
   const [livePreviewApp, setLivePreviewApp] = useState(null);
+  const [isGraphMode, setIsGraphMode] = useState(false);
+  const [graphData, setGraphData] = useState(null);
 
   // App Credentials State for Generate Mode
   const [showCredentials, setShowCredentials] = useState(false);
@@ -763,9 +766,10 @@ function Dashboard({
   };
 
   // 5. CHAT GENERATION DISPATCH
-  const handleSendMessage = async (e) => {
+  const handleSendMessage = async (e, textOverride = null) => {
     if (e) e.preventDefault();
-    if (!promptInput.trim() && !attachment) return;
+    const textToSend = textOverride || promptInput;
+    if (!textToSend.trim() && !attachment) return;
     if (loading) return;
 
     // Check Plan limitations locally before calling backend
@@ -780,10 +784,10 @@ function Dashboard({
     if (!currentChat) return;
 
     // Store original raw input (what user sees in their chat bubble)
-    const originalRawInput = promptInput;
+    const originalRawInput = textToSend;
 
     // Prepare the message that will be SENT to the server
-    let messageForServer = promptInput;
+    let messageForServer = textToSend;
     let activeAnonymizeMap = {};
 
     // Anonymize if enabled — masking runs locally in the browser before any data leaves
@@ -805,7 +809,7 @@ function Dashboard({
         console.warn('Failed to track masking feature limit:', e);
       }
 
-      const { anonymized, map } = anonymizeText(promptInput);
+      const { anonymized, map } = anonymizeText(textToSend);
       messageForServer = anonymized; // This is what goes over the internet
       activeAnonymizeMap = map;       // Translation map stays in browser memory only
       anonymizeMapRef.current = map;
@@ -908,7 +912,8 @@ function Dashboard({
           personality: personality,
           mode: mode,
           attachment: activeAttachment,
-          appCredentials: mode === 'generate' ? appCredentials : []
+          appCredentials: mode === 'generate' ? appCredentials : [],
+          isGraphRequest: isGraphMode
         })
       });
 
@@ -920,6 +925,11 @@ function Dashboard({
         // De-anonymize bot response if anonymize was used
         if (anonymizeEnabled && Object.keys(activeAnonymizeMap).length > 0) {
           botResponseText = deanonymizeText(botResponseText, activeAnonymizeMap);
+        }
+
+        if (isGraphMode) {
+          setGraphData(botResponseText);
+          botResponseText = "✅ **Knowledge Graph Generated!** The canvas has been updated on the right panel.";
         }
 
         // PPT GENERATION: Detect if user asked for a presentation
@@ -1308,8 +1318,11 @@ function Dashboard({
       </div>
 
       {/* Main chat viewport */}
-      <div className={livePreviewApp && mode === 'generate' ? "workspace-split" : "main-chat-area-wrapper"} style={{ flex: 1, overflow: 'hidden' }}>
-        <div className={`main-chat-area ${livePreviewApp && mode === 'generate' ? 'chat-pane' : ''}`}>
+      {/* Main chat viewport */}
+      <div className={(livePreviewApp && mode === 'generate') || isGraphMode ? "workspace-split" : "main-chat-area-wrapper"} style={{ flex: 1, overflow: 'hidden' }}>
+        
+        <div className={isGraphMode ? "main-chat-area split-view" : `main-chat-area ${livePreviewApp && mode === 'generate' ? 'chat-pane' : ''}`}>
+          <div className={isGraphMode ? "chat-panel" : "chat-container-inner"} style={{ display: 'flex', flexDirection: 'column', height: '100%', width: '100%', flex: 1 }}>
           <div className="main-header">
           <div className="header-row-top">
             {!sidebarOpen && (
@@ -1361,6 +1374,20 @@ function Dashboard({
               >
                 Matrix
               </button>
+              
+              <div className="tooltip-container">
+                <button 
+                  className={`mode-toggle-btn ${isGraphMode ? 'active' : ''}`}
+                  style={isGraphMode ? { background: '#202025', color: '#ff79c6', border: '1px solid #ff79c6' } : {}}
+                  onClick={() => setIsGraphMode(prev => !prev)}
+                >
+                  <BrainCircuit size={14} style={{ verticalAlign: 'middle', marginRight: '4px' }} />
+                  🕸️ View Canvas
+                </button>
+                <div className="tooltip-text">
+                  Transforms your long prompts into an interactive spatial network map (nodes and links). Great for dissecting complex plans, plots, or codebases!
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -1659,7 +1686,11 @@ function Dashboard({
               </div>
             )}
           </div>
+          </div>
         </div>
+
+        {/* Graph Canvas Panel (Split Screen) */}
+        {isGraphMode && <KnowledgeGraph data={graphData} onNodeClickAction={(text) => handleSendMessage(null, text)} />}
       </div>
 
       {/* Live Preview Pane (Split Screen) */}
