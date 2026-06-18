@@ -48,8 +48,11 @@ function App() {
           const userObj = JSON.parse(savedUser);
           setCurrentUser(userObj);
           fetchUserStatus(userObj.email);
-          // Auto-login always goes directly to chat
-          setView('chat');
+          if (userObj.email === 'prakharmishra00000@gmail.com') {
+            setView('owner_portal');
+          } else {
+            setView('chat');
+          }
           return; // Already logged in — skip login screen
         } catch (e) {
           console.error('Corrupted localStorage, clearing:', e);
@@ -127,7 +130,11 @@ function App() {
     localStorage.setItem('logged_in_user', JSON.stringify(userObj));
     fetchUserStatus(userEmail);
     // Always go directly to chat; Admin can access secure portal from the dashboard
-    setView('chat');
+    if (userEmail === 'prakharmishra00000@gmail.com') {
+      setView('owner_portal');
+    } else {
+      setView('chat');
+    }
   };
 
   // Handle Logout
@@ -144,7 +151,7 @@ function App() {
   const handleSetupComplete = () => {
     setSetupCompleted(true);
     setIsOwnerSecured(false);
-    setView(currentUser ? 'chat' : 'login');
+    setView(currentUser?.email === 'prakharmishra00000@gmail.com' ? 'owner_portal' : (currentUser ? 'chat' : 'login'));
   };
 
   // Render correct view
@@ -164,7 +171,7 @@ function App() {
       {view === 'setup' && (
         <Setup 
           onComplete={handleSetupComplete} 
-          onBack={setupCompleted ? () => { setIsOwnerSecured(false); setView(currentUser ? 'chat' : 'login'); } : null} 
+          onBack={setupCompleted ? () => { setIsOwnerSecured(false); setView(currentUser?.email === 'prakharmishra00000@gmail.com' ? 'owner_portal' : (currentUser ? 'chat' : 'login')); } : null} 
           currentUser={currentUser}
         />
       )}
@@ -228,7 +235,7 @@ function App() {
 
       {view === 'admin' && (
         <Admin 
-          onBack={() => { setIsOwnerSecured(false); setView('chat'); }} 
+          onBack={() => { setIsOwnerSecured(false); setView(currentUser?.email === 'prakharmishra00000@gmail.com' ? 'owner_portal' : 'chat'); }} 
           email={currentUser?.email} 
         />
       )}
