@@ -645,7 +645,7 @@ async function queryGeminiAPI(keys, contents, systemInstruction, enableWebSearch
       const url = `https://generativelanguage.googleapis.com/${api}/models/${model}:generateContent?key=${activeKey}`;
       
       let attempts = 0;
-      while (attempts < 2) {
+      while (attempts < 3) {
         attempts++;
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 20000); // 20s timeout per attempt for fast failover
@@ -665,7 +665,10 @@ async function queryGeminiAPI(keys, contents, systemInstruction, enableWebSearch
 
         const response = await fetch(url, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'Connection': 'close' 
+          },
           body: JSON.stringify(requestPayload),
           signal: controller.signal
         });
@@ -704,9 +707,9 @@ async function queryGeminiAPI(keys, contents, systemInstruction, enableWebSearch
           console.error(`[GEMINI] 💥 ${keyPreview} | ${model} (Attempt ${attempts}): ${error.message}`);
           lastGeminiError = `Exception: ${error.message}`;
           
-          if (attempts < 2 && (error.message.includes('Premature close') || error.message.includes('ECONNRESET'))) {
+          if (attempts < 3 && (error.message.includes('Premature close') || error.message.includes('ECONNRESET') || error.message.includes('fetch failed'))) {
              console.log(`[GEMINI] Retrying due to network drop...`);
-             await new Promise(r => setTimeout(r, 1000));
+             await new Promise(r => setTimeout(r, 1000 * attempts));
              continue; // Loop again for same model
           }
           break; // Exhausted attempts, break while loop to move to next model
@@ -734,7 +737,10 @@ async function queryGeminiAPI(keys, contents, systemInstruction, enableWebSearch
 
       const response = await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Connection': 'close'
+        },
         body: JSON.stringify(requestPayloadFinal),
         signal: controller.signal
       });
