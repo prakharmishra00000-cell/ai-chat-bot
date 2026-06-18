@@ -631,8 +631,8 @@ let lastGeminiError = '';
 
 async function queryGeminiAPI(keys, contents, systemInstruction, enableWebSearch = false) {
   const modelConfigs = [
-    { model: 'gemini-1.5-flash', api: 'v1beta' },
-    { model: 'gemini-2.0-flash-exp', api: 'v1beta' }
+    { model: 'gemini-2.0-flash', api: 'v1beta' },
+    { model: 'gemini-1.5-flash', api: 'v1beta' }
   ];
 
   // Try each key with each model
@@ -749,9 +749,13 @@ async function queryGeminiAPI(keys, contents, systemInstruction, enableWebSearch
       if (response.ok && data.candidates?.[0]?.content) {
         console.log(`[GEMINI] ✅ FINAL RETRY SUCCESS`);
         return data.candidates[0].content.parts[0].text;
+      } else {
+        const errMsg = (data.error?.message || '').substring(0, 80);
+        lastGeminiError = `Status: ${response.status}. Msg: ${errMsg}`;
       }
     } catch (e) {
       clearTimeout(timeoutId);
+      lastGeminiError = `Exception: ${e.message}`;
       continue;
     }
   }
