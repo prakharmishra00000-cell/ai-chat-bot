@@ -644,7 +644,7 @@ async function queryGeminiAPI(keys, contents, systemInstruction, enableWebSearch
 
         const requestPayload = { contents: payloadContents };
         if (enableWebSearch) {
-           requestPayload.tools = [{ googleSearchRetrieval: { dynamicRetrievalConfig: { mode: 'MODE_DYNAMIC', dynamicThreshold: 0.3 } } }];
+           requestPayload.tools = [{ googleSearch: {} }];
         }
 
         const response = await fetch(url, {
@@ -704,7 +704,7 @@ async function queryGeminiAPI(keys, contents, systemInstruction, enableWebSearch
       }
       const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`;
       const requestPayloadFinal = { contents: payloadContents };
-      if (enableWebSearch) requestPayloadFinal.tools = [{ googleSearchRetrieval: { dynamicRetrievalConfig: { mode: 'MODE_DYNAMIC', dynamicThreshold: 0.3 } } }];
+      if (enableWebSearch) requestPayloadFinal.tools = [{ googleSearch: {} }];
 
       const response = await fetch(url, {
         method: 'POST',
