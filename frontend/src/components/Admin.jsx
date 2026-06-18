@@ -1061,59 +1061,6 @@ function Admin({ onBack, email }) {
                 <Save size={18} /> {payLoading ? 'Saving...' : 'Save UPI Settings'}
               </button>
 
-              {/* Divider */}
-              <hr style={{ border: 'none', borderTop: '1px solid var(--border-glass)', margin: '25px 0' }} />
-
-              {/* QR Code Upload */}
-              <h4 style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '1.1rem', color: 'var(--accent-cyan)', marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Upload size={18} /> Custom Payment QR Code
-              </h4>
-              <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '15px' }}>
-                Upload your UPI QR code image. This QR will be shown to users on the payment screen. If no QR is uploaded, an auto-generated one will be used.
-              </p>
-
-              {/* Current QR preview */}
-              {(payQrPreview || hasCustomQR) && (
-                <div style={{ textAlign: 'center', marginBottom: '20px', padding: '20px', background: 'rgba(0,0,0,0.2)', borderRadius: '12px', border: '1px dashed var(--border-glass-glow)' }}>
-                  <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '10px' }}>Current QR Code</p>
-                  <div style={{ display: 'inline-block', padding: '10px', background: '#fff', borderRadius: '10px' }}>
-                    <img
-                      src={payQrPreview || `/api/payment-qr?t=${Date.now()}`}
-                      alt="Payment QR"
-                      style={{ width: '200px', height: '200px', display: 'block', objectFit: 'contain' }}
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* Upload button */}
-              <div style={{ display: 'flex', gap: '12px', marginBottom: '15px' }}>
-                <label
-                  className="btn btn-secondary"
-                  style={{ flex: 1, padding: '14px', fontSize: '0.9rem', cursor: 'pointer', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
-                >
-                  <Upload size={16} /> Browse & Upload QR Image
-                  <input
-                    type="file"
-                    accept="image/*"
-                    style={{ display: 'none' }}
-                    onChange={handleQrFileSelect}
-                  />
-                </label>
-
-                {hasCustomQR && (
-                  <button
-                    className="btn btn-secondary"
-                    onClick={handleDeleteQr}
-                    style={{ padding: '14px 20px', fontSize: '0.9rem', color: '#ff3366', display: 'flex', alignItems: 'center', gap: '6px' }}
-                  >
-                    <Trash2 size={16} /> Remove
-                  </button>
-                )}
-              </div>
-              <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                Supported formats: PNG, JPG, JPEG. Max size: 5MB
-              </p>
             </div>
           )}
 

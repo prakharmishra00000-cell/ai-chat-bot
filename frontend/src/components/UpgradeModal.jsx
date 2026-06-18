@@ -446,25 +446,7 @@ function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess }) {
             </h3>
             <p style={{textAlign: 'center', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '20px'}}>If the automated "Auto Unlock Plan" button above fails, you can pay manually using UPI.</p>
 
-            {/* QR Code */}
-            <div style={{ textAlign: 'center', marginBottom: '20px' }}>
-              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '10px' }}>
-                📱 Scan this QR code with any UPI app to pay
-              </p>
-              <div style={{ display: 'inline-block', padding: '12px', background: '#fff', borderRadius: '12px' }}>
-                <img
-                  src={hasCustomQR ? `/api/payment-qr?t=${Date.now()}` : autoQrUrl}
-                  alt="UPI Payment QR Code"
-                  style={{ width: '220px', height: '220px', display: 'block', objectFit: 'contain' }}
-                  onError={(e) => {
-                    // If custom QR fails, fallback to auto-generated
-                    if (autoQrUrl && e.target.src.indexOf('api.qrserver.com') === -1) {
-                      e.target.src = autoQrUrl;
-                    }
-                  }}
-                />
-              </div>
-            </div>
+            {/* QR Code Removed as per request */}
 
             {/* UPI ID display + Copy */}
             {receiverUpiId && (
@@ -513,7 +495,7 @@ function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess }) {
             <div style={{ padding: '15px', background: 'rgba(0,0,0,0.2)', borderRadius: '8px', marginBottom: '20px' }}>
               <p style={{ fontSize: '0.8rem', color: 'var(--accent-cyan)', fontWeight: 700, marginBottom: '8px' }}>📋 How to complete payment:</p>
               <ol style={{ fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.8, margin: 0, paddingLeft: '16px' }}>
-                <li>Make payment for your desired plan amount using the QR code{isMobile ? ' or UPI app button' : ''} above</li>
+                <li>Make payment for your desired plan amount to the UPI ID {isMobile ? 'or using the UPI app button ' : ''}above</li>
                 <li>Enter the <strong style={{ color: 'var(--accent-cyan)' }}>exact plan amount</strong> — ₹99 (Standard), ₹199 (Better), or ₹999 (Premium)</li>
                 <li>Complete the payment with your UPI PIN</li>
                 <li>Note the <strong style={{ color: '#ffe259' }}>12-digit UTR/Reference number</strong> from your receipt</li>

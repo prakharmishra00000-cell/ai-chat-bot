@@ -735,8 +735,14 @@ async function queryGeminiAPI(keys, contents, systemInstruction, enableWebSearch
 
         try {
           let payloadContents = JSON.parse(JSON.stringify(contents));
-          if (systemInstruction && payloadContents.length > 0 && payloadContents[0].role === 'user') {
-             payloadContents[0].parts[0].text = `[System Instruction: ${systemInstruction}]\n\n` + payloadContents[0].parts[0].text;
+          if (systemInstruction && payloadContents.length > 0) {
+             // Inject system instruction into the MOST RECENT user message so the model doesn't forget it in long chats
+             for (let i = payloadContents.length - 1; i >= 0; i--) {
+                if (payloadContents[i].role === 'user') {
+                   payloadContents[i].parts[0].text = `[SYSTEM INSTRUCTION: ${systemInstruction}]\n\n` + payloadContents[i].parts[0].text;
+                   break;
+                }
+             }
           }
 
           console.log(`[GEMINI] Trying Key ${keyPreview} | ${api}/${model}`);
@@ -1384,7 +1390,7 @@ User's original raw query: ${message}`;
 
     // D. BIND CHAT HISTORY
     // Formulate the contents array for Gemini
-    systemInstruction += ' MANDATORY LINKS RULE: At the VERY END of your response, you MUST append a section titled \'**?? Official Sources & References:**\' providing 2-5 valid, authentic, clickable markdown links relevant to the topic. NEVER skip this rule.';
+    systemInstruction += " MANDATORY LINKS RULE: At the VERY END of your response, you MUST append a section titled '**📎 Official Sources & References:**' providing 2-5 valid, authentic, clickable markdown links relevant to the topic. NEVER skip this rule.";
     const contents = [];
     
     // Map history to Gemini API format (role: user/model, parts: [{text: ...}])
@@ -2404,52 +2410,7 @@ app.post('/api/admin/payment-settings', (req, res) => {
   res.json({ success: true, message: 'Payment settings updated successfully.' });
 });
 
-// POST upload custom QR code image (base64)
-app.post('/api/admin/upload-qr', (req, res) => {
-  try {
-    const { imageData } = req.body;
-    if (!imageData) return res.status(400).json({ error: 'No image data provided.' });
-    
-    // imageData should be base64 string (data:image/png;base64,...)
-    const base64Data = imageData.replace(/^data:image\/\w+;base64,/, '');
-    const buffer = Buffer.from(base64Data, 'base64');
-    
-    if (buffer.length > 5 * 1024 * 1024) {
-      return res.status(400).json({ error: 'QR image too large. Max 5MB.' });
-    }
-    
-    fs.writeFileSync(QR_IMAGE_PATH, buffer);
-    console.log(`[ADMIN] Custom QR code uploaded (${Math.round(buffer.length / 1024)} KB)`);
-    res.json({ success: true, message: 'QR code uploaded successfully.' });
-  } catch (err) {
-    console.error('[ADMIN] QR upload error:', err.message);
-    res.status(500).json({ error: 'Failed to save QR image.' });
-  }
-});
 
-// DELETE custom QR code (revert to auto-generated)
-app.delete('/api/admin/upload-qr', (req, res) => {
-  try {
-    if (fs.existsSync(QR_IMAGE_PATH)) {
-      fs.unlinkSync(QR_IMAGE_PATH);
-      console.log('[ADMIN] Custom QR code removed');
-    }
-    res.json({ success: true, message: 'Custom QR removed. Auto-generated QR will be used.' });
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to remove QR.' });
-  }
-});
-
-// GET serve the QR code image to frontend
-app.get('/api/payment-qr', (req, res) => {
-  if (fs.existsSync(QR_IMAGE_PATH)) {
-    res.setHeader('Content-Type', 'image/png');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.sendFile(QR_IMAGE_PATH);
-  } else {
-    res.status(404).json({ error: 'No custom QR uploaded.' });
-  }
-});
 
 // ==========================================
 // FULLY AUTOMATED RAZORPAY PAYMENT ENGINE
