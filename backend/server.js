@@ -615,6 +615,7 @@ app.post('/api/user/status', (req, res) => {
 
 // GEMINI API ROTATION ENGINE
 let activeKeyIndex = 0;
+let lastGeminiError = '';
 
 async function queryGeminiAPI(keys, contents, systemInstruction, enableWebSearch = false) {
   const modelConfigs = [
@@ -667,6 +668,7 @@ async function queryGeminiAPI(keys, contents, systemInstruction, enableWebSearch
         }
 
         const errMsg = (responseData.error?.message || '').substring(0, 80);
+        lastGeminiError = `Status: ${response.status}. Msg: ${errMsg}`;
         console.warn(`[GEMINI] ❌ ${response.status}: ${keyPreview} | ${api}/${model} | ${errMsg}`);
         
         if (response.status === 429) {
@@ -684,6 +686,7 @@ async function queryGeminiAPI(keys, contents, systemInstruction, enableWebSearch
           continue; // Timeout — try next model
         }
         console.error(`[GEMINI] 💥 ${keyPreview} | ${model}: ${error.message}`);
+        lastGeminiError = `Exception: ${error.message}`;
         continue;
       }
     }
@@ -725,7 +728,10 @@ async function queryGeminiAPI(keys, contents, systemInstruction, enableWebSearch
   }
 
   console.error(`[GEMINI] ALL ${keys.length} KEYS EXHAUSTED — daily free-tier quota likely reached`);
-  return "I apologize, but all of my API keys have reached their daily quota limit, or the request timed out. Please try your request again later or upgrade my keys. Thank you!";
+  if (keys.length === 0) {
+    throw new Error("CRITICAL: No API keys found! You must add GEMINI_API_KEY_1 to your Render Environment Variables.");
+  }
+  throw new Error(`I apologize, but the backend failed to generate a response.\n\n**Exact Internal Error**: ${lastGeminiError || 'Unknown timeout/quota error'}\n\nPlease check your API keys or try again later.`);
 }
 
 // Health Check — diagnose key loading issues
