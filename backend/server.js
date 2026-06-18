@@ -639,10 +639,13 @@ async function queryGeminiAPI(keys, contents, systemInstruction, enableWebSearch
     for (const { model, api } of modelConfigs) {
       const url = `https://generativelanguage.googleapis.com/${api}/models/${model}:generateContent?key=${activeKey}`;
       
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 180000); // 180s per attempt for massive app generation
+      let attempts = 0;
+      while (attempts < 2) {
+        attempts++;
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 180000); // 180s per attempt
 
-      try {
+        try {
         let payloadContents = JSON.parse(JSON.stringify(contents));
         if (systemInstruction && payloadContents.length > 0 && payloadContents[0].role === 'user') {
            payloadContents[0].parts[0].text = `[System Instruction: ${systemInstruction}]\n\n` + payloadContents[0].parts[0].text;
@@ -686,15 +689,23 @@ async function queryGeminiAPI(keys, contents, systemInstruction, enableWebSearch
         }
         continue; // Other error — try next model
 
-      } catch (error) {
-        clearTimeout(timeoutId);
-        if (error.name === 'AbortError') {
-          console.warn(`[GEMINI] ⏱ TIMEOUT: ${keyPreview} | ${model}`);
-          continue; // Timeout — try next model
+        } catch (error) {
+          clearTimeout(timeoutId);
+          if (error.name === 'AbortError') {
+            console.warn(`[GEMINI] ⏱ TIMEOUT: ${keyPreview} | ${model}`);
+            break; // Timeout is usually model-wide or strict, move to next model
+          }
+          
+          console.error(`[GEMINI] 💥 ${keyPreview} | ${model} (Attempt ${attempts}): ${error.message}`);
+          lastGeminiError = `Exception: ${error.message}`;
+          
+          if (attempts < 2 && (error.message.includes('Premature close') || error.message.includes('ECONNRESET'))) {
+             console.log(`[GEMINI] Retrying due to network drop...`);
+             await new Promise(r => setTimeout(r, 1000));
+             continue; // Loop again for same model
+          }
+          break; // Exhausted attempts, break while loop to move to next model
         }
-        console.error(`[GEMINI] 💥 ${keyPreview} | ${model}: ${error.message}`);
-        lastGeminiError = `Exception: ${error.message}`;
-        continue;
       }
     }
   }
