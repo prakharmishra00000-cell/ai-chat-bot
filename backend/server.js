@@ -4,6 +4,8 @@ const fs = require('fs');
 const path = require('path');
 const fetch = require('node-fetch');
 const crypto = require('crypto');
+const Razorpay = require('razorpay');
+const cron = require('node-cron');
 let firebaseApp, firebaseDatabase;
 try {
   firebaseApp = require('firebase-admin/app');
@@ -272,6 +274,9 @@ function readConfig() {
         // Fallback to env vars if missing in config.json
         if (!config.firebaseDbUrl && process.env.FIREBASE_DB_URL) config.firebaseDbUrl = process.env.FIREBASE_DB_URL;
         if (!config.firebaseServiceAccount && process.env.FIREBASE_SERVICE_ACCOUNT) config.firebaseServiceAccount = process.env.FIREBASE_SERVICE_ACCOUNT;
+        if (!config.razorpayKeyId && process.env.RAZORPAY_KEY_ID) config.razorpayKeyId = process.env.RAZORPAY_KEY_ID;
+        if (!config.razorpayKeySecret && process.env.RAZORPAY_KEY_SECRET) config.razorpayKeySecret = process.env.RAZORPAY_KEY_SECRET;
+        if (!config.razorpayWebhookSecret && process.env.RAZORPAY_WEBHOOK_SECRET) config.razorpayWebhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
         return config;
       }
     } catch (e) {
@@ -296,6 +301,9 @@ function readConfig() {
       googleClientId: process.env.GOOGLE_CLIENT_ID || '',
       firebaseDbUrl: process.env.FIREBASE_DB_URL || '',
       firebaseServiceAccount: process.env.FIREBASE_SERVICE_ACCOUNT || '',
+      razorpayKeyId: process.env.RAZORPAY_KEY_ID || '',
+      razorpayKeySecret: process.env.RAZORPAY_KEY_SECRET || '',
+      razorpayWebhookSecret: process.env.RAZORPAY_WEBHOOK_SECRET || '',
       adminUsername: process.env.ADMIN_USERNAME || 'prakhar mishra',
       adminPassword: process.env.ADMIN_PASSWORD || '',
       smtpUser: process.env.SMTP_USER || '',
@@ -2386,6 +2394,112 @@ app.get('/api/payment-qr', (req, res) => {
   }
 });
 
+// ==========================================
+// FULLY AUTOMATED RAZORPAY PAYMENT ENGINE
+// ==========================================
+
+// Create a Razorpay Order
+app.post('/api/payment/razorpay/create-order', async (req, res) => {
+  const config = readConfig();
+  if (!config.razorpayKeyId || !config.razorpayKeySecret) {
+    return res.status(500).json({ error: 'Razorpay keys are not configured by the admin.' });
+  }
+
+  const { planId, amountINR } = req.body;
+  if (!planId || !amountINR) {
+    return res.status(400).json({ error: 'Plan ID and Amount are required.' });
+  }
+
+  try {
+    const rzp = new Razorpay({
+      key_id: config.razorpayKeyId,
+      key_secret: config.razorpayKeySecret,
+    });
+
+    const options = {
+      amount: parseInt(amountINR) * 100, // amount in smallest currency unit (paise)
+      currency: "INR",
+      receipt: `rcpt_${Date.now()}`
+    };
+
+    const order = await rzp.orders.create(options);
+    res.json({ success: true, order });
+  } catch (error) {
+    console.error('Razorpay order creation failed:', error);
+    res.status(500).json({ error: 'Failed to create Razorpay order' });
+  }
+});
+
+// Razorpay Webhook (Triggers automatically when payment succeeds)
+app.post('/api/payment/razorpay/webhook', express.raw({ type: 'application/json' }), (req, res) => {
+  const config = readConfig();
+  const secret = config.razorpayWebhookSecret;
+
+  if (!secret) {
+    console.warn('[WEBHOOK] Received Razorpay webhook but no secret is configured.');
+    return res.status(400).send('Webhook secret not configured');
+  }
+
+  const signature = req.headers['x-razorpay-signature'];
+  const body = req.body; // Raw body needed for crypto verification
+
+  try {
+    // Validate signature
+    const expectedSignature = crypto
+      .createHmac('sha256', secret)
+      .update(body)
+      .digest('hex');
+
+    if (expectedSignature !== signature) {
+      return res.status(400).send('Invalid signature');
+    }
+
+    // Process event
+    const payload = JSON.parse(body.toString());
+    if (payload.event === 'payment.captured' || payload.event === 'order.paid') {
+      const paymentInfo = payload.payload.payment.entity;
+      const { email, planId, durationDays } = paymentInfo.notes;
+
+      if (!email || !planId) {
+        console.warn('[WEBHOOK] Payment successful but missing email/plan metadata.');
+        return res.status(200).send('Missing metadata');
+      }
+
+      // Automatically Unlock Plan
+      const db = readDB();
+      const user = getOrCreateUser(email);
+      user.plan = planId;
+      
+      const days = parseInt(durationDays) || 30;
+      const expiryDate = new Date();
+      expiryDate.setDate(expiryDate.getDate() + days);
+      user.planExpiry = expiryDate.toISOString();
+
+      db.users[email] = user;
+
+      // Log automated transaction
+      if (!db.transactions) db.transactions = [];
+      db.transactions.push({
+        id: `txn_auto_${Date.now()}`,
+        email,
+        amount: paymentInfo.amount / 100,
+        plan: planId,
+        paymentRef: paymentInfo.id,
+        date: new Date().toISOString(),
+        automated: true
+      });
+
+      writeDB(db);
+      console.log(`[WEBHOOK] Successfully auto-unlocked ${planId} for ${email} via Razorpay!`);
+    }
+
+    res.status(200).json({ status: 'ok' });
+  } catch (err) {
+    console.error('Razorpay Webhook Error:', err);
+    res.status(400).send('Webhook error');
+  }
+});
+
 // ACTION ON PENDING APPROVAL REQUEST - ADMIN SELECTS PLAN TO UNLOCK
 app.post('/api/admin/approvals/action', (req, res) => {
   const { email, requestId, action, selectedPlan } = req.body;
@@ -2726,6 +2840,39 @@ app.get('*', (req, res) => {
   }
 });
 
+// ==========================================
+// BACKGROUND CRON JOBS
+// ==========================================
+// Run every hour to check for expired plans globally
+cron.schedule('0 * * * *', () => {
+  console.log('[CRON] Running automatic plan expiry check...');
+  const db = readDB();
+  let dbModified = false;
+  
+  if (db.users) {
+    const now = new Date();
+    Object.values(db.users).forEach(user => {
+      if (user.plan !== 'free' && user.planExpiry) {
+        const expiry = new Date(user.planExpiry);
+        if (now > expiry) {
+          console.log(`[CRON] Plan expired for user: ${user.email}. Downgrading to free.`);
+          user.plan = 'free';
+          user.planExpiry = null;
+          dbModified = true;
+        }
+      }
+    });
+  }
+
+  if (dbModified) {
+    writeDB(db);
+    console.log('[CRON] Plan expiry check complete. DB updated.');
+  } else {
+    console.log('[CRON] Plan expiry check complete. No changes.');
+  }
+});
+
+// START EXPRESS SERVER
 app.listen(PORT, () => {
   console.log(`Super Advanced AI Bot Server running on http://localhost:${PORT}`);
 });
