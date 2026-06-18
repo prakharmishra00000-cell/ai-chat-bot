@@ -18,21 +18,18 @@ function Login({ onLogin, onShowLegal, onShowSetup }) {
   ];
 
   const performAuth = async (authEmail, action) => {
+    // Optimistic UI update: instantly navigate to the next screen for a zero-delay experience
+    onLogin(authEmail);
+
+    // Perform the backend registration/login in the background
     try {
-      const res = await fetch('/api/user/auth', {
+      fetch('/api/user/auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: authEmail, action })
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        onLogin(authEmail);
-      } else {
-        setError(data.message || data.error || 'Authentication failed.');
-      }
+      }).catch(err => console.error('Background auth error:', err));
     } catch (err) {
       console.error('Auth error:', err);
-      setError('Network error during authentication.');
     }
   };
 
