@@ -386,9 +386,15 @@ function initFirebase() {
       if (serviceAccount.private_key) {
         serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');
       }
+      // Strip any accidental child paths from the URL to prevent FIREBASE FATAL ERROR
+      let cleanDbUrl = config.firebaseDbUrl;
+      try {
+        cleanDbUrl = new URL(config.firebaseDbUrl).origin;
+      } catch(e) {}
+
       initializeApp({
         credential: cert(serviceAccount),
-        databaseURL: config.firebaseDbUrl
+        databaseURL: cleanDbUrl
       });
       firebaseInitialized = true;
       console.log('[FIREBASE] Successfully connected to Realtime Database.');
