@@ -10,6 +10,7 @@ function Setup({ onComplete, onBack, currentUser }) {
   const [smtpPass, setSmtpPass] = useState('');
   const [firebaseDbUrl, setFirebaseDbUrl] = useState('');
   const [firebaseServiceAccount, setFirebaseServiceAccount] = useState('');
+  const [razorpayWebhookSecret, setRazorpayWebhookSecret] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -38,6 +39,7 @@ function Setup({ onComplete, onBack, currentUser }) {
           setSmtpPass(data.smtpPass || '');
           setFirebaseDbUrl(data.firebaseDbUrl || '');
           setFirebaseServiceAccount(data.firebaseServiceAccount || '');
+          setRazorpayWebhookSecret(data.razorpayWebhookSecret || '');
         }
       })
       .catch(err => console.error('Failed to pre-fill configuration:', err));
@@ -79,7 +81,8 @@ function Setup({ onComplete, onBack, currentUser }) {
           smtpUser,
           smtpPass,
           firebaseDbUrl,
-          firebaseServiceAccount
+          firebaseServiceAccount,
+          razorpayWebhookSecret
         })
       });
 
@@ -151,6 +154,20 @@ function Setup({ onComplete, onBack, currentUser }) {
               placeholder="Google Client ID (e.g. 12345-abc.apps.googleusercontent.com)"
               value={googleClientId}
               onChange={(e) => setGoogleClientId(e.target.value)}
+            />
+          </div>
+
+          {/* Razorpay Webhook Secret */}
+          <div className="form-group" style={{ borderTop: '1px solid var(--border-glass)', paddingTop: '20px', marginTop: '20px' }}>
+            <label>Razorpay Webhook Secret (Optional)</label>
+            <p style={{ fontSize: '0.75rem', color: varColor('text-muted'), marginBottom: '10px' }}>
+              Used to securely verify automated payment confirmations from Razorpay.
+            </p>
+            <input
+              type="password"
+              placeholder="Razorpay Webhook Secret"
+              value={razorpayWebhookSecret}
+              onChange={(e) => setRazorpayWebhookSecret(e.target.value)}
             />
           </div>
 

@@ -490,7 +490,7 @@ app.use((req, res, next) => {
 
 // Setup Configuration Endpoint
 app.post('/api/setup', (req, res) => {
-  const { keys, googleClientId, adminUsername, adminPassword, smtpUser, smtpPass, firebaseDbUrl, firebaseServiceAccount } = req.body;
+  const { keys, googleClientId, adminUsername, adminPassword, smtpUser, smtpPass, firebaseDbUrl, firebaseServiceAccount, razorpayWebhookSecret } = req.body;
   
   if (!keys || !Array.isArray(keys) || keys.length === 0 || !adminUsername || !adminPassword) {
     return res.status(400).json({ error: 'Keys, admin username, and admin password are required.' });
@@ -510,7 +510,8 @@ app.post('/api/setup', (req, res) => {
     smtpUser: smtpUser || '',
     smtpPass: smtpPass || '',
     firebaseDbUrl: firebaseDbUrl || '',
-    firebaseServiceAccount: firebaseServiceAccount || ''
+    firebaseServiceAccount: firebaseServiceAccount || '',
+    razorpayWebhookSecret: razorpayWebhookSecret || ''
   });
 
   if (success) {
