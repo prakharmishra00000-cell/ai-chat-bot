@@ -1,426 +1,389 @@
 import React, { useRef, useState, useMemo, useEffect } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { Stars, Sphere, Float, Trail, Ring, Sparkles, Line, Text, Plane, Box, Icosahedron, Torus, Cylinder } from '@react-three/drei';
+import { Stars, Sphere, Float, Trail, Ring, Sparkles, Cloud, Instances, Instance, Plane } from '@react-three/drei';
 import * as THREE from 'three';
 
 // ============================================================================
-// 1. SOLAR SYSTEM THEME
+// 1. EXOPLANET TRANSIT (Kepler/TESS Telescope View)
 // ============================================================================
-function ThemeSolarSystem() {
-  const planets = useMemo(() => [
-    { color: '#2b82c9', size: 2.5, dist: 20, speed: 0.3 },
-    { color: '#c1440e', size: 1.8, dist: 14, speed: 0.4 },
-    { color: '#e2bf7d', size: 4, dist: 35, speed: 0.15, rings: true },
-    { color: '#00f2fe', size: 2, dist: 50, speed: 0.08 }
-  ], []);
+function ThemeExoplanetTransit() {
+  const planetRef = useRef();
+  const coronaRef = useRef();
 
-  const sunRef = useRef();
   useFrame((state) => {
-    if (sunRef.current) {
-      sunRef.current.rotation.y += 0.005;
-      const scale = 1 + Math.sin(state.clock.elapsedTime * 2) * 0.02;
-      sunRef.current.scale.set(scale, scale, scale);
+    const t = state.clock.elapsedTime;
+    if (planetRef.current) {
+      planetRef.current.position.x = Math.sin(t * 0.2) * 40;
+      planetRef.current.position.z = Math.cos(t * 0.2) * 20 + 15;
+    }
+    if (coronaRef.current) {
+      const scale = 1 + Math.sin(t * 5) * 0.03;
+      coronaRef.current.scale.set(scale, scale, scale);
+      coronaRef.current.rotation.z += 0.002;
     }
   });
 
   return (
     <group>
-      <Stars radius={100} depth={50} count={5000} factor={4} saturation={0} fade speed={1} />
-      <group ref={sunRef}>
-        <pointLight intensity={2000} distance={100} decay={2} color="#ffffff" />
-        <Sphere args={[8, 64, 64]}><meshBasicMaterial color="#ffcc00" /></Sphere>
-        <Sphere args={[8.5, 32, 32]}><meshBasicMaterial color="#ff6600" transparent opacity={0.3} side={THREE.BackSide} /></Sphere>
+      <Stars radius={150} depth={50} count={3000} factor={4} saturation={1} fade speed={0.5} />
+      {/* Massive Blazing Star */}
+      <group position={[0, 0, -20]}>
+        <pointLight intensity={5000} distance={200} decay={2} color="#ffaa00" />
+        <Sphere args={[18, 64, 64]}>
+          <meshBasicMaterial color="#ff5500" />
+        </Sphere>
+        {/* Corona glow */}
+        <Sphere ref={coronaRef} args={[20, 64, 64]}>
+          <meshBasicMaterial color="#ff2200" transparent opacity={0.4} side={THREE.BackSide} blending={THREE.AdditiveBlending} />
+        </Sphere>
+        <Sphere args={[23, 64, 64]}>
+          <meshBasicMaterial color="#ff8800" transparent opacity={0.15} side={THREE.BackSide} blending={THREE.AdditiveBlending} />
+        </Sphere>
       </group>
-      {planets.map((p, i) => <OrbitingPlanet key={i} data={p} />)}
-    </group>
-  );
-}
-
-function OrbitingPlanet({ data }) {
-  const ref = useRef();
-  useFrame((state) => {
-    const t = state.clock.getElapsedTime() * data.speed;
-    ref.current.position.x = Math.cos(t) * data.dist;
-    ref.current.position.z = Math.sin(t) * data.dist;
-    ref.current.rotation.y += 0.02;
-  });
-  return (
-    <group ref={ref}>
-      <Sphere args={[data.size, 32, 32]}>
-        <meshStandardMaterial color={data.color} roughness={0.6} />
+      
+      {/* Transiting Exoplanet (Pitch Black Silhouette) */}
+      <Sphere ref={planetRef} args={[4, 32, 32]}>
+        <meshBasicMaterial color="#000000" />
       </Sphere>
-      {data.rings && (
-        <Ring args={[data.size*1.4, data.size*2.2, 64]} rotation={[-Math.PI/2.2, 0, 0]}>
-          <meshStandardMaterial color="#a8946c" transparent opacity={0.6} side={THREE.DoubleSide} />
-        </Ring>
-      )}
     </group>
   );
 }
 
 // ============================================================================
-// 2. HYPERSPACE TUNNEL THEME
+// 2. GRAVITATIONAL LENSING (Einstein Ring)
 // ============================================================================
-function ThemeHyperspace() {
-  const points = useRef();
+function ThemeGravitationalLens() {
+  const ringRef = useRef();
   
-  const particles = useMemo(() => {
-    const temp = [];
-    for (let i = 0; i < 2000; i++) {
-      temp.push(
-        (Math.random() - 0.5) * 50,
-        (Math.random() - 0.5) * 50,
-        (Math.random() - 0.5) * 500 - 100
-      );
+  useFrame((state) => {
+    if (ringRef.current) {
+      ringRef.current.rotation.z -= 0.001;
+      const scale = 1 + Math.sin(state.clock.elapsedTime) * 0.02;
+      ringRef.current.scale.set(scale, scale, scale);
     }
-    return new Float32Array(temp);
-  }, []);
-
-  useFrame((state, delta) => {
-    if (!points.current) return;
-    const positions = points.current.geometry.attributes.position.array;
-    for (let i = 2; i < positions.length; i += 3) {
-      positions[i] += 200 * delta; // Fly towards camera very fast
-      if (positions[i] > 50) positions[i] = -400; // Reset far away
-    }
-    points.current.geometry.attributes.position.needsUpdate = true;
   });
 
   return (
     <group>
-      <ambientLight intensity={1} />
-      <points ref={points}>
-        <bufferGeometry>
-          <bufferAttribute attach="attributes-position" count={2000} array={particles} itemSize={3} />
-        </bufferGeometry>
-        <pointsMaterial size={0.5} color="#ffffff" transparent opacity={0.8} />
-      </points>
-      <points ref={points}>
-        <bufferGeometry>
-          <bufferAttribute attach="attributes-position" count={2000} array={particles} itemSize={3} />
-        </bufferGeometry>
-        <pointsMaterial size={0.8} color="#00f2fe" transparent opacity={0.4} />
-      </points>
+      <Stars radius={150} depth={50} count={8000} factor={2} saturation={0} fade speed={0.2} />
+      {/* Unseen massive object (black void) */}
+      <Sphere args={[15, 64, 64]}>
+        <meshBasicMaterial color="#000000" />
+      </Sphere>
+      {/* Lensed distant galaxy light (Einstein Ring) */}
+      <group ref={ringRef}>
+        <Ring args={[15.5, 17, 128]} rotation={[0, 0, 0]}>
+          <meshBasicMaterial color="#4488ff" transparent opacity={0.8} blending={THREE.AdditiveBlending} side={THREE.DoubleSide} />
+        </Ring>
+        <Ring args={[16, 19, 128]} rotation={[0, 0, Math.PI/4]}>
+          <meshBasicMaterial color="#8844ff" transparent opacity={0.4} blending={THREE.AdditiveBlending} side={THREE.DoubleSide} />
+        </Ring>
+        <Sparkles count={500} scale={35} size={6} speed={0.2} color="#ffffff" />
+      </group>
     </group>
   );
 }
 
 // ============================================================================
-// 3. BLACK HOLE THEME
+// 3. QUASAR ACCRETION DISK (M87 / Sagittarius A*)
 // ============================================================================
-function ThemeBlackHole() {
+function ThemeQuasar() {
   const diskRef = useRef();
   const jetRef = useRef();
 
   useFrame((state) => {
     if (diskRef.current) {
-      diskRef.current.rotation.z -= 0.05;
+      diskRef.current.rotation.z += 0.01;
     }
     if (jetRef.current) {
-      jetRef.current.rotation.y += 0.1;
+      const scale = 1 + Math.random() * 0.1;
+      jetRef.current.scale.y = scale;
     }
   });
 
   return (
-    <group>
-      <Stars radius={100} depth={50} count={3000} factor={3} saturation={0} fade />
-      <ambientLight intensity={0.1} />
-      {/* Event Horizon */}
-      <Sphere args={[10, 64, 64]}>
+    <group rotation={[Math.PI / 6, Math.PI / 4, 0]}>
+      <Stars radius={150} depth={50} count={2000} factor={3} saturation={1} fade speed={1} />
+      {/* Black Hole Event Horizon */}
+      <Sphere args={[8, 64, 64]}>
         <meshBasicMaterial color="#000000" />
       </Sphere>
       {/* Accretion Disk */}
-      <group ref={diskRef} rotation={[Math.PI / 3, 0, 0]}>
-        <Torus args={[18, 5, 16, 100]} rotation={[Math.PI / 2, 0, 0]}>
-          <meshBasicMaterial color="#ff6600" transparent opacity={0.8} wireframe={false} />
-        </Torus>
-        <Torus args={[22, 1, 16, 100]} rotation={[Math.PI / 2, 0, 0]}>
-          <meshBasicMaterial color="#ffcc00" transparent opacity={0.5} />
-        </Torus>
+      <group ref={diskRef} rotation={[Math.PI / 2, 0, 0]}>
+        <Ring args={[9, 18, 128]}>
+          <meshBasicMaterial color="#ff4400" transparent opacity={0.9} blending={THREE.AdditiveBlending} side={THREE.DoubleSide} />
+        </Ring>
+        <Ring args={[18, 25, 128]}>
+          <meshBasicMaterial color="#ff8800" transparent opacity={0.4} blending={THREE.AdditiveBlending} side={THREE.DoubleSide} />
+        </Ring>
+        <Sparkles count={1000} scale={[50, 50, 2]} size={3} speed={2} color="#ffaa00" />
       </group>
-      {/* Photosphere / Light Bending Simulation */}
-      <Sphere args={[11, 64, 64]}>
-        <meshBasicMaterial color="#ffffff" transparent opacity={0.1} side={THREE.BackSide} />
-      </Sphere>
+      {/* Relativistic Jets */}
+      <group ref={jetRef}>
+        <Cylinder args={[1, 5, 100, 32]} position={[0, 50, 0]}>
+          <meshBasicMaterial color="#00aaff" transparent opacity={0.6} blending={THREE.AdditiveBlending} />
+        </Cylinder>
+        <Cylinder args={[1, 5, 100, 32]} position={[0, -50, 0]}>
+          <meshBasicMaterial color="#00aaff" transparent opacity={0.6} blending={THREE.AdditiveBlending} />
+        </Cylinder>
+        <Sparkles count={500} scale={[10, 150, 10]} size={8} speed={10} color="#ffffff" />
+      </group>
     </group>
   );
 }
+// Helper for simple geometries
+function Cylinder({ args, ...props }) {
+  return <mesh {...props}><cylinderGeometry args={args} /></mesh>
+}
 
 // ============================================================================
-// 4. DEEP SPACE NEBULA THEME
+// 4. EMISSION NEBULA (JWST Pillars of Creation Style)
 // ============================================================================
-function ThemeNebula() {
+function ThemeEmissionNebula() {
   return (
     <group>
-      <Stars radius={150} depth={50} count={6000} factor={6} saturation={1} fade />
-      <ambientLight intensity={1} />
-      <Sparkles count={500} scale={100} size={15} speed={0.1} opacity={0.3} color="#ff3366" />
-      <Sparkles count={500} scale={120} size={20} speed={0.2} opacity={0.3} color="#00f2fe" />
-      <Sparkles count={500} scale={150} size={25} speed={0.15} opacity={0.2} color="#9d4edd" />
-      <Float speed={1} rotationIntensity={0.5} floatIntensity={1}>
-        <Sphere args={[30, 32, 32]} position={[0, 0, -50]}>
-          <meshBasicMaterial color="#110033" transparent opacity={0.6} />
-        </Sphere>
+      <Stars radius={150} depth={50} count={4000} factor={4} saturation={1} fade speed={0.5} />
+      <ambientLight intensity={0.2} />
+      <pointLight position={[10, 10, 10]} intensity={100} color="#00ffff" />
+      <pointLight position={[-10, -10, -10]} intensity={100} color="#ff00ff" />
+      
+      {/* Massive Volumetric Clouds */}
+      <Float speed={1} rotationIntensity={0.5} floatIntensity={2}>
+        <Cloud opacity={0.5} speed={0.4} width={50} depth={1.5} segments={20} color="#440088" position={[-15, 0, -20]} />
+        <Cloud opacity={0.4} speed={0.4} width={50} depth={1.5} segments={20} color="#004488" position={[15, 10, -30]} />
+        <Cloud opacity={0.6} speed={0.4} width={40} depth={1.5} segments={20} color="#aa0044" position={[0, -15, -15]} />
       </Float>
+
+      {/* Newborn Stars inside Nebula */}
+      <Sparkles count={200} scale={40} size={15} speed={0.2} color="#00ffff" />
     </group>
   );
 }
 
 // ============================================================================
-// 5. ASTEROID FIELD THEME
+// 5. PROTOPLANETARY DISK (T-Tauri Star Formation)
 // ============================================================================
-function ThemeAsteroidField() {
-  const asteroids = useMemo(() => {
-    const temp = [];
-    for (let i = 0; i < 200; i++) {
-      temp.push({
-        position: [
-          (Math.random() - 0.5) * 100,
-          (Math.random() - 0.5) * 20,
-          (Math.random() - 0.5) * 100
-        ],
-        rotation: [Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI],
-        scale: Math.random() * 2 + 0.5,
-        speed: Math.random() * 0.02
-      });
-    }
-    return temp;
-  }, []);
+function ThemeProtoplanetaryDisk() {
+  const diskRef = useRef();
 
-  const groupRef = useRef();
-  useFrame(() => {
-    if (groupRef.current) {
-      groupRef.current.rotation.y += 0.001;
+  useFrame((state) => {
+    if (diskRef.current) {
+      diskRef.current.rotation.y += 0.002;
+      diskRef.current.rotation.x = Math.PI / 2.5 + Math.sin(state.clock.elapsedTime * 0.2) * 0.05;
     }
   });
 
   return (
     <group>
-      <Stars radius={100} depth={50} count={3000} factor={4} saturation={0} fade />
-      <ambientLight intensity={0.2} />
-      <directionalLight position={[50, 50, 50]} intensity={1.5} color="#ffffff" />
-      <group ref={groupRef}>
-        {asteroids.map((ast, i) => (
-          <Asteroid key={i} data={ast} />
+      <Stars radius={150} depth={50} count={3000} factor={3} saturation={0} fade speed={0.5} />
+      {/* Newborn Star (Infrared) */}
+      <pointLight intensity={2000} distance={100} decay={2} color="#ff3300" />
+      <Sphere args={[4, 32, 32]}>
+        <meshBasicMaterial color="#ffffff" />
+      </Sphere>
+      <Sphere args={[5, 32, 32]}>
+        <meshBasicMaterial color="#ff3300" transparent opacity={0.5} blending={THREE.AdditiveBlending} />
+      </Sphere>
+
+      {/* Dusty Disk */}
+      <group ref={diskRef}>
+        <Ring args={[10, 30, 128]}>
+          <meshBasicMaterial color="#883311" transparent opacity={0.6} side={THREE.DoubleSide} blending={THREE.AdditiveBlending} />
+        </Ring>
+        <Ring args={[32, 45, 128]}>
+          <meshBasicMaterial color="#552211" transparent opacity={0.4} side={THREE.DoubleSide} blending={THREE.AdditiveBlending} />
+        </Ring>
+        {/* Planet forming in the gap */}
+        <Sphere args={[1, 16, 16]} position={[31, 0, 0]}>
+          <meshBasicMaterial color="#ff0000" />
+        </Sphere>
+        <Sparkles count={3000} scale={[90, 90, 4]} size={2} speed={0.5} color="#ff8844" />
+      </group>
+    </group>
+  );
+}
+
+// ============================================================================
+// 6. SUPERNOVA REMNANT (Crab Nebula Style)
+// ============================================================================
+function ThemeSupernovaRemnant() {
+  const explosionRef = useRef();
+
+  useFrame((state) => {
+    if (explosionRef.current) {
+      explosionRef.current.rotation.y += 0.001;
+      explosionRef.current.rotation.z += 0.0005;
+      const scale = 1 + (state.clock.elapsedTime * 0.01); // Slowly expanding
+      explosionRef.current.scale.set(scale, scale, scale);
+    }
+  });
+
+  return (
+    <group>
+      <Stars radius={150} depth={50} count={2000} factor={2} saturation={0} fade speed={0.1} />
+      {/* Central Pulsar */}
+      <pointLight intensity={1000} distance={150} decay={2} color="#ffffff" />
+      <Sphere args={[0.5, 16, 16]}>
+        <meshBasicMaterial color="#ffffff" />
+      </Sphere>
+
+      {/* Expanding Filamentary Gas */}
+      <group ref={explosionRef}>
+        <Sparkles count={5000} scale={40} size={4} speed={0.1} color="#ff0055" />
+        <Sparkles count={3000} scale={35} size={3} speed={0.1} color="#aa00ff" />
+        <Sparkles count={2000} scale={25} size={5} speed={0.1} color="#00ffff" />
+      </group>
+    </group>
+  );
+}
+
+// ============================================================================
+// 7. MAGNETAR STARQUAKE (Neutron Star)
+// ============================================================================
+function ThemeMagnetar() {
+  const starRef = useRef();
+  const burstRef = useRef();
+
+  useFrame((state) => {
+    const t = state.clock.elapsedTime;
+    if (starRef.current) {
+      starRef.current.rotation.y += 0.5; // Very fast spin
+    }
+    if (burstRef.current) {
+      // Random gamma-ray bursts
+      const isBursting = Math.random() > 0.98;
+      burstRef.current.opacity = isBursting ? 1 : 0;
+      burstRef.current.scale.set(isBursting ? 1.5 : 1, isBursting ? 1.5 : 1, isBursting ? 1.5 : 1);
+    }
+  });
+
+  return (
+    <group>
+      <Stars radius={150} depth={50} count={3000} factor={2} saturation={0} fade speed={1} />
+      {/* Intense core */}
+      <pointLight intensity={3000} distance={100} decay={2} color="#ffffff" />
+      <group ref={starRef}>
+        <Sphere args={[3, 32, 32]}>
+          <meshBasicMaterial color="#e0ffff" />
+        </Sphere>
+        {/* Magnetic field lines (simulated with rings) */}
+        {[...Array(6)].map((_, i) => (
+          <Ring key={i} args={[4, 4.2, 64]} rotation={[Math.PI / 2, (i * Math.PI) / 6, 0]}>
+            <meshBasicMaterial color="#00ffff" transparent opacity={0.3} side={THREE.DoubleSide} blending={THREE.AdditiveBlending} />
+          </Ring>
         ))}
       </group>
-    </group>
-  );
-}
-
-function Asteroid({ data }) {
-  const ref = useRef();
-  useFrame(() => {
-    ref.current.rotation.x += data.speed;
-    ref.current.rotation.y += data.speed;
-  });
-  return (
-    <Icosahedron ref={ref} args={[1, 1]} position={data.position} rotation={data.rotation} scale={data.scale}>
-      <meshStandardMaterial color="#555555" roughness={0.9} />
-    </Icosahedron>
-  );
-}
-
-// ============================================================================
-// 6. SUPERNOVA EXPLOSION THEME
-// ============================================================================
-function ThemeSupernova() {
-  const coreRef = useRef();
-  const shockwaveRef = useRef();
-
-  useFrame((state) => {
-    const t = state.clock.elapsedTime;
-    if (coreRef.current) {
-      const scale = 1 + Math.sin(t * 10) * 0.05;
-      coreRef.current.scale.set(scale, scale, scale);
-    }
-    if (shockwaveRef.current) {
-      let scale = (t % 4) * 15;
-      let opacity = 1 - (t % 4) / 4;
-      shockwaveRef.current.scale.set(scale, scale, scale);
-      shockwaveRef.current.material.opacity = opacity;
-    }
-  });
-
-  return (
-    <group>
-      <Stars radius={100} depth={50} count={2000} factor={4} saturation={0} fade />
-      <ambientLight intensity={0.5} />
-      <group ref={coreRef}>
-        <Sphere args={[8, 64, 64]}>
-          <meshBasicMaterial color="#ffffff" />
-        </Sphere>
-        <Sphere args={[10, 64, 64]}>
-          <meshBasicMaterial color="#00f2fe" transparent opacity={0.6} side={THREE.BackSide} />
-        </Sphere>
-      </group>
-      <Sphere ref={shockwaveRef} args={[1, 64, 64]}>
-        <meshBasicMaterial color="#00f2fe" transparent opacity={1} side={THREE.DoubleSide} />
+      {/* Blinding Flashes */}
+      <Sphere args={[30, 32, 32]}>
+        <meshBasicMaterial ref={burstRef} color="#ffffff" transparent opacity={0} side={THREE.BackSide} blending={THREE.AdditiveBlending} />
       </Sphere>
-      <pointLight intensity={5000} color="#00f2fe" distance={200} />
     </group>
   );
 }
 
 // ============================================================================
-// 7. PULSAR (NEUTRON STAR) THEME
+// 8. COSMIC COLLISION (Interacting Spiral Galaxies)
 // ============================================================================
-function ThemePulsar() {
-  const pulsarRef = useRef();
+function ThemeCosmicCollision() {
+  const g1Ref = useRef();
+  const g2Ref = useRef();
 
   useFrame((state) => {
-    if (pulsarRef.current) {
-      pulsarRef.current.rotation.z += 0.2;
-      pulsarRef.current.rotation.x = Math.PI / 4; // Tilted
-    }
+    if (g1Ref.current) g1Ref.current.rotation.y += 0.002;
+    if (g2Ref.current) g2Ref.current.rotation.y -= 0.003;
   });
 
   return (
     <group>
-      <Stars radius={100} depth={50} count={4000} factor={4} saturation={0} fade />
-      <ambientLight intensity={0.1} />
+      <Stars radius={150} depth={50} count={2000} factor={2} saturation={0} fade speed={0.1} />
       
-      <group ref={pulsarRef}>
-        {/* Core */}
-        <Sphere args={[4, 64, 64]}>
-          <meshBasicMaterial color="#ffffff" />
-        </Sphere>
-        {/* Beams */}
-        <Cylinder args={[0.5, 5, 200, 32]} position={[0, 100, 0]}>
-          <meshBasicMaterial color="#9d4edd" transparent opacity={0.6} />
-        </Cylinder>
-        <Cylinder args={[0.5, 5, 200, 32]} position={[0, -100, 0]}>
-          <meshBasicMaterial color="#9d4edd" transparent opacity={0.6} />
-        </Cylinder>
-        {/* Magnetic Field Visualization */}
-        <Torus args={[15, 0.1, 16, 100]} rotation={[Math.PI/2, 0, 0]}>
-          <meshBasicMaterial color="#00f2fe" transparent opacity={0.3} />
-        </Torus>
+      {/* Galaxy 1 (Blue) */}
+      <group ref={g1Ref} position={[-15, 5, -10]} rotation={[Math.PI / 3, 0, 0]}>
+        <pointLight intensity={500} distance={100} color="#0088ff" />
+        <Sphere args={[2, 32, 32]}><meshBasicMaterial color="#ffffff" /></Sphere>
+        <Sparkles count={3000} scale={[40, 4, 40]} size={2} speed={0.2} color="#00aaff" />
+        {/* Tidal Tail */}
+        <Sparkles count={1000} scale={[60, 2, 10]} position={[20, 0, -10]} size={1.5} speed={0.1} color="#0066ff" />
       </group>
-      <pointLight intensity={3000} color="#9d4edd" distance={150} />
-    </group>
-  );
-}
 
-// ============================================================================
-// 8. GALAXY SPIRAL THEME
-// ============================================================================
-function ThemeGalaxySpiral() {
-  const galaxyRef = useRef();
-  
-  const particles = useMemo(() => {
-    const temp = [];
-    const arms = 4;
-    for (let i = 0; i < 3000; i++) {
-      const distance = Math.random() * 40 + 2;
-      const angle = (i % arms) * (Math.PI * 2 / arms) + distance * 0.2 + (Math.random() * 0.5);
-      temp.push(
-        Math.cos(angle) * distance,
-        (Math.random() - 0.5) * (10 / (distance * 0.1 + 1)), // Flatter at edges
-        Math.sin(angle) * distance
-      );
-    }
-    return new Float32Array(temp);
-  }, []);
-
-  useFrame((state) => {
-    if (galaxyRef.current) {
-      galaxyRef.current.rotation.y -= 0.005;
-    }
-  });
-
-  return (
-    <group>
-      <Stars radius={100} depth={50} count={2000} factor={3} saturation={0} fade />
-      <group ref={galaxyRef} rotation={[0.2, 0, 0.2]}>
-        <points>
-          <bufferGeometry>
-            <bufferAttribute attach="attributes-position" count={3000} array={particles} itemSize={3} />
-          </bufferGeometry>
-          <pointsMaterial size={0.6} color="#ffb86c" transparent opacity={0.8} />
-        </points>
-        {/* Galactic Core */}
-        <Sphere args={[4, 32, 32]}>
-          <meshBasicMaterial color="#ffffff" />
-        </Sphere>
-        <pointLight intensity={2000} color="#ffb86c" distance={100} />
+      {/* Galaxy 2 (Orange) */}
+      <group ref={g2Ref} position={[15, -5, -20]} rotation={[Math.PI / 4, Math.PI / 6, 0]}>
+        <pointLight intensity={500} distance={100} color="#ff8800" />
+        <Sphere args={[1.5, 32, 32]}><meshBasicMaterial color="#ffffff" /></Sphere>
+        <Sparkles count={2500} scale={[30, 3, 30]} size={2} speed={0.2} color="#ffaa00" />
+        {/* Tidal Tail */}
+        <Sparkles count={800} scale={[50, 2, 8]} position={[-15, 0, 10]} size={1.5} speed={0.1} color="#ff6600" />
       </group>
     </group>
   );
 }
 
 // ============================================================================
-// 9. BINARY STAR SYSTEM THEME
+// 9. CONTACT BINARY (Roche Lobe Overflow)
 // ============================================================================
-function ThemeBinaryStars() {
+function ThemeContactBinary() {
   const systemRef = useRef();
 
-  useFrame(() => {
+  useFrame((state) => {
     if (systemRef.current) {
-      systemRef.current.rotation.y += 0.01;
+      systemRef.current.rotation.y += 0.02; // Fast orbit
     }
   });
 
   return (
     <group>
-      <Stars radius={100} depth={50} count={3000} factor={4} saturation={0} fade />
-      <ambientLight intensity={0.2} />
+      <Stars radius={150} depth={50} count={4000} factor={3} saturation={1} fade speed={0.5} />
+      <ambientLight intensity={0.5} />
+      
       <group ref={systemRef}>
-        {/* Star 1 (Blue Giant) */}
-        <group position={[15, 0, 0]}>
-          <Sphere args={[6, 32, 32]}><meshBasicMaterial color="#00f2fe" /></Sphere>
-          <pointLight intensity={1500} color="#00f2fe" distance={150} />
-        </group>
-        {/* Star 2 (Red Dwarf) */}
-        <group position={[-15, 0, 0]}>
-          <Sphere args={[3, 32, 32]}><meshBasicMaterial color="#ff3366" /></Sphere>
-          <pointLight intensity={800} color="#ff3366" distance={100} />
-        </group>
-        {/* Gravitational pull effect / trail */}
-        <Torus args={[15, 0.1, 16, 100]} rotation={[Math.PI/2, 0, 0]}>
-          <meshBasicMaterial color="#ffffff" transparent opacity={0.2} />
-        </Torus>
+        <pointLight intensity={2000} distance={150} color="#ffddaa" position={[0,0,0]} />
+        
+        {/* Star 1 (Massive, Blue-White) */}
+        <Sphere args={[8, 64, 64]} position={[-6, 0, 0]} scale={[1, 1, 1.2]}>
+          <meshBasicMaterial color="#aaddff" />
+        </Sphere>
+        
+        {/* Star 2 (Smaller, Yellow) */}
+        <Sphere args={[5, 64, 64]} position={[6, 0, 0]} scale={[1, 1, 1.3]}>
+          <meshBasicMaterial color="#ffdd88" />
+        </Sphere>
+
+        {/* Shared Plasma Envelope (Roche Lobe) */}
+        <Sparkles count={2000} scale={[25, 12, 12]} size={4} speed={2} color="#ffffff" />
+        
+        {/* Mass transfer stream */}
+        <Sparkles count={500} scale={[15, 2, 2]} position={[0, 0, 0]} size={6} speed={5} color="#ffffaa" />
       </group>
     </group>
   );
 }
 
 // ============================================================================
-// 10. EXOPLANET & MOON THEME
+// 10. ROGUE PLANET (Deep Interstellar Space)
 // ============================================================================
-function ThemeExoplanet() {
+function ThemeRoguePlanet() {
   const planetRef = useRef();
-  const moonRef = useRef();
 
   useFrame((state) => {
-    const t = state.clock.elapsedTime;
     if (planetRef.current) {
-      planetRef.current.rotation.y += 0.002;
-    }
-    if (moonRef.current) {
-      moonRef.current.position.x = Math.cos(t * 0.5) * 20;
-      moonRef.current.position.z = Math.sin(t * 0.5) * 20;
-      moonRef.current.rotation.y += 0.01;
+      planetRef.current.rotation.y -= 0.0005;
     }
   });
 
   return (
     <group>
-      <Stars radius={100} depth={50} count={4000} factor={4} saturation={0} fade />
-      <ambientLight intensity={0.1} />
-      <directionalLight position={[-50, 20, 30]} intensity={2} color="#ffffff" />
+      {/* Faint Galactic Core in the background */}
+      <Stars radius={200} depth={100} count={10000} factor={4} saturation={1} fade speed={0} />
+      <Sparkles count={3000} scale={[150, 150, 20]} position={[0, 0, -80]} size={10} speed={0} color="#ffaa55" opacity={0.2} />
       
-      {/* Massive Exoplanet */}
-      <Sphere ref={planetRef} args={[25, 64, 64]} position={[20, -10, -40]}>
-        <meshStandardMaterial color="#2d1b4e" roughness={0.7} />
+      <ambientLight intensity={0.01} />
+      {/* Weak directional light simulating starlight */}
+      <directionalLight position={[10, 5, -20]} intensity={0.3} color="#aaddff" />
+      
+      {/* Dark, Frozen Rogue Planet */}
+      <Sphere ref={planetRef} args={[12, 64, 64]}>
+        <meshStandardMaterial color="#11111a" roughness={0.9} metalness={0.1} />
       </Sphere>
-      
-      {/* Orbiting Moon */}
-      <group position={[20, -10, -40]}>
-        <Sphere ref={moonRef} args={[3, 32, 32]}>
-          <meshStandardMaterial color="#888888" roughness={0.9} />
-        </Sphere>
-      </group>
     </group>
   );
 }
@@ -428,22 +391,23 @@ function ThemeExoplanet() {
 // ============================================================================
 // SCENE MANAGER & THEME REGISTRY
 // ============================================================================
+
 const THEMES = [
-  ThemeSolarSystem,
-  ThemeHyperspace,
-  ThemeBlackHole,
-  ThemeNebula,
-  ThemeAsteroidField,
-  ThemeSupernova,
-  ThemePulsar,
-  ThemeGalaxySpiral,
-  ThemeBinaryStars,
-  ThemeExoplanet
+  ThemeExoplanetTransit,
+  ThemeGravitationalLens,
+  ThemeQuasar,
+  ThemeEmissionNebula,
+  ThemeProtoplanetaryDisk,
+  ThemeSupernovaRemnant,
+  ThemeMagnetar,
+  ThemeCosmicCollision,
+  ThemeContactBinary,
+  ThemeRoguePlanet
 ];
 
 function SceneManager({ intervalSeconds = 30 }) {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [nextIndex, setNextIndex] = useState(0);
+  const [nextIndex, setNextIndex] = useState(1);
   const [fading, setFading] = useState(false);
   const fadeRef = useRef();
 
