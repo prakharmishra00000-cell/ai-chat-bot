@@ -682,10 +682,16 @@ let lastGeminiError = '';
 
 async function queryGeminiAPI(keys, contents, systemInstruction, enableWebSearch = false) {
   const modelConfigs = [
+    { model: 'gemini-2.5-flash', api: 'v1beta' },
+    { model: 'gemini-2.0-flash', api: 'v1beta' },
+    { model: 'gemini-2.0-flash-lite-preview-02-05', api: 'v1beta' },
+    { model: 'gemini-1.5-flash', api: 'v1beta' },
     { model: 'gemini-1.5-flash', api: 'v1' },
-    { model: 'gemini-1.5-flash-8b', api: 'v1' },
-    { model: 'gemini-2.0-flash-exp', api: 'v1beta' },
-    { model: 'gemini-1.5-pro', api: 'v1' }
+    { model: 'gemini-1.5-pro', api: 'v1beta' },
+    { model: 'gemini-1.5-pro', api: 'v1' },
+    { model: 'gemini-1.0-pro', api: 'v1beta' },
+    { model: 'gemini-1.0-pro', api: 'v1' },
+    { model: 'gemini-pro', api: 'v1' }
   ];
 
   // Try each key
@@ -786,42 +792,48 @@ async function queryGeminiAPI(keys, contents, systemInstruction, enableWebSearch
   console.log('[GEMINI] All attempts failed. Waiting 2s for final retry...');
   await new Promise(r => setTimeout(r, 2000));
   
+  const finalFallbackModels = [
+    { model: 'gemini-1.5-flash', api: 'v1beta' },
+    { model: 'gemini-1.0-pro', api: 'v1' },
+    { model: 'gemini-pro', api: 'v1beta' }
+  ];
+
   for (let i = 0; i < Math.min(keys.length, 3); i++) {
     const key = (keys[i] || '').trim();
     if (!key) continue;
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 20000);
-    try {
-      let payloadContents = JSON.parse(JSON.stringify(contents));
-      if (systemInstruction && payloadContents.length > 0 && payloadContents[0].role === 'user') {
-        payloadContents[0].parts[0].text = `[System Instruction: ${systemInstruction}]\n\n` + payloadContents[0].parts[0].text;
-      }
-      const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${key}`;
-      const requestPayloadFinal = { contents: payloadContents };
-      if (enableWebSearch) requestPayloadFinal.tools = [{ googleSearch: {} }];
+    
+    for (const { model, api } of finalFallbackModels) {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 20000);
+      try {
+        let payloadContents = JSON.parse(JSON.stringify(contents));
+        if (systemInstruction && payloadContents.length > 0 && payloadContents[0].role === 'user') {
+          payloadContents[0].parts[0].text = `[System Instruction: ${systemInstruction}]\n\n` + payloadContents[0].parts[0].text;
+        }
+        
+        const url = `https://generativelanguage.googleapis.com/${api}/models/${model}:generateContent?key=${key}`;
+        const requestPayloadFinal = { contents: payloadContents };
+        if (enableWebSearch) requestPayloadFinal.tools = [{ googleSearch: {} }];
 
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Connection': 'close'
-        },
-        body: JSON.stringify(requestPayloadFinal),
-        signal: controller.signal
-      });
-      clearTimeout(timeoutId);
-      const data = await response.json();
-      if (response.ok && data.candidates?.[0]?.content) {
-        console.log(`[GEMINI] ✅ FINAL RETRY SUCCESS`);
-        return data.candidates[0].content.parts[0].text;
-      } else {
-        const errMsg = (data.error?.message || '').substring(0, 80);
-        lastGeminiError = `Status: ${response.status}. Msg: ${errMsg}`;
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(requestPayloadFinal),
+          signal: controller.signal
+        });
+
+        clearTimeout(timeoutId);
+        const data = await response.json();
+
+        if (response.ok && data.candidates && data.candidates[0]) {
+          return data.candidates[0].content.parts[0].text;
+        } else {
+          lastGeminiError = `Status: ${response.status}. Msg: ${data.error?.message || 'Unknown error'}`;
+        }
+      } catch (e) {
+        clearTimeout(timeoutId);
+        lastGeminiError = `Final Fallback Exception: ${e.message}`;
       }
-    } catch (e) {
-      clearTimeout(timeoutId);
-      lastGeminiError = `Exception: ${e.message}`;
-      continue;
     }
   }
 
