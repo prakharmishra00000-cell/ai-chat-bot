@@ -1355,25 +1355,36 @@ function Dashboard({
 
             {/* Mode toggle buttons */}
             <div className="header-modes">
-              <button 
-                className={`mode-toggle-btn ${mode === 'generate' ? 'active' : ''}`}
-                style={mode === 'generate' ? { background: 'linear-gradient(90deg, #ff007f, #7928ca)', color: '#fff', border: 'none' } : {}}
-                onClick={() => setMode(prev => prev === 'generate' ? 'normal' : 'generate')}
-              >
-                Generate App
-              </button>
-              <button 
-                className={`mode-toggle-btn ${mode === 'optimize' ? 'active' : ''}`}
-                onClick={() => setMode(prev => prev === 'optimize' ? 'normal' : 'optimize')}
-              >
-                Optimize
-              </button>
-              <button 
-                className={`mode-toggle-btn matrix ${mode === 'matrix_simulation' ? 'active' : ''}`}
-                onClick={() => setMode(prev => prev === 'matrix_simulation' ? 'normal' : 'matrix_simulation')}
-              >
-                Matrix
-              </button>
+              <div className="tooltip-container">
+                <button 
+                  className={`mode-toggle-btn ${mode === 'generate' ? 'active' : ''}`}
+                  style={mode === 'generate' ? { background: 'linear-gradient(90deg, #ff007f, #7928ca)', color: '#fff', border: 'none' } : {}}
+                  onClick={() => setMode(prev => prev === 'generate' ? 'normal' : 'generate')}
+                >
+                  Generate App
+                </button>
+                <div className="tooltip-text">Autonomous AI Web Developer that builds real React code!</div>
+              </div>
+
+              <div className="tooltip-container">
+                <button 
+                  className={`mode-toggle-btn ${mode === 'optimize' ? 'active' : ''}`}
+                  onClick={() => setMode(prev => prev === 'optimize' ? 'normal' : 'optimize')}
+                >
+                  Optimize
+                </button>
+                <div className="tooltip-text">Analyzes and improves code performance and structure.</div>
+              </div>
+
+              <div className="tooltip-container">
+                <button 
+                  className={`mode-toggle-btn matrix ${mode === 'matrix_simulation' ? 'active' : ''}`}
+                  onClick={() => setMode(prev => prev === 'matrix_simulation' ? 'normal' : 'matrix_simulation')}
+                >
+                  Matrix
+                </button>
+                <div className="tooltip-text">Multi-dimensional reasoning for complex edge-cases.</div>
+              </div>
               
               <div className="tooltip-container">
                 <button 
@@ -1605,62 +1616,72 @@ function Dashboard({
               />
 
               {/* Voice recognition mic */}
-              <button 
-                type="button" 
-                className={`chat-input-btn voice-rec ${isRecording ? 'recording' : ''}`}
-                onClick={toggleVoiceInput}
-                title="Voice Input (English/Hinglish)"
-              >
-                <Mic size={20} />
-              </button>
+              <div className="tooltip-container">
+                <button 
+                  type="button" 
+                  className={`chat-input-btn voice-rec ${isRecording ? 'recording' : ''}`}
+                  onClick={toggleVoiceInput}
+                >
+                  <Mic size={20} />
+                </button>
+                <div className="tooltip-text">Voice Input (English/Hinglish)</div>
+              </div>
 
               {/* Anonymize toggle */}
-              <button 
-                type="button" 
-                className={`chat-input-btn ${anonymizeEnabled ? 'anonymize-active' : ''}`}
-                onClick={() => setAnonymizeEnabled(!anonymizeEnabled)}
-                title={anonymizeEnabled ? 'Anonymize ON — sensitive data will be masked' : 'Anonymize OFF — click to protect sensitive data'}
-                style={anonymizeEnabled ? { color: '#00f2fe', background: 'rgba(0, 242, 254, 0.15)', borderRadius: '8px' } : {}}
-              >
-                <Shield size={20} />
-              </button>
+              <div className="tooltip-container">
+                <button 
+                  type="button" 
+                  className={`chat-input-btn ${anonymizeEnabled ? 'anonymize-active' : ''}`}
+                  onClick={() => setAnonymizeEnabled(!anonymizeEnabled)}
+                  style={anonymizeEnabled ? { color: '#00f2fe', background: 'rgba(0, 242, 254, 0.15)', borderRadius: '8px' } : {}}
+                >
+                  <Shield size={20} />
+                </button>
+                <div className="tooltip-text">{anonymizeEnabled ? 'Anonymize ON — sensitive data will be masked' : 'Anonymize OFF — click to protect sensitive data'}</div>
+              </div>
 
               {/* Call Council button (desktop only) */}
               {isDesktop && (
-                <button 
-                  type="button" 
-                  className="chat-input-btn"
-                  onClick={handleCallCouncil}
-                  disabled={loading || !promptInput.trim()}
-                  title="Call Council — Multi-Agent Debate (Desktop Only)"
-                  style={promptInput.trim() ? { color: '#667eea' } : {}}
-                >
-                  <Users size={20} />
-                </button>
+                <div className="tooltip-container">
+                  <button 
+                    type="button" 
+                    className="chat-input-btn"
+                    onClick={handleCallCouncil}
+                    disabled={loading || !promptInput.trim()}
+                    style={promptInput.trim() ? { color: '#667eea' } : {}}
+                  >
+                    <Users size={20} />
+                  </button>
+                  <div className="tooltip-text">Call Council — Multi-Agent Debate</div>
+                </div>
               )}
 
               {/* Execute Workflow Sequence button */}
-              <button 
-                type="button" 
-                className="chat-input-btn"
-                onClick={handleCallWorkflow}
-                disabled={loading || !promptInput.trim()}
-                title="Execute Workflow Sequence"
-                style={promptInput.trim() ? { color: '#00f2fe' } : {}}
-              >
-                <Cpu size={20} />
-              </button>
+              <div className="tooltip-container">
+                <button 
+                  type="button" 
+                  className="chat-input-btn"
+                  onClick={handleCallWorkflow}
+                  disabled={loading || !promptInput.trim()}
+                  style={promptInput.trim() ? { color: '#00f2fe' } : {}}
+                >
+                  <Cpu size={20} />
+                </button>
+                <div className="tooltip-text">Execute Workflow Sequence</div>
+              </div>
 
               {/* Interview Mode toggle */}
-              <button 
-                type="button" 
-                className={`chat-input-btn ${interviewModeActive ? 'interview-active' : ''}`}
-                onClick={() => setInterviewModeActive(!interviewModeActive)}
-                title={interviewModeActive ? 'Interview Mode ON — AI will ask clarifying questions first' : 'Interview Mode OFF — click to activate interactive questions'}
-                style={interviewModeActive ? { color: '#bd93f9', background: 'rgba(189, 147, 249, 0.15)', borderRadius: '8px' } : {}}
-              >
-                <HelpCircle size={20} />
-              </button>
+              <div className="tooltip-container">
+                <button 
+                  type="button" 
+                  className={`chat-input-btn ${interviewModeActive ? 'interview-active' : ''}`}
+                  onClick={() => setInterviewModeActive(!interviewModeActive)}
+                  style={interviewModeActive ? { color: '#bd93f9', background: 'rgba(189, 147, 249, 0.15)', borderRadius: '8px' } : {}}
+                >
+                  <HelpCircle size={20} />
+                </button>
+                <div className="tooltip-text">{interviewModeActive ? 'Interview Mode ON — AI will ask clarifying questions first' : 'Interview Mode OFF — click to activate interactive questions'}</div>
+              </div>
 
               {/* Send message */}
               <button type="submit" className="chat-input-btn send-msg" disabled={loading}>

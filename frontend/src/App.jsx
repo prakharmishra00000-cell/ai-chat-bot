@@ -42,18 +42,14 @@ function App() {
         setView('setup');
         return;
       }
-      // Setup is done — check if user is already logged in (auto-login)
       const savedUser = localStorage.getItem('logged_in_user');
       if (savedUser) {
         try {
           const userObj = JSON.parse(savedUser);
           setCurrentUser(userObj);
           fetchUserStatus(userObj.email);
-          if (userObj.email === 'prakharmishra00000@gmail.com') {
-            setView('owner_portal');
-          } else {
-            setView('chat');
-          }
+          // Auto-login always goes directly to chat
+          setView('chat');
           return; // Already logged in — skip login screen
         } catch (e) {
           console.error('Corrupted localStorage, clearing:', e);
@@ -130,11 +126,8 @@ function App() {
     setCurrentUser(userObj);
     localStorage.setItem('logged_in_user', JSON.stringify(userObj));
     fetchUserStatus(userEmail);
-    if (userEmail === 'prakharmishra00000@gmail.com') {
-      setView('owner_portal');
-    } else {
-      setView('chat');
-    }
+    // Always go directly to chat; Admin can access secure portal from the dashboard
+    setView('chat');
   };
 
   // Handle Logout
@@ -151,7 +144,7 @@ function App() {
   const handleSetupComplete = () => {
     setSetupCompleted(true);
     setIsOwnerSecured(false);
-    setView(currentUser?.email === 'prakharmishra00000@gmail.com' ? 'owner_portal' : 'login');
+    setView(currentUser ? 'chat' : 'login');
   };
 
   // Render correct view
@@ -171,7 +164,7 @@ function App() {
       {view === 'setup' && (
         <Setup 
           onComplete={handleSetupComplete} 
-          onBack={setupCompleted ? () => { setIsOwnerSecured(false); setView(currentUser?.email === 'prakharmishra00000@gmail.com' ? 'owner_portal' : 'login'); } : null} 
+          onBack={setupCompleted ? () => { setIsOwnerSecured(false); setView(currentUser ? 'chat' : 'login'); } : null} 
           currentUser={currentUser}
         />
       )}
@@ -235,7 +228,7 @@ function App() {
 
       {view === 'admin' && (
         <Admin 
-          onBack={() => { setIsOwnerSecured(false); setView(currentUser?.email === 'prakharmishra00000@gmail.com' ? 'owner_portal' : 'chat'); }} 
+          onBack={() => { setIsOwnerSecured(false); setView('chat'); }} 
           email={currentUser?.email} 
         />
       )}
