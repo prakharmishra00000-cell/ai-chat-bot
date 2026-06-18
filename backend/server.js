@@ -503,6 +503,17 @@ function writeDB(data) {
 // Call on startup
 initFirebase();
 
+// Helper to prevent race conditions on cold start
+async function waitForFirebase() {
+  if (firebaseInitialized && !firebaseFirstLoadComplete) {
+    let attempts = 0;
+    while (!firebaseFirstLoadComplete && attempts < 50) { // wait up to 5s
+      await new Promise(r => setTimeout(r, 100));
+      attempts++;
+    }
+  }
+}
+
 // Track visits (middleware)
 app.use((req, res, next) => {
   // Simple session tracker for unique pageviews
@@ -648,8 +659,9 @@ function incrementFeatureUsage(email, feature) {
 }
 
 // User Auth Endpoint (Explicit Sign In / Sign Up) — Seamless cross-device auth
-app.post('/api/user/auth', (req, res) => {
+app.post('/api/user/auth', async (req, res) => {
   try {
+    await waitForFirebase();
     const { email, action } = req.body;
     if (!email || !action) return res.status(400).json({ error: 'Email and action are required' });
     
@@ -680,7 +692,8 @@ app.post('/api/user/auth', (req, res) => {
 });
 
 // User Status Endpoint
-app.post('/api/user/status', (req, res) => {
+app.post('/api/user/status', async (req, res) => {
+  await waitForFirebase();
   const { email } = req.body;
   if (!email) return res.status(400).json({ error: 'Email is required' });
   
@@ -2350,7 +2363,8 @@ app.post('/api/admin/stats', (req, res) => {
 });
 
 // GET SUBSCRIPTION PLANS ENDPOINT
-app.get('/api/plans', (req, res) => {
+app.get('/api/plans', async (req, res) => {
+  await waitForFirebase();
   const db = readDB();
   res.json({
     plans: db.plans || {},
