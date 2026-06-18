@@ -1,6 +1,6 @@
-import React, { useRef, useState, useMemo, useEffect } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { Stars, Sphere, Float, Trail, Ring, Sparkles, Cloud, Plane } from '@react-three/drei';
+import { Stars, Sphere, Ring, Sparkles, Plane } from '@react-three/drei';
 import * as THREE from 'three';
 
 // ============================================================================
@@ -11,21 +11,21 @@ function ThemeBigBang() {
 
   useFrame((state) => {
     if (particlesRef.current) {
-      // Explode outward incredibly fast
-      const scale = 1 + (state.clock.elapsedTime * 20); 
+      // Explode outward incredibly fast (Aggressive Scaling)
+      const scale = 1 + (state.clock.elapsedTime * 150); 
       particlesRef.current.scale.set(scale, scale, scale);
-      particlesRef.current.rotation.y += 0.05;
-      particlesRef.current.rotation.z += 0.05;
+      particlesRef.current.rotation.y += 0.5;
+      particlesRef.current.rotation.z += 0.5;
     }
   });
 
   return (
     <group>
-      <pointLight intensity={5000} distance={500} color="#ffffff" />
+      <pointLight intensity={10000} distance={1000} color="#ffffff" />
       <group ref={particlesRef}>
-        <Sparkles count={5000} scale={10} size={8} speed={10} color="#ffffff" />
-        <Sparkles count={3000} scale={8} size={15} speed={15} color="#00ffff" />
-        <Sparkles count={4000} scale={12} size={10} speed={8} color="#ff00ff" />
+        <Sparkles count={8000} scale={15} size={15} speed={50} color="#ffffff" blending={THREE.AdditiveBlending} />
+        <Sparkles count={5000} scale={12} size={25} speed={80} color="#00ffff" blending={THREE.AdditiveBlending} />
+        <Sparkles count={6000} scale={18} size={20} speed={40} color="#ff00ff" blending={THREE.AdditiveBlending} />
       </group>
     </group>
   );
@@ -39,21 +39,22 @@ function ThemeWarpSpeed() {
   
   useFrame((state, delta) => {
     if (starsRef.current) {
-      // Move stars forward extremely fast to simulate warp speed
-      starsRef.current.position.z += delta * 500;
-      if (starsRef.current.position.z > 200) {
-        starsRef.current.position.z = -200; // Reset
+      // Move stars forward extremely fast to simulate warp speed (Aggressive Speed)
+      starsRef.current.position.z += delta * 3000;
+      if (starsRef.current.position.z > 1000) {
+        starsRef.current.position.z = -1000; // Reset
       }
     }
   });
 
   return (
     <group>
-      <ambientLight intensity={1} />
+      <ambientLight intensity={2} />
       <group ref={starsRef}>
-        {/* Long stretching stars */}
-        <Sparkles count={2000} scale={[100, 100, 500]} size={6} speed={0} color="#88ccff" />
-        <Sparkles count={1000} scale={[50, 50, 800]} size={10} speed={0} color="#ffffff" />
+        {/* Long stretching stars, massive scale */}
+        <Sparkles count={5000} scale={[200, 200, 2000]} size={15} speed={0} color="#88ccff" blending={THREE.AdditiveBlending} />
+        <Sparkles count={3000} scale={[100, 100, 3000]} size={25} speed={0} color="#ffffff" blending={THREE.AdditiveBlending} />
+        <Sparkles count={2000} scale={[50, 50, 5000]} size={40} speed={0} color="#ff0055" blending={THREE.AdditiveBlending} />
       </group>
     </group>
   );
@@ -66,44 +67,50 @@ function ThemePlanetaryCollision() {
   const p1Ref = useRef();
   const p2Ref = useRef();
   const debrisRef = useRef();
+  const flashRef = useRef();
 
   useFrame((state) => {
     const t = state.clock.elapsedTime;
-    // Planets rushing toward each other
-    const dist = Math.max(0, 20 - t * 15);
+    // Planets rushing toward each other at INSANE speeds
+    const dist = Math.max(0, 50 - t * 80);
     
     if (p1Ref.current) p1Ref.current.position.x = -dist;
     if (p2Ref.current) p2Ref.current.position.x = dist;
 
     // Explosion debris triggers when they hit
-    if (debrisRef.current) {
-      if (dist === 0) {
-        const explosionScale = 1 + (t - 1.3) * 50;
+    if (dist === 0) {
+      if (debrisRef.current) {
+        const explosionScale = 1 + (t - (50/80)) * 250;
         debrisRef.current.scale.set(explosionScale, explosionScale, explosionScale);
         debrisRef.current.visible = true;
-      } else {
-        debrisRef.current.visible = false;
       }
+      if (flashRef.current) {
+        flashRef.current.intensity = Math.max(0, 5000 - (t - (50/80)) * 5000);
+      }
+    } else {
+      if (debrisRef.current) debrisRef.current.visible = false;
+      if (flashRef.current) flashRef.current.intensity = 0;
     }
   });
 
   return (
     <group>
       <Stars radius={150} depth={50} count={2000} factor={4} />
-      <pointLight intensity={1000} distance={200} color="#ffaa00" />
+      <pointLight ref={flashRef} intensity={0} distance={500} color="#ffffff" />
       
-      <Sphere ref={p1Ref} args={[8, 32, 32]} position={[-20, 0, 0]}>
+      <Sphere ref={p1Ref} args={[8, 32, 32]} position={[-50, 0, 0]}>
         <meshBasicMaterial color="#3388ff" />
       </Sphere>
       
-      <Sphere ref={p2Ref} args={[6, 32, 32]} position={[20, 0, 0]}>
+      <Sphere ref={p2Ref} args={[6, 32, 32]} position={[50, 0, 0]}>
         <meshBasicMaterial color="#ff5500" />
       </Sphere>
 
-      {/* Explosion Debris */}
-      <group ref={debrisRef}>
-        <Sparkles count={3000} scale={2} size={15} speed={0} color="#ffaa00" />
-        <Sparkles count={2000} scale={2} size={25} speed={0} color="#ff2200" />
+      {/* Extreme Explosion Debris */}
+      <group ref={debrisRef} visible={false}>
+        <Sparkles count={5000} scale={4} size={30} speed={0} color="#ffaa00" blending={THREE.AdditiveBlending} />
+        <Sparkles count={4000} scale={5} size={50} speed={0} color="#ff2200" blending={THREE.AdditiveBlending} />
+        <Sparkles count={2000} scale={3} size={80} speed={0} color="#ffffff" blending={THREE.AdditiveBlending} />
       </group>
     </group>
   );
@@ -119,28 +126,29 @@ function ThemeStarFormation() {
   useFrame((state) => {
     const t = state.clock.elapsedTime;
     if (dustRef.current) {
-      // Dust rushing inward rapidly
-      const scale = Math.max(0.1, 1 - (t * 0.5) % 1);
+      // Dust rushing inward VIOLENTLY
+      const scale = Math.max(0.01, 1 - (t * 2) % 1);
       dustRef.current.scale.set(scale, scale, scale);
-      dustRef.current.rotation.y += 0.2;
+      dustRef.current.rotation.y += 1.5;
+      dustRef.current.rotation.x += 1.5;
     }
     if (starRef.current) {
-      // Star pulsing and growing
-      const pulse = 1 + Math.sin(t * 10) * 0.1;
+      // Star pulsing violently
+      const pulse = 1 + Math.sin(t * 50) * 0.5;
       starRef.current.scale.set(pulse, pulse, pulse);
     }
   });
 
   return (
     <group>
-      <Stars radius={150} count={1000} />
+      <Stars radius={150} count={2000} />
       <group ref={dustRef}>
-        <Sparkles count={5000} scale={100} size={5} speed={2} color="#ff5500" />
-        <Sparkles count={2000} scale={50} size={8} speed={5} color="#ffaa00" />
+        <Sparkles count={8000} scale={200} size={15} speed={10} color="#ff5500" blending={THREE.AdditiveBlending} />
+        <Sparkles count={5000} scale={100} size={25} speed={20} color="#ffaa00" blending={THREE.AdditiveBlending} />
       </group>
       <group ref={starRef}>
-        <pointLight intensity={2000} distance={100} color="#ffffff" />
-        <Sphere args={[2, 32, 32]}>
+        <pointLight intensity={5000} distance={200} color="#ffffff" />
+        <Sphere args={[3, 32, 32]}>
           <meshBasicMaterial color="#ffffff" />
         </Sphere>
       </group>
@@ -149,87 +157,97 @@ function ThemeStarFormation() {
 }
 
 // ============================================================================
-// 5. BLACK HOLE DEVOURING A STAR (Spaghettification)
+// 5. BLACK HOLE DEVOURING A STAR (Violent Spaghettification)
 // ============================================================================
 function ThemeBlackHoleDevour() {
   const streamRef = useRef();
+  const starRef = useRef();
 
   useFrame((state) => {
+    const t = state.clock.elapsedTime;
     if (streamRef.current) {
-      streamRef.current.rotation.z -= 0.1; // Fast swirling
+      streamRef.current.rotation.z -= 1.5; // INSANE swirling
+      streamRef.current.scale.set(1 + Math.sin(t*10)*0.2, 1, 1);
+    }
+    if (starRef.current) {
+      // Star shaking violently as it dies
+      starRef.current.position.y = 10 + Math.sin(t*50)*0.5;
+      starRef.current.position.x = 20 + Math.cos(t*50)*0.5;
     }
   });
 
   return (
     <group>
-      <Stars radius={150} count={2000} />
+      <Stars radius={150} count={3000} speed={5} />
       {/* The Black Hole */}
-      <Sphere args={[5, 64, 64]} position={[0,0,0]}>
+      <Sphere args={[6, 64, 64]} position={[0,0,0]}>
         <meshBasicMaterial color="#000000" />
       </Sphere>
-      <Ring args={[5.5, 8, 128]} rotation={[Math.PI/2.5, 0, 0]}>
+      <Ring args={[6.5, 10, 128]} rotation={[Math.PI/2.5, 0, 0]}>
         <meshBasicMaterial color="#ff0000" side={THREE.DoubleSide} blending={THREE.AdditiveBlending} />
       </Ring>
       
       {/* The dying star */}
-      <Sphere args={[3, 32, 32]} position={[20, 10, 0]}>
+      <Sphere ref={starRef} args={[4, 32, 32]} position={[20, 10, 0]}>
         <meshBasicMaterial color="#ffffaa" />
       </Sphere>
 
-      {/* Spaghettification Stream tearing rapidly into the black hole */}
+      {/* Massive Spaghettification Stream tearing rapidly into the black hole */}
       <group ref={streamRef}>
-        <Sparkles count={3000} scale={[25, 2, 2]} position={[10, 5, 0]} size={10} speed={20} color="#ffaa00" />
+        <Sparkles count={8000} scale={[30, 5, 5]} position={[12, 6, 0]} size={20} speed={100} color="#ff3300" blending={THREE.AdditiveBlending} />
+        <Sparkles count={4000} scale={[25, 2, 2]} position={[10, 5, 0]} size={30} speed={150} color="#ffaa00" blending={THREE.AdditiveBlending} />
       </group>
     </group>
   );
 }
 
 // ============================================================================
-// 6. GAMMA RAY BURST (Lightning Fast Laser)
+// 6. GAMMA RAY BURST (Blinding Lightning Fast Laser)
 // ============================================================================
 function ThemeGammaRayBurst() {
   const beamRef = useRef();
 
   useFrame((state) => {
-    // Pulse the beam violently
+    // Pulse the beam violently and rapidly
     if (beamRef.current) {
-      const pulse = Math.random() > 0.5 ? 2 : 0.5;
-      beamRef.current.scale.y = pulse;
+      const pulse = Math.random() > 0.2 ? 5 : 0.5;
+      beamRef.current.scale.x = pulse;
+      beamRef.current.scale.z = pulse;
       beamRef.current.opacity = Math.random();
     }
   });
 
   return (
     <group>
-      <Stars radius={150} count={2000} />
+      <Stars radius={150} count={3000} speed={10} />
       {/* The collapsing star */}
-      <Sphere args={[4, 32, 32]}>
+      <Sphere args={[5, 32, 32]}>
         <meshBasicMaterial color="#00ffff" />
       </Sphere>
       
-      {/* Violent Gamma Ray beam shooting across the entire screen */}
+      {/* EXTREME Gamma Ray beam shooting across the entire screen */}
       <mesh ref={beamRef} rotation={[0, 0, Math.PI/4]}>
-        <cylinderGeometry args={[2, 2, 500, 32]} />
-        <meshBasicMaterial color="#ffffff" transparent opacity={0.8} blending={THREE.AdditiveBlending} />
+        <cylinderGeometry args={[4, 4, 1000, 32]} />
+        <meshBasicMaterial color="#ffffff" transparent opacity={0.9} blending={THREE.AdditiveBlending} />
       </mesh>
       
-      <Sparkles count={1000} scale={[500, 5, 5]} size={15} speed={50} color="#00aaff" rotation={[0, 0, Math.PI/4]} />
+      <Sparkles count={5000} scale={[1000, 10, 10]} size={30} speed={200} color="#00aaff" rotation={[0, 0, Math.PI/4]} blending={THREE.AdditiveBlending} />
     </group>
   );
 }
 
 // ============================================================================
-// 7. WORMHOLE TRAVEL (Falling through a dimension)
+// 7. WORMHOLE TRAVEL (Violent fall through a dimension)
 // ============================================================================
 function ThemeWormholeTravel() {
   const tunnelRef = useRef();
 
   useFrame((state) => {
     if (tunnelRef.current) {
-      tunnelRef.current.rotation.z += 0.1; // Spinning incredibly fast
-      tunnelRef.current.position.z += 5; // Moving forward fast
-      if (tunnelRef.current.position.z > 50) {
-        tunnelRef.current.position.z = -50;
+      tunnelRef.current.rotation.z += 0.8; // Spinning incredibly fast
+      tunnelRef.current.position.z += 50; // Moving forward insanely fast
+      if (tunnelRef.current.position.z > 200) {
+        tunnelRef.current.position.z = -200;
       }
     }
   });
@@ -237,13 +255,12 @@ function ThemeWormholeTravel() {
   return (
     <group>
       <group ref={tunnelRef}>
-        <Ring args={[10, 15, 128]} position={[0,0,-20]}>
-          <meshBasicMaterial color="#aa00ff" side={THREE.DoubleSide} blending={THREE.AdditiveBlending} />
-        </Ring>
-        <Ring args={[5, 10, 128]} position={[0,0,-40]}>
-          <meshBasicMaterial color="#00ffff" side={THREE.DoubleSide} blending={THREE.AdditiveBlending} />
-        </Ring>
-        <Sparkles count={4000} scale={[30, 30, 200]} size={8} speed={10} color="#ffffff" />
+        {[...Array(20)].map((_, i) => (
+          <Ring key={i} args={[10 + i, 12 + i, 128]} position={[0, 0, -i * 20]}>
+            <meshBasicMaterial color={`hsl(${(i * 20) % 360}, 100%, 50%)`} side={THREE.DoubleSide} blending={THREE.AdditiveBlending} />
+          </Ring>
+        ))}
+        <Sparkles count={10000} scale={[50, 50, 800]} size={20} speed={50} color="#ffffff" blending={THREE.AdditiveBlending} />
       </group>
     </group>
   );
@@ -257,24 +274,24 @@ function ThemeSupernovaShockwave() {
 
   useFrame((state) => {
     if (shockwaveRef.current) {
-      // Expands aggressively and resets
-      const scale = 1 + (state.clock.elapsedTime * 30) % 150;
+      // Expands aggressively fast and resets
+      const scale = 1 + (state.clock.elapsedTime * 150) % 300;
       shockwaveRef.current.scale.set(scale, scale, scale);
-      shockwaveRef.current.opacity = Math.max(0, 1 - scale/150);
+      shockwaveRef.current.opacity = Math.max(0, 1 - scale/300);
     }
   });
 
   return (
     <group>
-      <Stars radius={150} count={2000} />
-      <Sphere args={[2, 32, 32]}>
+      <Stars radius={150} count={3000} speed={5} />
+      <Sphere args={[3, 32, 32]}>
         <meshBasicMaterial color="#ffffff" />
       </Sphere>
-      {/* Shockwave Ring */}
-      <Ring ref={shockwaveRef} args={[1, 1.2, 128]}>
+      {/* Hyper Shockwave Ring */}
+      <Ring ref={shockwaveRef} args={[1, 1.5, 128]}>
         <meshBasicMaterial color="#ff0055" transparent side={THREE.DoubleSide} blending={THREE.AdditiveBlending} />
       </Ring>
-      <Sparkles count={5000} scale={100} size={5} speed={20} color="#ff5500" />
+      <Sparkles count={8000} scale={200} size={15} speed={100} color="#ff5500" blending={THREE.AdditiveBlending} />
     </group>
   );
 }
@@ -287,22 +304,22 @@ function ThemeGalaxyTear() {
 
   useFrame((state) => {
     if (galaxyRef.current) {
-      galaxyRef.current.rotation.y += 0.2; // Spinning dangerously fast
-      // Particles flying outward
-      const scale = 1 + Math.sin(state.clock.elapsedTime * 2) * 0.5;
+      galaxyRef.current.rotation.y += 1.5; // Spinning dangerously fast
+      // Particles flying outward violently
+      const scale = 1 + (state.clock.elapsedTime * 10) % 10;
       galaxyRef.current.scale.set(scale, 1, scale);
     }
   });
 
   return (
     <group rotation={[Math.PI / 4, 0, 0]}>
-      <Stars radius={150} count={2000} />
+      <Stars radius={150} count={3000} speed={5} />
       <group ref={galaxyRef}>
-        <pointLight intensity={2000} distance={100} color="#ffffff" />
-        <Sphere args={[4, 32, 32]}><meshBasicMaterial color="#ffffff" /></Sphere>
+        <pointLight intensity={5000} distance={200} color="#ffffff" />
+        <Sphere args={[6, 32, 32]}><meshBasicMaterial color="#ffffff" /></Sphere>
         {/* Rapidly expanding violent arms */}
-        <Sparkles count={5000} scale={[100, 2, 100]} size={5} speed={30} color="#00aaff" />
-        <Sparkles count={2000} scale={[150, 5, 150]} size={3} speed={40} color="#ff00ff" />
+        <Sparkles count={8000} scale={[200, 5, 200]} size={15} speed={150} color="#00aaff" blending={THREE.AdditiveBlending} />
+        <Sparkles count={5000} scale={[300, 10, 300]} size={10} speed={200} color="#ff00ff" blending={THREE.AdditiveBlending} />
       </group>
     </group>
   );
@@ -316,26 +333,26 @@ function ThemeRapidPulsar() {
 
   useFrame((state) => {
     if (pulsarRef.current) {
-      pulsarRef.current.rotation.z += 1; // Spinning insanely fast
-      pulsarRef.current.rotation.x += 0.5;
+      pulsarRef.current.rotation.z += 3; // Spinning insanely fast (like a blade)
+      pulsarRef.current.rotation.x += 1.5;
     }
   });
 
   return (
     <group>
-      <Stars radius={150} count={2000} />
+      <Stars radius={150} count={4000} speed={10} />
       <group ref={pulsarRef}>
-        <Sphere args={[2, 32, 32]}>
+        <Sphere args={[3, 32, 32]}>
           <meshBasicMaterial color="#00ffff" />
         </Sphere>
-        {/* Violent sweeping beams */}
-        <mesh position={[0, 50, 0]}>
-          <cylinderGeometry args={[0.5, 5, 100, 32]} />
-          <meshBasicMaterial color="#ffffff" transparent opacity={0.8} blending={THREE.AdditiveBlending} />
+        {/* Violent sweeping beams acting like a circular saw */}
+        <mesh position={[0, 100, 0]}>
+          <cylinderGeometry args={[2, 10, 200, 32]} />
+          <meshBasicMaterial color="#ffffff" transparent opacity={0.9} blending={THREE.AdditiveBlending} />
         </mesh>
-        <mesh position={[0, -50, 0]}>
-          <cylinderGeometry args={[0.5, 5, 100, 32]} />
-          <meshBasicMaterial color="#ffffff" transparent opacity={0.8} blending={THREE.AdditiveBlending} />
+        <mesh position={[0, -100, 0]}>
+          <cylinderGeometry args={[2, 10, 200, 32]} />
+          <meshBasicMaterial color="#ffffff" transparent opacity={0.9} blending={THREE.AdditiveBlending} />
         </mesh>
       </group>
     </group>
@@ -359,7 +376,7 @@ const THEMES = [
   ThemeRapidPulsar
 ];
 
-function SceneManager({ intervalSeconds = 15 }) { // Switch faster for high action
+function SceneManager({ intervalSeconds = 8 }) { // Extremely fast theme switching (8s)
   const [currentIndex, setCurrentIndex] = useState(0);
   const [nextIndex, setNextIndex] = useState(1);
   const [fading, setFading] = useState(false);
@@ -377,7 +394,7 @@ function SceneManager({ intervalSeconds = 15 }) { // Switch faster for high acti
     if (!fadeRef.current) return;
     
     if (fading) {
-      fadeRef.current.opacity += delta * 3; // Fade to black very fast
+      fadeRef.current.opacity += delta * 10; // Blink transition (virtually instant)
       if (fadeRef.current.opacity >= 1) {
         fadeRef.current.opacity = 1;
         setCurrentIndex(nextIndex); // Swap theme
@@ -385,7 +402,7 @@ function SceneManager({ intervalSeconds = 15 }) { // Switch faster for high acti
       }
     } else {
       if (fadeRef.current.opacity > 0) {
-        fadeRef.current.opacity -= delta * 3; // Fade from black very fast
+        fadeRef.current.opacity -= delta * 10;
         if (fadeRef.current.opacity <= 0) fadeRef.current.opacity = 0;
       }
     }
@@ -396,21 +413,29 @@ function SceneManager({ intervalSeconds = 15 }) { // Switch faster for high acti
   return (
     <>
       <ActiveTheme />
-      <Plane args={[100, 100]} position={[0, 0, -2]}>
-        <meshBasicMaterial ref={fadeRef} color="#000000" transparent opacity={0} depthTest={false} />
+      <Plane args={[200, 200]} position={[0, 0, -2]}>
+        <meshBasicMaterial ref={fadeRef} color="#ffffff" transparent opacity={0} depthTest={false} blending={THREE.AdditiveBlending} />
       </Plane>
     </>
   );
 }
 
-// Dynamic, faster camera motion for action scenes
+// Extremely violent camera shake and fast panning
 function MasterCamera() {
   const { camera } = useThree();
   useFrame((state) => {
     const time = state.clock.elapsedTime;
-    camera.position.x = Math.sin(time * 0.5) * 5; // Faster shake/pan
-    camera.position.y = Math.sin(time * 0.8) * 5 + 10;
-    camera.position.z = Math.cos(time * 0.5) * 5 + 60;
+    
+    // Aggressive fast pan
+    camera.position.x = Math.sin(time * 2) * 15; 
+    camera.position.y = Math.sin(time * 3) * 15 + 10;
+    camera.position.z = Math.cos(time * 2) * 15 + 60;
+    
+    // Violent high-frequency camera shake
+    camera.position.x += (Math.random() - 0.5) * 2;
+    camera.position.y += (Math.random() - 0.5) * 2;
+    camera.position.z += (Math.random() - 0.5) * 2;
+    
     camera.lookAt(0, 0, 0);
   });
   return null;
@@ -425,12 +450,12 @@ export default function SpaceBackground() {
       width: '100vw',
       height: '100vh',
       zIndex: -1,
-      background: '#020205', 
+      background: '#000000', 
       overflow: 'hidden'
     }}>
-      <Canvas camera={{ position: [0, 10, 70], fov: 50 }}>
+      <Canvas camera={{ position: [0, 10, 70], fov: 60 }}>
         <MasterCamera />
-        <SceneManager intervalSeconds={15} />
+        <SceneManager intervalSeconds={8} />
       </Canvas>
     </div>
   );
