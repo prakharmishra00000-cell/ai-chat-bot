@@ -1095,7 +1095,7 @@ app.post('/api/chat', async (req, res) => {
       if (appCredentials && Array.isArray(appCredentials) && appCredentials.length > 0) {
         const validCreds = appCredentials.filter(c => c.name && c.value);
         if (validCreds.length > 0) {
-          credentialsInjection = `\n7. CREDENTIALS INJECTION: You MUST automatically integrate the following credentials exactly as named into the generated application code. DO NOT leave placeholder comments asking the user to insert them. Use them immediately so the app works flawlessly out of the box:\n${validCreds.map(c => `- ${c.name}: ${c.value}`).join('\n')}\n`;
+          credentialsInjection = `\n7. **CREDENTIALS INJECTION**: You MUST automatically integrate the following credentials exactly as named into the generated application code: ${validCreds.map(c => `- ${c.name}: ${c.value}`).join('\n')}. DO NOT leave placeholder comments asking the user to insert them. Use them immediately. DO NOT output annoying confirmation messages like "API Key added successfully" in your chat response.`;
         }
       }
 
@@ -1105,7 +1105,7 @@ You are an expert full-stack developer. The user wants you to either generate a 
 "${message}"
 
 REQUIREMENTS:
-1. Whether creating from scratch or fixing a bug, you MUST provide the complete, updated code as a SINGLE cohesive HTML file that includes HTML, CSS (in <style>), and JavaScript (in <script>). Do NOT give partial snippets. If the user asks for a fix, look at the previous HTML code in the chat history, apply the fix, and output the FULL repaired HTML code block.
+1. Whether creating from scratch or fixing a bug, you MUST provide the complete, updated code as a SINGLE cohesive HTML file that includes HTML, CSS (in <style>), and JavaScript (in <script>). Do NOT give partial snippets. If the user asks for a fix, you MUST make the app perfectly functional. In your intro text, explicitly state what the error was and how you fixed it. Then output the FULL repaired HTML code block.
 2. The UI must be incredibly modern, premium, and beautiful (use glassmorphism, nice gradients, animations, dark mode).
 3. Do NOT use external frameworks that require a build step (No React/Vue build systems). You may use CDNs for libraries like Tailwind, FontAwesome, or simple React via Babel standalone if absolutely necessary, but vanilla JS/HTML/CSS is preferred for speed and reliability.
 4. Wrap the ENTIRE HTML code inside a single markdown code block like this:
@@ -1114,9 +1114,9 @@ REQUIREMENTS:
 <html>...</html>
 \`\`\`
 5. **CREDENTIAL DETECTION**: Analyze the requested app/feature. If it requires ANY external API keys or credentials (e.g., Firebase, OpenAI, Stripe, OpenWeather), you MUST list them explicitly at the VERY TOP of your response (above the code block) under the exact heading: "⚠️ **REQUIRED CREDENTIALS:**". List exactly what they need to add to their local Setup Panel. If none are needed, omit this.
-6. The app MUST handle its logic locally in the browser where possible, or simulate responses if it's a "bot". Furthermore, 100% of the frontend and backend logic requested must be done BY YOU within the generated file. Do not ask the user to add code. Do not give them instructions to deploy backends. You must do all the heavy lifting.${credentialsInjection}
+6. The app MUST handle its logic locally in the browser where possible, or simulate responses if it's a "bot". Furthermore, 100% of the frontend and backend logic requested must be done BY YOU within the generated file. Do not ask the user to add code. You must do all the heavy lifting. Finally, if anything else is required to make the app fully functional and live in a production environment (like purchasing a domain, setting up a real database), explicitly state this in your short intro.${credentialsInjection}
 
-CRITICAL: Return nothing else but the short intro (including credential warnings if any) and the HTML code block.`;
+CRITICAL: Return nothing else but the short intro (including fix explanations, credential warnings, or live hosting requirements) and the HTML code block.`;
     }
 
     // A. OPTIMIZE MODE — show restructured prompt + detailed answer
