@@ -912,7 +912,6 @@ app.get('/api/test-keys', async (req, res) => {
 });
 // --- LIVE APP GENERATOR HOSTING ---
 const generatedApps = new Map(); // Store generated HTML files in memory. Key: short id, Value: raw HTML
-const crypto = require('crypto');
 
 app.post('/api/apps/share', (req, res) => {
   const { htmlCode } = req.body;
