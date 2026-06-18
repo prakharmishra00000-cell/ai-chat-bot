@@ -640,7 +640,7 @@ async function queryGeminiAPI(keys, contents, systemInstruction, enableWebSearch
       const url = `https://generativelanguage.googleapis.com/${api}/models/${model}:generateContent?key=${activeKey}`;
       
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 40000); // 40s per attempt for search
+      const timeoutId = setTimeout(() => controller.abort(), 180000); // 180s per attempt for massive app generation
 
       try {
         let payloadContents = JSON.parse(JSON.stringify(contents));
@@ -706,7 +706,7 @@ async function queryGeminiAPI(keys, contents, systemInstruction, enableWebSearch
   for (let i = 0; i < Math.min(keys.length, 3); i++) {
     const key = keys[i];
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 40000);
+    const timeoutId = setTimeout(() => controller.abort(), 180000);
     try {
       let payloadContents = JSON.parse(JSON.stringify(contents));
       if (systemInstruction && payloadContents.length > 0 && payloadContents[0].role === 'user') {
