@@ -682,10 +682,10 @@ let lastGeminiError = '';
 
 async function queryGeminiAPI(keys, contents, systemInstruction, enableWebSearch = false) {
   const modelConfigs = [
-    { model: 'gemini-2.0-flash', api: 'v1beta' },
-    { model: 'gemini-1.5-flash-latest', api: 'v1beta' },
-    { model: 'gemini-1.5-pro-latest', api: 'v1beta' },
-    { model: 'gemini-pro', api: 'v1beta' }
+    { model: 'gemini-1.5-flash', api: 'v1' },
+    { model: 'gemini-1.5-flash-8b', api: 'v1' },
+    { model: 'gemini-2.0-flash-exp', api: 'v1beta' },
+    { model: 'gemini-1.5-pro', api: 'v1' }
   ];
 
   // Try each key
@@ -793,7 +793,7 @@ async function queryGeminiAPI(keys, contents, systemInstruction, enableWebSearch
       if (systemInstruction && payloadContents.length > 0 && payloadContents[0].role === 'user') {
         payloadContents[0].parts[0].text = `[System Instruction: ${systemInstruction}]\n\n` + payloadContents[0].parts[0].text;
       }
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`;
+      const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${key}`;
       const requestPayloadFinal = { contents: payloadContents };
       if (enableWebSearch) requestPayloadFinal.tools = [{ googleSearch: {} }];
 
