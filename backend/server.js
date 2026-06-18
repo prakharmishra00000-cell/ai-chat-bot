@@ -383,6 +383,7 @@ function fetchDBFromCloud(callback) {
 // --- FIREBASE INTEGRATION & MEMORY DB ---
 let globalDB = null;
 let firebaseInitialized = false;
+let firebaseFirstLoadComplete = false;
 
 function initFirebase() {
   if (firebaseInitialized) return;
@@ -440,6 +441,7 @@ function initFirebase() {
           const initialPayload = { ...globalDB, _config: readConfig() || {} };
           getDatabase().ref('/').set(initialPayload);
         }
+        firebaseFirstLoadComplete = true;
       });
     } catch (e) {
       console.error('[FIREBASE] Failed to initialize Firebase:', e.message);
@@ -480,6 +482,10 @@ function writeDB(data) {
   }
   
   if (firebaseInitialized) {
+    if (!firebaseFirstLoadComplete) {
+      console.warn('[FIREBASE] Skipped sync: initial cloud load not yet complete (preventing overwrite).');
+      return true;
+    }
     try {
       getDatabase().ref('/').set(data).catch(e => {
         console.error('[FIREBASE] Sync failed asynchronously:', e.message);
