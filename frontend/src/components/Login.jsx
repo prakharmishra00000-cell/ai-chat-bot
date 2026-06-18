@@ -54,6 +54,7 @@ function Login({ onLogin, onShowLegal, onShowSetup }) {
   };
 
   const [googleClientId, setGoogleClientId] = useState('');
+  const [isConfigLoaded, setIsConfigLoaded] = useState(false);
 
   const handleSimulatedGoogleLogin = (accEmail) => {
     setShowGoogleChooser(false);
@@ -71,6 +72,8 @@ function Login({ onLogin, onShowLegal, onShowSetup }) {
         }
       } catch (e) {
         console.warn('Failed to load public config:', e);
+      } finally {
+        setIsConfigLoaded(true);
       }
     };
     
@@ -196,23 +199,25 @@ function Login({ onLogin, onShowLegal, onShowSetup }) {
         )}
 
         {/* Google Continue Button */}
-        {googleClientId ? (
-          <div id="google-real-btn-container" style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px', minHeight: '44px' }}></div>
-        ) : (
-          <button 
-            type="button" 
-            className="google-auth-btn"
-            onClick={() => {
-              if (activeTab === 'signup' && !agreeTerms) {
-                setError('You must accept the Terms of Service and Privacy Policy to register.');
-                return;
-              }
-              setShowGoogleChooser(true);
-            }}
-          >
-            <img src="https://fonts.gstatic.com/s/i/productlogos/googleg/v6/web-24dp/logo_googleg_color_24dp.png" alt="Google" />
-            Continue with Google
-          </button>
+        {isConfigLoaded && (
+          googleClientId ? (
+            <div id="google-real-btn-container" style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px', minHeight: '44px' }}></div>
+          ) : (
+            <button 
+              type="button" 
+              className="google-auth-btn"
+              onClick={() => {
+                if (activeTab === 'signup' && !agreeTerms) {
+                  setError('You must accept the Terms of Service and Privacy Policy to register.');
+                  return;
+                }
+                setShowGoogleChooser(true);
+              }}
+            >
+              <img src="https://fonts.gstatic.com/s/i/productlogos/googleg/v6/web-24dp/logo_googleg_color_24dp.png" alt="Google" />
+              Continue with Google
+            </button>
+          )
         )}
 
         <div className="divider">or use email</div>

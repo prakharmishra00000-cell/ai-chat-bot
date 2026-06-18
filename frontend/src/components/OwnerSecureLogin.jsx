@@ -15,6 +15,7 @@ function OwnerSecureLogin({ onSuccess, onBack }) {
   const [newPassword, setNewPassword] = useState('');
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
+  const [isConfigLoaded, setIsConfigLoaded] = useState(false);
 
   // Fetch Google Client ID to initialize official login button if present
   useEffect(() => {
@@ -27,6 +28,8 @@ function OwnerSecureLogin({ onSuccess, onBack }) {
         }
       } catch (e) {
         console.warn('Failed to load public config:', e);
+      } finally {
+        setIsConfigLoaded(true);
       }
     };
     fetchPublicKeys();
@@ -275,23 +278,25 @@ function OwnerSecureLogin({ onSuccess, onBack }) {
         {resetStep === 'login' && (
           <>
             <div style={{ marginBottom: '20px' }}>
-              {googleClientId ? (
-                <div id="owner-google-btn-container" style={{ display: 'flex', justifyContent: 'center' }} />
-              ) : (
-                <button 
-                  type="button" 
-                  onClick={handleSimulatedGoogle} 
-                  className="btn btn-google" 
-                  style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}
-                >
-                  <svg width="18" height="18" viewBox="0 0 18 18">
-                    <path fill="#4285F4" d="M17.64 9.2c0-.63-.06-1.25-.16-1.84H9v3.47h4.84c-.21 1.12-.84 2.07-1.8 2.72v2.24h2.9c1.7-1.57 2.7-3.88 2.7-6.59z"/>
-                    <path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.2l-2.9-2.24c-.8.54-1.84.87-3.06.87-2.35 0-4.33-1.58-5.04-3.71H.92v2.32C2.4 15.98 5.46 18 9 18z"/>
-                    <path fill="#FBBC05" d="M3.96 10.72c-.18-.54-.28-1.12-.28-1.72s.1-1.18.28-1.72V4.96H.92C.33 6.13 0 7.52 0 9s.33 2.87.92 4.04l3.04-2.32z"/>
-                    <path fill="#EA4335" d="M9 3.58c1.32 0 2.5.45 3.44 1.35L15 2.1C13.46.7 11.43 0 9 0 5.46 0 2.4 2.02.92 4.96l3.04 2.32C4.67 5.16 6.65 3.58 9 3.58z"/>
-                  </svg>
-                  Continue with Google
-                </button>
+              {isConfigLoaded && (
+                googleClientId ? (
+                  <div id="owner-google-btn-container" style={{ display: 'flex', justifyContent: 'center' }} />
+                ) : (
+                  <button 
+                    type="button" 
+                    onClick={handleSimulatedGoogle} 
+                    className="btn btn-google" 
+                    style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}
+                  >
+                    <svg width="18" height="18" viewBox="0 0 18 18">
+                      <path fill="#4285F4" d="M17.64 9.2c0-.63-.06-1.25-.16-1.84H9v3.47h4.84c-.21 1.12-.84 2.07-1.8 2.72v2.24h2.9c1.7-1.57 2.7-3.88 2.7-6.59z"/>
+                      <path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.2l-2.9-2.24c-.8.54-1.84.87-3.06.87-2.35 0-4.33-1.58-5.04-3.71H.92v2.32C2.4 15.98 5.46 18 9 18z"/>
+                      <path fill="#FBBC05" d="M3.96 10.72c-.18-.54-.28-1.12-.28-1.72s.1-1.18.28-1.72V4.96H.92C.33 6.13 0 7.52 0 9s.33 2.87.92 4.04l3.04-2.32z"/>
+                      <path fill="#EA4335" d="M9 3.58c1.32 0 2.5.45 3.44 1.35L15 2.1C13.46.7 11.43 0 9 0 5.46 0 2.4 2.02.92 4.96l3.04 2.32C4.67 5.16 6.65 3.58 9 3.58z"/>
+                    </svg>
+                    Continue with Google
+                  </button>
+                )
               )}
             </div>
 
