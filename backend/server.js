@@ -600,12 +600,9 @@ app.post('/api/user/status', (req, res) => {
 let activeKeyIndex = 0;
 
 async function queryGeminiAPI(keys, contents, systemInstruction, enableWebSearch = false) {
-  // Models confirmed WORKING as of June 2026 — ordered by preference
   const modelConfigs = [
-    { model: 'gemini-3.5-flash', api: 'v1beta' },
-    { model: 'gemini-3.1-flash-lite', api: 'v1beta' },
-    { model: 'gemini-2.5-flash', api: 'v1beta' },
-    { model: 'gemini-2.0-flash', api: 'v1beta' },
+    { model: 'gemini-1.5-flash', api: 'v1beta' },
+    { model: 'gemini-2.0-flash-exp', api: 'v1beta' }
   ];
 
   // Try each key with each model
