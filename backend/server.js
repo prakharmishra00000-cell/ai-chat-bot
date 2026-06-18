@@ -682,7 +682,10 @@ let lastGeminiError = '';
 
 async function queryGeminiAPI(keys, contents, systemInstruction, enableWebSearch = false) {
   const modelConfigs = [
-    { model: 'gemini-1.5-flash', api: 'v1beta' }
+    { model: 'gemini-2.0-flash', api: 'v1beta' },
+    { model: 'gemini-1.5-flash-latest', api: 'v1beta' },
+    { model: 'gemini-1.5-pro-latest', api: 'v1beta' },
+    { model: 'gemini-pro', api: 'v1beta' }
   ];
 
   // Try each key
@@ -742,8 +745,11 @@ async function queryGeminiAPI(keys, contents, systemInstruction, enableWebSearch
           if (response.status === 429) {
             continue keyLoop; // Quota exceeded — this entire KEY is burned/rate-limited, immediately skip to NEXT KEY
           }
-          if (response.status === 401 || response.status === 403 || response.status === 404) {
-            continue keyLoop; // Bad key or model not found for this key — skip to next key
+          if (response.status === 401 || response.status === 403) {
+            continue keyLoop; // Bad key — skip to next key
+          }
+          if (response.status === 404) {
+            break; // Model not found, skip to NEXT MODEL in the modelConfigs loop
           }
           if (response.status >= 500) {
              // Google server error, wait and retry same model
