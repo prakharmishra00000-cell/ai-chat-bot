@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const fetch = require('node-fetch');
 const crypto = require('crypto');
+const admin = require('firebase-admin');
 const { performWebSearch } = require('./search');
 const { generatePPT, parseSlideContent, extractTopicWithAI, DOWNLOADS_DIR } = require('./pptGenerator');
 
@@ -321,25 +322,77 @@ function fetchDBFromCloud(callback) {
   }
 }
 
-function readDB() {
+// --- FIREBASE INTEGRATION & MEMORY DB ---
+let globalDB = null;
+let firebaseInitialized = false;
+
+function initFirebase() {
+  if (firebaseInitialized) return;
+  const config = readConfig();
+  if (config && config.firebaseServiceAccount && config.firebaseDbUrl) {
+    try {
+      const serviceAccount = typeof config.firebaseServiceAccount === 'string' ? JSON.parse(config.firebaseServiceAccount) : config.firebaseServiceAccount;
+      admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount),
+        databaseURL: config.firebaseDbUrl
+      });
+      firebaseInitialized = true;
+      console.log('[FIREBASE] Successfully connected to Realtime Database.');
+
+      // Listen for global changes to sync to local memory
+      const dbRef = admin.database().ref('/');
+      dbRef.on('value', (snapshot) => {
+        const val = snapshot.val();
+        if (val) {
+          globalDB = val;
+        } else {
+          // If Firebase is empty, initialize it with the local db.json
+          if (!globalDB) globalDB = readLocalDB();
+          admin.database().ref('/').set(globalDB);
+        }
+      });
+    } catch (e) {
+      console.error('[FIREBASE] Failed to initialize Firebase:', e.message);
+    }
+  }
+}
+
+function readLocalDB() {
   try {
     return JSON.parse(fs.readFileSync(DB_PATH, 'utf8'));
   } catch (e) {
-    console.error('Error reading DB, returning empty structure:', e);
     return { users: {}, transactions: [], visits: {}, anonymousVisits: {}, supportQueries: [], pendingApprovals: [], plans: {} };
   }
 }
 
+function readDB() {
+  if (!globalDB) {
+    globalDB = readLocalDB();
+  }
+  return globalDB;
+}
+
 function writeDB(data) {
+  globalDB = data; // Update memory instantly for synchronous code
   try {
     fs.writeFileSync(DB_PATH, JSON.stringify(data, null, 2), 'utf8');
-    syncDBToCloud(data); // Fire and forget cloud backup
-    return true;
   } catch (e) {
-    console.error('Error writing DB:', e);
-    return false;
+    console.error('Error writing local DB:', e.message);
   }
+  
+  if (firebaseInitialized) {
+    admin.database().ref('/').set(data).catch(e => {
+      console.error('[FIREBASE] Sync failed:', e.message);
+    });
+  } else {
+    // Try to init in case config was just updated
+    initFirebase();
+  }
+  return true;
 }
+
+// Call on startup
+initFirebase();
 
 // Track visits (middleware)
 app.use((req, res, next) => {
@@ -356,7 +409,7 @@ app.use((req, res, next) => {
 
 // Setup Configuration Endpoint
 app.post('/api/setup', (req, res) => {
-  const { keys, googleClientId, adminUsername, adminPassword, smtpUser, smtpPass } = req.body;
+  const { keys, googleClientId, adminUsername, adminPassword, smtpUser, smtpPass, firebaseDbUrl, firebaseServiceAccount } = req.body;
   
   if (!keys || !Array.isArray(keys) || keys.length === 0 || !adminUsername || !adminPassword) {
     return res.status(400).json({ error: 'Keys, admin username, and admin password are required.' });
@@ -374,7 +427,9 @@ app.post('/api/setup', (req, res) => {
     adminUsername,
     adminPassword,
     smtpUser: smtpUser || '',
-    smtpPass: smtpPass || ''
+    smtpPass: smtpPass || '',
+    firebaseDbUrl: firebaseDbUrl || '',
+    firebaseServiceAccount: firebaseServiceAccount || ''
   });
 
   if (success) {
@@ -1958,7 +2013,7 @@ app.post('/api/admin/config', (req, res) => {
 
   const config = readConfig();
   if (!config) {
-    return res.json({ keys: [], RECEIVER_UPI_ID: '6372843175@kotakbank', RECEIVER_NAME: 'Prakhar Mishra', googleClientId: '', adminUsername: 'prakhar mishra', adminPassword: '', smtpUser: '', smtpPass: '' });
+    return res.json({ keys: [], RECEIVER_UPI_ID: '6372843175@kotakbank', RECEIVER_NAME: 'Prakhar Mishra', googleClientId: '', adminUsername: 'prakhar mishra', adminPassword: '', smtpUser: '', smtpPass: '', firebaseDbUrl: '', firebaseServiceAccount: '' });
   }
   res.json(config);
 });

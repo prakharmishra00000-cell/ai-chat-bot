@@ -8,6 +8,8 @@ function Setup({ onComplete, onBack, currentUser }) {
   const [adminPassword, setAdminPassword] = useState('');
   const [smtpUser, setSmtpUser] = useState('');
   const [smtpPass, setSmtpPass] = useState('');
+  const [firebaseDbUrl, setFirebaseDbUrl] = useState('');
+  const [firebaseServiceAccount, setFirebaseServiceAccount] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -34,6 +36,8 @@ function Setup({ onComplete, onBack, currentUser }) {
           setAdminPassword(data.adminPassword || '');
           setSmtpUser(data.smtpUser || '');
           setSmtpPass(data.smtpPass || '');
+          setFirebaseDbUrl(data.firebaseDbUrl || '');
+          setFirebaseServiceAccount(data.firebaseServiceAccount || '');
         }
       })
       .catch(err => console.error('Failed to pre-fill configuration:', err));
@@ -73,7 +77,9 @@ function Setup({ onComplete, onBack, currentUser }) {
           adminUsername,
           adminPassword,
           smtpUser,
-          smtpPass
+          smtpPass,
+          firebaseDbUrl,
+          firebaseServiceAccount
         })
       });
 
@@ -201,6 +207,39 @@ function Setup({ onComplete, onBack, currentUser }) {
                 placeholder="Gmail 16-character App Password"
                 value={smtpPass}
                 onChange={(e) => setSmtpPass(e.target.value)}
+              />
+            </div>
+          </div>
+
+          {/* Firebase Database Credentials */}
+          <div className="form-group" style={{ borderTop: '1px solid var(--border-glass)', paddingTop: '20px', marginTop: '20px' }}>
+            <label>Firebase Realtime Database (Optional, for Permanent Storage)</label>
+            <p style={{ fontSize: '0.75rem', color: varColor('text-muted'), marginBottom: '10px' }}>
+              To prevent data loss on Render re-deploys, enter your Firebase Realtime DB URL and Service Account JSON.
+            </p>
+            <div className="keys-grid" style={{ gridTemplateColumns: '1fr' }}>
+              <input
+                type="text"
+                placeholder="Firebase Database URL (e.g. https://your-project.firebaseio.com)"
+                value={firebaseDbUrl}
+                onChange={(e) => setFirebaseDbUrl(e.target.value)}
+                style={{ marginBottom: '10px' }}
+              />
+              <textarea
+                placeholder='Firebase Service Account JSON (e.g. {"type": "service_account", ...})'
+                value={firebaseServiceAccount}
+                onChange={(e) => setFirebaseServiceAccount(e.target.value)}
+                rows={4}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  borderRadius: '12px',
+                  background: 'rgba(0,0,0,0.3)',
+                  border: '1px solid var(--border-glass)',
+                  color: 'var(--text-light)',
+                  fontFamily: 'monospace',
+                  fontSize: '0.85rem'
+                }}
               />
             </div>
           </div>
