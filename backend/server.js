@@ -429,6 +429,15 @@ function readDB() {
   if (!globalDB) {
     globalDB = readLocalDB();
   }
+  // Firebase auto-deletes empty objects. Re-inject core schema if missing.
+  if (!globalDB.users) globalDB.users = {};
+  if (!globalDB.transactions) globalDB.transactions = [];
+  if (!globalDB.visits) globalDB.visits = {};
+  if (!globalDB.anonymousVisits) globalDB.anonymousVisits = {};
+  if (!globalDB.supportQueries) globalDB.supportQueries = [];
+  if (!globalDB.pendingApprovals) globalDB.pendingApprovals = [];
+  if (!globalDB.plans) globalDB.plans = {};
+  
   return globalDB;
 }
 
