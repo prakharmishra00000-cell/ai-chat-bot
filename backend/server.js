@@ -1325,7 +1325,7 @@ User's original raw query: ${message}`;
 
   } catch (error) {
     console.error('Error generating chat response:', error);
-    res.status(500).json({ error: 'GENERATION_ERROR', message: 'Our AI servers are currently busy. Please try your query again.' });
+    res.status(500).json({ error: 'GENERATION_ERROR', message: error.message || 'Our AI servers are currently busy. Please try your query again.' });
   }
 });
 
