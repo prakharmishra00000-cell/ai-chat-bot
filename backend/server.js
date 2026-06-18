@@ -31,7 +31,14 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 app.use(cors());
-app.use(express.json({ limit: '50mb' }));
+// Exclude Razorpay webhook from global JSON parser so we can verify the raw cryptographic signature
+app.use((req, res, next) => {
+  if (req.originalUrl === '/api/payment/razorpay/webhook') {
+    next();
+  } else {
+    express.json({ limit: '50mb' })(req, res, next);
+  }
+});
 
 // Paths for config and local database
 const CONFIG_PATH = path.join(__dirname, 'config.json');
