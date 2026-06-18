@@ -60,7 +60,9 @@ function bootstrapConfigFromEnv() {
         adminUsername: process.env.ADMIN_USERNAME || 'prakhar mishra',
         adminPassword: process.env.ADMIN_PASSWORD || 'prakhar@2025',
         smtpUser: process.env.SMTP_USER || process.env.SMTP_EMAIL || '',
-        smtpPass: process.env.SMTP_PASS || process.env.SMTP_PASSWORD || process.env.SMTP_APP_PASSWORD || ''
+        smtpPass: process.env.SMTP_PASS || process.env.SMTP_PASSWORD || process.env.SMTP_APP_PASSWORD || '',
+        firebaseDbUrl: process.env.FIREBASE_DB_URL || '',
+        firebaseServiceAccount: process.env.FIREBASE_SERVICE_ACCOUNT || ''
       };
       fs.writeFileSync(CONFIG_PATH, JSON.stringify(configData, null, 2));
       console.log(`[STARTUP] Successfully bootstrapped config.json with ${envKeys.length} API key(s).`);
@@ -242,7 +244,12 @@ function readConfig() {
   if (fs.existsSync(CONFIG_PATH)) {
     try {
       const config = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
-      if (config && config.keys && config.keys.length > 0) return config;
+      if (config && config.keys && config.keys.length > 0) {
+        // Fallback to env vars if missing in config.json
+        if (!config.firebaseDbUrl && process.env.FIREBASE_DB_URL) config.firebaseDbUrl = process.env.FIREBASE_DB_URL;
+        if (!config.firebaseServiceAccount && process.env.FIREBASE_SERVICE_ACCOUNT) config.firebaseServiceAccount = process.env.FIREBASE_SERVICE_ACCOUNT;
+        return config;
+      }
     } catch (e) {
       console.error('Error reading config.json:', e);
     }
