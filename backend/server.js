@@ -691,7 +691,9 @@ async function queryGeminiAPI(keys, contents, systemInstruction, enableWebSearch
   // Try each key
   keyLoop: for (let keyAttempt = 0; keyAttempt < keys.length; keyAttempt++) {
     const keyIndex = (activeKeyIndex + keyAttempt) % keys.length;
-    const activeKey = keys[keyIndex];
+    const activeKey = (keys[keyIndex] || '').trim();
+    if (!activeKey) continue;
+    
     const keyPreview = activeKey.substring(0, 8) + '...';
 
     for (const { model, api } of modelConfigs) {
@@ -785,7 +787,8 @@ async function queryGeminiAPI(keys, contents, systemInstruction, enableWebSearch
   await new Promise(r => setTimeout(r, 2000));
   
   for (let i = 0; i < Math.min(keys.length, 3); i++) {
-    const key = keys[i];
+    const key = (keys[i] || '').trim();
+    if (!key) continue;
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 20000);
     try {
