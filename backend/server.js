@@ -682,12 +682,11 @@ let lastGeminiError = '';
 
 async function queryGeminiAPI(keys, contents, systemInstruction, enableWebSearch = false) {
   const modelConfigs = [
-    { model: 'gemini-2.0-flash', api: 'v1beta' },
-    { model: 'gemini-1.5-pro', api: 'v1beta' }
+    { model: 'gemini-1.5-flash', api: 'v1beta' }
   ];
 
-  // Try each key with each model
-  for (let keyAttempt = 0; keyAttempt < keys.length; keyAttempt++) {
+  // Try each key
+  keyLoop: for (let keyAttempt = 0; keyAttempt < keys.length; keyAttempt++) {
     const keyIndex = (activeKeyIndex + keyAttempt) % keys.length;
     const activeKey = keys[keyIndex];
     const keyPreview = activeKey.substring(0, 8) + '...';
@@ -696,93 +695,99 @@ async function queryGeminiAPI(keys, contents, systemInstruction, enableWebSearch
       const url = `https://generativelanguage.googleapis.com/${api}/models/${model}:generateContent?key=${activeKey}`;
       
       let attempts = 0;
-      while (attempts < 3) {
+      while (attempts < 2) {
         attempts++;
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 20000); // 20s timeout per attempt for fast failover
+        const timeoutId = setTimeout(() => controller.abort(), 20000); 
 
         try {
-        let payloadContents = JSON.parse(JSON.stringify(contents));
-        if (systemInstruction && payloadContents.length > 0 && payloadContents[0].role === 'user') {
-           payloadContents[0].parts[0].text = `[System Instruction: ${systemInstruction}]\n\n` + payloadContents[0].parts[0].text;
-        }
-
-        console.log(`[GEMINI] Trying Key ${keyPreview} | ${api}/${model}`);
-
-        const requestPayload = { contents: payloadContents };
-        if (enableWebSearch) {
-           requestPayload.tools = [{ googleSearch: {} }];
-        }
-
-        const response = await fetch(url, {
-          method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json',
-            'Connection': 'close' 
-          },
-          body: JSON.stringify(requestPayload),
-          signal: controller.signal
-        });
-
-        clearTimeout(timeoutId);
-        const responseData = await response.json();
-
-        if (response.ok) {
-          if (responseData.candidates && responseData.candidates[0] && responseData.candidates[0].content) {
-            console.log(`[GEMINI] ✅ SUCCESS: Key ${keyPreview} | ${api}/${model}`);
-            activeKeyIndex = keyIndex;
-            return responseData.candidates[0].content.parts[0].text;
+          let payloadContents = JSON.parse(JSON.stringify(contents));
+          if (systemInstruction && payloadContents.length > 0 && payloadContents[0].role === 'user') {
+             payloadContents[0].parts[0].text = `[System Instruction: ${systemInstruction}]\n\n` + payloadContents[0].parts[0].text;
           }
-          continue; // Empty response — try next model
-        }
 
-        const errMsg = (responseData.error?.message || '').substring(0, 80);
-        lastGeminiError = `Status: ${response.status}. Msg: ${errMsg}`;
-        console.warn(`[GEMINI] ❌ ${response.status}: ${keyPreview} | ${api}/${model} | ${errMsg}`);
-        
-        if (response.status === 429) {
-          continue; // Quota exceeded — try next model
-        }
-        if (response.status === 401 || response.status === 403) {
-          break; // Bad key — skip to next key
-        }
-        continue; // Other error — try next model
+          console.log(`[GEMINI] Trying Key ${keyPreview} | ${api}/${model}`);
+
+          const requestPayload = { contents: payloadContents };
+          if (enableWebSearch) {
+             requestPayload.tools = [{ googleSearch: {} }];
+          }
+
+          const response = await fetch(url, {
+            method: 'POST',
+            headers: { 
+              'Content-Type': 'application/json',
+              'Connection': 'close' 
+            },
+            body: JSON.stringify(requestPayload),
+            signal: controller.signal
+          });
+
+          clearTimeout(timeoutId);
+          const responseData = await response.json();
+
+          if (response.ok) {
+            if (responseData.candidates && responseData.candidates[0] && responseData.candidates[0].content) {
+              console.log(`[GEMINI] ✅ SUCCESS: Key ${keyPreview} | ${api}/${model}`);
+              activeKeyIndex = keyIndex;
+              return responseData.candidates[0].content.parts[0].text;
+            }
+            break; // Empty response — try next model
+          }
+
+          const errMsg = (responseData.error?.message || '').substring(0, 80);
+          lastGeminiError = `Status: ${response.status}. Msg: ${errMsg}`;
+          console.warn(`[GEMINI] ❌ ${response.status}: ${keyPreview} | ${api}/${model} | ${errMsg}`);
+          
+          if (response.status === 429) {
+            continue keyLoop; // Quota exceeded — this entire KEY is burned/rate-limited, immediately skip to NEXT KEY
+          }
+          if (response.status === 401 || response.status === 403 || response.status === 404) {
+            continue keyLoop; // Bad key or model not found for this key — skip to next key
+          }
+          if (response.status >= 500) {
+             // Google server error, wait and retry same model
+             await new Promise(r => setTimeout(r, 1000 * attempts));
+             continue; // Loops the while loop
+          }
+          
+          break; // Other 4xx error — try next model
 
         } catch (error) {
           clearTimeout(timeoutId);
           if (error.name === 'AbortError') {
             console.warn(`[GEMINI] ⏱ TIMEOUT: ${keyPreview} | ${model}`);
-            break; // Timeout is usually model-wide or strict, move to next model
+            break; // Timeout, move to next model
           }
           
           console.error(`[GEMINI] 💥 ${keyPreview} | ${model} (Attempt ${attempts}): ${error.message}`);
           lastGeminiError = `Exception: ${error.message}`;
           
-          if (attempts < 3 && (error.message.includes('Premature close') || error.message.includes('ECONNRESET') || error.message.includes('fetch failed'))) {
+          if (attempts < 2 && (error.message.includes('Premature close') || error.message.includes('ECONNRESET') || error.message.includes('fetch failed'))) {
              console.log(`[GEMINI] Retrying due to network drop...`);
              await new Promise(r => setTimeout(r, 1000 * attempts));
-             continue; // Loop again for same model
+             continue; 
           }
-          break; // Exhausted attempts, break while loop to move to next model
+          break; // Exhausted attempts, move to next model
         }
       }
     }
   }
 
-  // FINAL RETRY: Wait 2 seconds, then try gemini-2.5-flash on first 3 keys
+  // FINAL RETRY
   console.log('[GEMINI] All attempts failed. Waiting 2s for final retry...');
   await new Promise(r => setTimeout(r, 2000));
   
   for (let i = 0; i < Math.min(keys.length, 3); i++) {
     const key = keys[i];
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 20000); // 20s timeout for final retry
+    const timeoutId = setTimeout(() => controller.abort(), 20000);
     try {
       let payloadContents = JSON.parse(JSON.stringify(contents));
       if (systemInstruction && payloadContents.length > 0 && payloadContents[0].role === 'user') {
         payloadContents[0].parts[0].text = `[System Instruction: ${systemInstruction}]\n\n` + payloadContents[0].parts[0].text;
       }
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`;
       const requestPayloadFinal = { contents: payloadContents };
       if (enableWebSearch) requestPayloadFinal.tools = [{ googleSearch: {} }];
 
