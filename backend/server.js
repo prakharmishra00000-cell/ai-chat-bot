@@ -95,7 +95,10 @@ function bootstrapConfigFromEnv() {
         smtpUser: process.env.SMTP_USER || process.env.SMTP_EMAIL || existingConfig.smtpUser || '',
         smtpPass: process.env.SMTP_PASS || process.env.SMTP_PASSWORD || process.env.SMTP_APP_PASSWORD || existingConfig.smtpPass || '',
         firebaseDbUrl: process.env.FIREBASE_DB_URL || existingConfig.firebaseDbUrl || '',
-        firebaseServiceAccount: process.env.FIREBASE_SERVICE_ACCOUNT || existingConfig.firebaseServiceAccount || ''
+        firebaseServiceAccount: process.env.FIREBASE_SERVICE_ACCOUNT || existingConfig.firebaseServiceAccount || '',
+        razorpayKeyId: process.env.RAZORPAY_KEY_ID || existingConfig.razorpayKeyId || '',
+        razorpayKeySecret: process.env.RAZORPAY_KEY_SECRET || existingConfig.razorpayKeySecret || '',
+        razorpayWebhookSecret: process.env.RAZORPAY_WEBHOOK_SECRET || existingConfig.razorpayWebhookSecret || ''
       };
       fs.writeFileSync(CONFIG_PATH, JSON.stringify(configData, null, 2));
       console.log(`[STARTUP] Successfully bootstrapped config.json with ${envKeys.length} API key(s).`);
@@ -323,6 +326,9 @@ function readConfig() {
 function writeConfig(config) {
   try {
     fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2), 'utf8');
+    if (firebaseInitialized) {
+      getDatabase().ref('/_config').set(config).catch(e => console.error('[FIREBASE] Sync Config failed:', e.message));
+    }
     return true;
   } catch (e) {
     console.error('Error writing config:', e);
@@ -419,11 +425,20 @@ function initFirebase() {
       dbRef.on('value', (snapshot) => {
         const val = snapshot.val();
         if (val) {
+          if (val._config) {
+            const currentConfig = readConfig() || {};
+            // Only merge if there are changes to prevent infinite loop of writes
+            if (JSON.stringify(currentConfig) !== JSON.stringify({ ...currentConfig, ...val._config })) {
+              fs.writeFileSync(CONFIG_PATH, JSON.stringify({ ...currentConfig, ...val._config }, null, 2), 'utf8');
+            }
+            delete val._config; // Remove from DB object so it doesn't pollute globalDB
+          }
           globalDB = val;
         } else {
-          // If Firebase is empty, initialize it with the local db.json
+          // If Firebase is empty, initialize it with the local db.json and config.json
           if (!globalDB) globalDB = readLocalDB();
-          getDatabase().ref('/').set(globalDB);
+          const initialPayload = { ...globalDB, _config: readConfig() || {} };
+          getDatabase().ref('/').set(initialPayload);
         }
       });
     } catch (e) {
