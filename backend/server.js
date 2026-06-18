@@ -4,7 +4,8 @@ const fs = require('fs');
 const path = require('path');
 const fetch = require('node-fetch');
 const crypto = require('crypto');
-const admin = require('firebase-admin');
+const { initializeApp, cert } = require('firebase-admin/app');
+const { getDatabase } = require('firebase-admin/database');
 const { performWebSearch } = require('./search');
 const { generatePPT, parseSlideContent, extractTopicWithAI, DOWNLOADS_DIR } = require('./pptGenerator');
 
@@ -369,15 +370,15 @@ function initFirebase() {
       if (serviceAccount.private_key) {
         serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');
       }
-      admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount),
+      initializeApp({
+        credential: cert(serviceAccount),
         databaseURL: config.firebaseDbUrl
       });
       firebaseInitialized = true;
       console.log('[FIREBASE] Successfully connected to Realtime Database.');
 
       // Listen for global changes to sync to local memory
-      const dbRef = admin.database().ref('/');
+      const dbRef = getDatabase().ref('/');
       dbRef.on('value', (snapshot) => {
         const val = snapshot.val();
         if (val) {
@@ -385,7 +386,7 @@ function initFirebase() {
         } else {
           // If Firebase is empty, initialize it with the local db.json
           if (!globalDB) globalDB = readLocalDB();
-          admin.database().ref('/').set(globalDB);
+          getDatabase().ref('/').set(globalDB);
         }
       });
     } catch (e) {
@@ -418,7 +419,7 @@ function writeDB(data) {
   }
   
   if (firebaseInitialized) {
-    admin.database().ref('/').set(data).catch(e => {
+    getDatabase().ref('/').set(data).catch(e => {
       console.error('[FIREBASE] Sync failed:', e.message);
     });
   } else {
