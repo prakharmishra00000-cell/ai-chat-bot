@@ -109,6 +109,16 @@ function InterviewFormWidget({ message, currentUser, conversations, activeChatId
     }));
 
     try {
+      // Find history up to this interview point to maintain context
+      const currentChat = conversations.find(c => c.id === activeChatId);
+      let history = [];
+      if (currentChat) {
+        const messageIndex = currentChat.messages.findIndex(m => m.id === message.id);
+        if (messageIndex > -1) {
+          history = currentChat.messages.slice(0, messageIndex).map(m => ({ sender: m.sender, text: m.text || '' }));
+        }
+      }
+
       const res = await fetch('/api/chat/interview/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -116,7 +126,7 @@ function InterviewFormWidget({ message, currentUser, conversations, activeChatId
           email: currentUser.email,
           originalPrompt: message.originalPrompt,
           answers: answersList,
-          history: [],
+          history: history,
           personality: personality
         })
       });

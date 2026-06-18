@@ -1918,6 +1918,7 @@ Use clear headers, structured tables/lists, and detailed recommendations. Make i
 
 // ==================== INTERVIEW MODE (REVERSE PROMPTING) ====================
 app.post('/api/chat/interview/start', async (req, res) => {
+  await waitForFirebase();
   const { email, message, personality } = req.body;
   if (!email || !message) return res.status(400).json({ error: 'Email and message are required.' });
 
@@ -1954,7 +1955,7 @@ Each question type must be one of:
 - 'checkbox' (multiple choice checklist)
 - 'radio' (single-choice radio button list)
 
-Return a JSON object with this EXACT format. Do not use markdown, do not wrap in code blocks (no \`\`\`json), ONLY output valid raw JSON:
+Return a JSON object with this EXACT format. Do not use markdown, do not wrap in code blocks, do not add introductory text. ONLY output valid raw JSON:
 {
   "questions": [
     {
@@ -1983,8 +1984,15 @@ Return a JSON object with this EXACT format. Do not use markdown, do not wrap in
     
     let parsed;
     try {
-      const cleaned = raw.replace(/```json\n?/gi, '').replace(/```\n?/g, '').trim();
-      parsed = JSON.parse(cleaned);
+      const cleaned = raw.replace(/```json/gi, '').replace(/```/g, '').trim();
+      // Handle edge cases where the AI replies with text before the JSON
+      const firstBrace = cleaned.indexOf('{');
+      const lastBrace = cleaned.lastIndexOf('}');
+      if (firstBrace >= 0 && lastBrace >= 0) {
+        parsed = JSON.parse(cleaned.substring(firstBrace, lastBrace + 1));
+      } else {
+        throw new Error("No JSON object found");
+      }
     } catch (e) {
       // Fallback questionnaire if parsing fails
       parsed = {
@@ -2019,6 +2027,7 @@ app.post('/api/feature/track', (req, res) => {
 });
 
 app.post('/api/chat/interview/submit', async (req, res) => {
+  await waitForFirebase();
   const { email, originalPrompt, answers, history, personality } = req.body;
   if (!email || !originalPrompt || !answers) return res.status(400).json({ error: 'Missing required parameters.' });
 
