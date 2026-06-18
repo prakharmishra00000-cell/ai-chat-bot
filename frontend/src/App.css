@@ -39,32 +39,20 @@
 body {
   margin: 0;
   font-family: var(--font-body);
-  background-color: var(--bg-primary);
-  background-image: 
-    radial-gradient(circle at 15% 50%, rgba(0, 242, 254, 0.08), transparent 25%),
-    radial-gradient(circle at 85% 30%, rgba(127, 0, 255, 0.08), transparent 25%);
-  background-attachment: fixed;
   color: var(--text-main);
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   min-height: 100vh;
   position: relative;
+  background-color: transparent !important;
+  background-image: none !important;
 }
 
-/* Animated liquid background orb */
-body::before {
-  content: '';
-  position: fixed;
-  top: -10%; left: -10%;
-  width: 50vw; height: 50vw;
-  background: var(--gradient-purple);
-  filter: blur(120px);
-  opacity: 0.15;
-  border-radius: 50%;
-  animation: floatOrb 20s infinite alternate ease-in-out;
-  z-index: -1;
-  pointer-events: none;
+/* Base App/Dashboard Containers must be transparent for 3D Canvas */
+.app-container, .dashboard-container {
+  background-color: transparent !important;
+  background: transparent !important;
 }
 
 @keyframes floatOrb {
