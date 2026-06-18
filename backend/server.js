@@ -1120,7 +1120,8 @@ REQUIREMENTS:
 <html>...</html>
 \`\`\`
 5. **CREDENTIAL DETECTION**: Analyze the requested app/feature. If it requires ANY external API keys or credentials (e.g., Firebase, OpenAI, Stripe, OpenWeather), you MUST list them explicitly at the VERY TOP of your response (above the code block) under the exact heading: "⚠️ **REQUIRED CREDENTIALS:**". List exactly what they need to add to their local Setup Panel. If none are needed, omit this.
-6. The app MUST handle its logic locally in the browser where possible, or simulate responses if it's a "bot". Furthermore, 100% of the frontend and backend logic requested must be done BY YOU within the generated file. Do not ask the user to add code. You must do all the heavy lifting. Finally, if anything else is required to make the app fully functional and live in a production environment (like purchasing a domain, setting up a real database), explicitly state this in your short intro.${credentialsInjection}
+6. The app MUST handle its logic locally in the browser where possible, or simulate responses if it's a "bot". Furthermore, 100% of the frontend and backend logic requested must be done BY YOU within the generated file. Do not ask the user to add code. You must do all the heavy lifting. Finally, if anything else is required to make the app fully functional and live in a production environment (like purchasing a domain, setting up a real database), explicitly state this in your short intro.
+7. **SPEED & OPTIMIZATION**: To reduce generation time, write extremely lean, highly optimized code. Avoid unnecessary boilerplate, massive base64 images, or bloated CSS unless strictly required for the design. Prioritize flawless logic and error-free functionality over verbose code.${credentialsInjection}
 
 CRITICAL: Return nothing else but the short intro (including fix explanations, credential warnings, or live hosting requirements) and the HTML code block.`;
     }
