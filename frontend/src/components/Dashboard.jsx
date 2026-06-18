@@ -7,7 +7,6 @@ import {
 import mermaid from 'mermaid';
 import CouncilRoom from './CouncilRoom';
 import WorkflowPanel from './WorkflowPanel';
-import SpaceBackground from './SpaceBackground';
 
 // Initialize Mermaid.js configuration
 try {
@@ -1208,9 +1207,6 @@ function Dashboard({
 
   return (
     <div className="dashboard-container" style={{ position: 'relative', zIndex: 1, display: 'flex', height: '100vh', backgroundColor: 'transparent' }}>
-      {/* 3D Solar System Background */}
-      <SpaceBackground currentMode={mode} />
-
       {/* Sidebar backdrop — tap to close on mobile */}
       {sidebarOpen && <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} />}
 

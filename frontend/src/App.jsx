@@ -8,6 +8,7 @@ import UpgradeModal from './components/UpgradeModal';
 import HelpSupport from './components/HelpSupport';
 import OwnerSecureLogin from './components/OwnerSecureLogin';
 import { AlertTriangle, X } from 'lucide-react';
+import SpaceBackground from './components/SpaceBackground';
 import './App.css';
 
 function App() {
@@ -163,7 +164,10 @@ function App() {
   }
 
   return (
-    <div className="app-container">
+    <div className={`app-container theme-${theme}`}>
+      {/* GLOBAL 3D BACKGROUND (Visible on Login, Dashboard, Subscription, etc.) */}
+      <SpaceBackground />
+
       {view === 'setup' && (
         <Setup 
           onComplete={handleSetupComplete} 
