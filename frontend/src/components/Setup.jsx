@@ -10,6 +10,8 @@ function Setup({ onComplete, onBack, currentUser }) {
   const [smtpPass, setSmtpPass] = useState('');
   const [firebaseDbUrl, setFirebaseDbUrl] = useState('');
   const [firebaseServiceAccount, setFirebaseServiceAccount] = useState('');
+  const [razorpayKeyId, setRazorpayKeyId] = useState('');
+  const [razorpayKeySecret, setRazorpayKeySecret] = useState('');
   const [razorpayWebhookSecret, setRazorpayWebhookSecret] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -39,6 +41,8 @@ function Setup({ onComplete, onBack, currentUser }) {
           setSmtpPass(data.smtpPass || '');
           setFirebaseDbUrl(data.firebaseDbUrl || '');
           setFirebaseServiceAccount(data.firebaseServiceAccount || '');
+          setRazorpayKeyId(data.razorpayKeyId || '');
+          setRazorpayKeySecret(data.razorpayKeySecret || '');
           setRazorpayWebhookSecret(data.razorpayWebhookSecret || '');
         }
       })
@@ -82,6 +86,8 @@ function Setup({ onComplete, onBack, currentUser }) {
           smtpPass,
           firebaseDbUrl,
           firebaseServiceAccount,
+          razorpayKeyId,
+          razorpayKeySecret,
           razorpayWebhookSecret
         })
       });
@@ -157,18 +163,34 @@ function Setup({ onComplete, onBack, currentUser }) {
             />
           </div>
 
-          {/* Razorpay Webhook Secret */}
+          {/* Razorpay API Keys & Webhook Secret */}
           <div className="form-group" style={{ borderTop: '1px solid var(--border-glass)', paddingTop: '20px', marginTop: '20px' }}>
-            <label>Razorpay Webhook Secret (Optional)</label>
+            <label>Razorpay Credentials (Optional)</label>
             <p style={{ fontSize: '0.75rem', color: varColor('text-muted'), marginBottom: '10px' }}>
-              Used to securely verify automated payment confirmations from Razorpay.
+              Used to generate subscription orders and securely verify automated payment confirmations.
             </p>
-            <input
-              type="password"
-              placeholder="Razorpay Webhook Secret"
-              value={razorpayWebhookSecret}
-              onChange={(e) => setRazorpayWebhookSecret(e.target.value)}
-            />
+            <div className="keys-grid" style={{ gridTemplateColumns: '1fr' }}>
+              <input
+                type="text"
+                placeholder="Razorpay Key ID (e.g. rzp_live_...)"
+                value={razorpayKeyId}
+                onChange={(e) => setRazorpayKeyId(e.target.value)}
+                style={{ marginBottom: '10px' }}
+              />
+              <input
+                type="password"
+                placeholder="Razorpay Key Secret"
+                value={razorpayKeySecret}
+                onChange={(e) => setRazorpayKeySecret(e.target.value)}
+                style={{ marginBottom: '10px' }}
+              />
+              <input
+                type="password"
+                placeholder="Razorpay Webhook Secret"
+                value={razorpayWebhookSecret}
+                onChange={(e) => setRazorpayWebhookSecret(e.target.value)}
+              />
+            </div>
           </div>
 
           {/* Admin Logins */}

@@ -6,7 +6,7 @@ module.exports = function(helpers) {
 
   // Setup Configuration Endpoint
   router.post('/setup', (req, res) => {
-    const { keys, googleClientId, adminUsername, adminPassword, smtpUser, smtpPass, firebaseDbUrl, firebaseServiceAccount, razorpayWebhookSecret } = req.body;
+    const { keys, googleClientId, adminUsername, adminPassword, smtpUser, smtpPass, firebaseDbUrl, firebaseServiceAccount, razorpayKeyId, razorpayKeySecret, razorpayWebhookSecret } = req.body;
     
     if (!keys || !Array.isArray(keys) || keys.length === 0 || !adminUsername || !adminPassword) {
       return res.status(400).json({ error: 'Keys, admin username, and admin password are required.' });
@@ -27,6 +27,8 @@ module.exports = function(helpers) {
       smtpPass: smtpPass || '',
       firebaseDbUrl: firebaseDbUrl || '',
       firebaseServiceAccount: firebaseServiceAccount || '',
+      razorpayKeyId: razorpayKeyId || '',
+      razorpayKeySecret: razorpayKeySecret || '',
       razorpayWebhookSecret: razorpayWebhookSecret || ''
     });
 
