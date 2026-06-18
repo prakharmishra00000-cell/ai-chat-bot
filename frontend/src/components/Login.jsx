@@ -120,6 +120,7 @@ function Login({ onLogin, onShowLegal, onShowSetup }) {
         client_id: clientId,
         context: 'use',
         ux_mode: 'popup',
+        use_fedcm_for_prompt: true,
         callback: (response) => {
           try {
             // Decode the JWT credential payload to extract user's email
