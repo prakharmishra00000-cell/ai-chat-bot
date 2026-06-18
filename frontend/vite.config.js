@@ -14,4 +14,16 @@ export default defineConfig({
       },
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom'],
+          mermaid: ['mermaid'],
+          utils: ['jszip', 'file-saver']
+        }
+      }
+    },
+    chunkSizeWarningLimit: 1000
+  }
 });
