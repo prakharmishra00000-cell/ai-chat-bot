@@ -50,7 +50,9 @@ function bootstrapConfigFromEnv() {
 
   console.log(`[STARTUP] Found ${envKeys.length} Gemini API key(s) from environment variables.`);
   
-  if (envKeys.length > 0) {
+  const hasGoogleClientId = !!(process.env.GOOGLE_CLIENT_ID || process.env.GOOGLE_OAUTH_CLIENT_ID);
+
+  if (envKeys.length > 0 || hasGoogleClientId) {
     try {
       let existingConfig = {};
       if (fs.existsSync(CONFIG_PATH)) {
