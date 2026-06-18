@@ -333,6 +333,7 @@ function Dashboard({
   const [livePreviewApp, setLivePreviewApp] = useState(null);
 
   // App Credentials State for Generate Mode
+  const [showCredentials, setShowCredentials] = useState(false);
   const [appCredentials, setAppCredentials] = useState(() => {
     try {
       const saved = localStorage.getItem('appCredentials');
@@ -1357,45 +1358,55 @@ function Dashboard({
         {/* Credentials Panel - Only visible in Generate Mode */}
         {mode === 'generate' && (
           <div className="credentials-panel">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', padding: '5px' }} onClick={() => setShowCredentials(!showCredentials)}>
               <h4 style={{ margin: 0, color: 'var(--accent-cyan)', display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <Shield size={16} /> App Credentials (Local)
               </h4>
-              <div style={{ fontSize: '0.75rem', color: '#8b9bb4' }}>
-                These are saved securely in your browser and injected into your generated apps automatically.
-              </div>
-            </div>
-            
-            {appCredentials.map((cred, index) => (
-              <div key={index} className="credential-row">
-                <input 
-                  type="text" 
-                  placeholder="Credential Name (e.g., WEATHER_API_KEY)" 
-                  className="credential-input"
-                  value={cred.name}
-                  onChange={(e) => handleCredentialChange(index, 'name', e.target.value)}
-                />
-                <input 
-                  type="text" 
-                  placeholder="Actual Value (e.g., 12345ABC)" 
-                  className="credential-input"
-                  value={cred.value}
-                  onChange={(e) => handleCredentialChange(index, 'value', e.target.value)}
-                />
-                <button onClick={() => handleRemoveCredentialRow(index)} style={{ background: 'transparent', border: 'none', color: '#ff3366', cursor: 'pointer' }}>
-                  <Trash2 size={16} />
+              <div style={{ fontSize: '0.75rem', color: '#8b9bb4', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span>{appCredentials.length} Saved</span>
+                <button style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.7rem' }}>
+                  {showCredentials ? 'Hide' : 'Show / Add'}
                 </button>
               </div>
-            ))}
-            
-            <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
-              <button onClick={handleAddCredentialRow} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}>
-                <Plus size={14} style={{ verticalAlign: 'middle' }} /> Add Row
-              </button>
-              <button onClick={handleSaveCredentials} style={{ background: 'var(--accent-purple)', border: 'none', color: '#fff', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}>
-                Save Credentials
-              </button>
             </div>
+            
+            {showCredentials && (
+              <div style={{ marginTop: '15px' }}>
+                <div style={{ fontSize: '0.75rem', color: '#8b9bb4', marginBottom: '10px' }}>
+                  These are saved securely in your browser and injected into your generated apps automatically.
+                </div>
+                {appCredentials.map((cred, index) => (
+                  <div key={index} className="credential-row">
+                    <input 
+                      type="text" 
+                      placeholder="Credential Name (e.g., WEATHER_API_KEY)" 
+                      className="credential-input"
+                      value={cred.name}
+                      onChange={(e) => handleCredentialChange(index, 'name', e.target.value)}
+                    />
+                    <input 
+                      type="text" 
+                      placeholder="Actual Value (e.g., 12345ABC)" 
+                      className="credential-input"
+                      value={cred.value}
+                      onChange={(e) => handleCredentialChange(index, 'value', e.target.value)}
+                    />
+                    <button onClick={() => handleRemoveCredentialRow(index)} style={{ background: 'transparent', border: 'none', color: '#ff3366', cursor: 'pointer' }}>
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                ))}
+                
+                <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                  <button onClick={handleAddCredentialRow} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}>
+                    <Plus size={14} style={{ verticalAlign: 'middle' }} /> Add Row
+                  </button>
+                  <button onClick={handleSaveCredentials} style={{ background: 'var(--accent-purple)', border: 'none', color: '#fff', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}>
+                    Save Credentials
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
