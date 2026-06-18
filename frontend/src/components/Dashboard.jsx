@@ -332,6 +332,34 @@ function Dashboard({
   const [loading, setLoading] = useState(false);
   const [livePreviewApp, setLivePreviewApp] = useState(null);
 
+  // App Credentials State for Generate Mode
+  const [appCredentials, setAppCredentials] = useState(() => {
+    try {
+      const saved = localStorage.getItem('appCredentials');
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
+
+  const handleAddCredentialRow = () => {
+    setAppCredentials([...appCredentials, { name: '', value: '' }]);
+  };
+
+  const handleCredentialChange = (index, field, val) => {
+    const updated = [...appCredentials];
+    updated[index][field] = val;
+    setAppCredentials(updated);
+  };
+
+  const handleRemoveCredentialRow = (index) => {
+    const updated = [...appCredentials];
+    updated.splice(index, 1);
+    setAppCredentials(updated);
+  };
+
+  const handleSaveCredentials = () => {
+    localStorage.setItem('appCredentials', JSON.stringify(appCredentials));
+    alert('Credentials saved securely to your local browser storage.');
+  };
   const handleShareApp = async (htmlContent) => {
     try {
       const res = await fetch('/api/apps/share', {
@@ -868,7 +896,8 @@ function Dashboard({
           history: currentChat.messages.slice(-10),
           personality: personality,
           mode: mode,
-          attachment: activeAttachment
+          attachment: activeAttachment,
+          appCredentials: mode === 'generate' ? appCredentials : []
         })
       });
 
@@ -1242,8 +1271,9 @@ function Dashboard({
       </div>
 
       {/* Main chat viewport */}
-      <div className={`main-chat-area`}>
-        <div className="main-header">
+      <div className={livePreviewApp && mode === 'generate' ? "workspace-split" : "main-chat-area-wrapper"} style={{ flex: 1, overflow: 'hidden' }}>
+        <div className={`main-chat-area ${livePreviewApp && mode === 'generate' ? 'chat-pane' : ''}`}>
+          <div className="main-header">
           <div className="header-row-top">
             {!sidebarOpen && (
               <button className="hamburger-btn" onClick={() => setSidebarOpen(true)}>
@@ -1297,6 +1327,51 @@ function Dashboard({
             </div>
           </div>
         </div>
+
+        {/* Credentials Panel - Only visible in Generate Mode */}
+        {mode === 'generate' && (
+          <div className="credentials-panel">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+              <h4 style={{ margin: 0, color: 'var(--accent-cyan)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Shield size={16} /> App Credentials (Local)
+              </h4>
+              <div style={{ fontSize: '0.75rem', color: '#8b9bb4' }}>
+                These are saved securely in your browser and injected into your generated apps automatically.
+              </div>
+            </div>
+            
+            {appCredentials.map((cred, index) => (
+              <div key={index} className="credential-row">
+                <input 
+                  type="text" 
+                  placeholder="Credential Name (e.g., WEATHER_API_KEY)" 
+                  className="credential-input"
+                  value={cred.name}
+                  onChange={(e) => handleCredentialChange(index, 'name', e.target.value)}
+                />
+                <input 
+                  type="text" 
+                  placeholder="Actual Value (e.g., 12345ABC)" 
+                  className="credential-input"
+                  value={cred.value}
+                  onChange={(e) => handleCredentialChange(index, 'value', e.target.value)}
+                />
+                <button onClick={() => handleRemoveCredentialRow(index)} style={{ background: 'transparent', border: 'none', color: '#ff3366', cursor: 'pointer' }}>
+                  <Trash2 size={16} />
+                </button>
+              </div>
+            ))}
+            
+            <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+              <button onClick={handleAddCredentialRow} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}>
+                <Plus size={14} style={{ verticalAlign: 'middle' }} /> Add Row
+              </button>
+              <button onClick={handleSaveCredentials} style={{ background: 'var(--accent-purple)', border: 'none', color: '#fff', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}>
+                Save Credentials
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Message view */}
         <div className="messages-container">
@@ -1540,6 +1615,41 @@ function Dashboard({
         </div>
       </div>
 
+      {/* Live Preview Pane (Split Screen) */}
+      {livePreviewApp && mode === 'generate' && (
+        <div className="preview-pane">
+          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '15px', background: '#000', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+            <h3 style={{ color: '#fff', margin: 0, fontSize: '1.1rem' }}>
+              <MonitorPlay size={18} style={{ verticalAlign: 'middle', marginRight: '8px' }}/> 
+              Live App Preview
+            </h3>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button 
+                onClick={() => handleShareApp(livePreviewApp)} 
+                className="btn" style={{ background: '#00f2fe', color: '#000', border: 'none', padding: '6px 12px', borderRadius: '6px', fontSize: '0.8rem' }}
+              >
+                <Share2 size={14} style={{ verticalAlign: 'middle', marginRight: '5px' }}/> Share Locally
+              </button>
+              <button 
+                onClick={() => setLivePreviewApp(null)} 
+                className="btn btn-secondary" style={{ background: 'rgba(255,255,255,0.1)', padding: '6px 12px', fontSize: '0.8rem' }}
+              >
+                <X size={14} style={{ verticalAlign: 'middle' }}/> Close
+              </button>
+            </div>
+          </div>
+          <div style={{ flex: 1, background: '#fff', overflow: 'hidden' }}>
+            <iframe 
+              srcDoc={livePreviewApp} 
+              style={{ width: '100%', height: '100%', border: 'none', background: '#fff' }}
+              sandbox="allow-scripts allow-forms allow-same-origin allow-popups"
+              title="App Preview Sandbox"
+            />
+          </div>
+        </div>
+      )}
+      
+      </div>
       {/* Camera modal view overlay */}
       {showCamera && (
         <div className="camera-overlay">
@@ -1573,40 +1683,6 @@ function Dashboard({
         />
       )}
 
-      {/* Live App Preview Modal */}
-      {livePreviewApp && (
-        <div className="live-preview-overlay" style={{
-          position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
-          background: 'rgba(0,0,0,0.85)', zIndex: 9999, display: 'flex',
-          flexDirection: 'column', padding: '20px'
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-            <h2 style={{ color: '#fff', margin: 0 }}><MonitorPlay size={24} style={{ verticalAlign: 'middle', marginRight: '10px' }}/> Live App Sandbox</h2>
-            <div style={{ display: 'flex', gap: '10px' }}>
-              <button 
-                onClick={() => handleShareApp(livePreviewApp)} 
-                className="btn" style={{ background: '#00f2fe', color: '#000', border: 'none', padding: '8px 16px', borderRadius: '6px' }}
-              >
-                <Share2 size={16} style={{ verticalAlign: 'middle', marginRight: '5px' }}/> Share Locally
-              </button>
-              <button 
-                onClick={() => setLivePreviewApp(null)} 
-                className="btn btn-secondary" style={{ background: 'rgba(255,255,255,0.1)', padding: '8px 16px' }}
-              >
-                <X size={16} style={{ verticalAlign: 'middle' }}/> Close
-              </button>
-            </div>
-          </div>
-          <div style={{ flex: 1, background: '#fff', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 10px 40px rgba(0,242,254,0.2)' }}>
-            <iframe 
-              srcDoc={livePreviewApp} 
-              style={{ width: '100%', height: '100%', border: 'none', background: '#fff' }}
-              sandbox="allow-scripts allow-forms allow-same-origin allow-popups"
-              title="App Preview Sandbox"
-            />
-          </div>
-        </div>
-      )}
     </div>
   );
 }

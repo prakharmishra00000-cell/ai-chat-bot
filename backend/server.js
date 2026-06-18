@@ -955,7 +955,7 @@ app.post('/api/chat', async (req, res) => {
   
   console.log(`[CHAT] Processing request with ${config.keys.length} API key(s). First key prefix: ${config.keys[0].substring(0, 6)}...`);
 
-  const { email, message, history, personality, mode, attachment } = req.body;
+  const { email, message, history, personality, mode, attachment, appCredentials } = req.body;
   if (!email) return res.status(400).json({ error: 'Email is required.' });
 
   const db = readDB();
@@ -1036,6 +1036,14 @@ app.post('/api/chat', async (req, res) => {
 
     // AA. GENERATE APP MODE
     if (mode === 'generate') {
+      let credentialsInjection = '';
+      if (appCredentials && Array.isArray(appCredentials) && appCredentials.length > 0) {
+        const validCreds = appCredentials.filter(c => c.name && c.value);
+        if (validCreds.length > 0) {
+          credentialsInjection = `\n7. CREDENTIALS INJECTION: You MUST automatically integrate the following credentials exactly as named into the generated application code. DO NOT leave placeholder comments asking the user to insert them. Use them immediately so the app works flawlessly out of the box:\n${validCreds.map(c => `- ${c.name}: ${c.value}`).join('\n')}\n`;
+        }
+      }
+
       finalPrompt = `[APP GENERATION MODE INSTRUCTIONS — STRICTLY ENFORCED]
 
 You are an expert full-stack developer. The user wants you to either generate a NEW fully functional Web App/Bot OR FIX/UPDATE an existing one based on this query:
@@ -1051,7 +1059,7 @@ REQUIREMENTS:
 <html>...</html>
 \`\`\`
 5. Provide a VERY short 1-2 sentence description above the code block. DO NOT provide lengthy explanations, tutorials, or breakdowns. Save your tokens! Maximize tokens spent on the actual code complexity and bug fixes.
-6. The app MUST handle its logic locally in the browser where possible, or simulate responses if it's a "bot".
+6. The app MUST handle its logic locally in the browser where possible, or simulate responses if it's a "bot".${credentialsInjection}
 
 CRITICAL: Return nothing else but the short intro and the HTML code block.`;
     }

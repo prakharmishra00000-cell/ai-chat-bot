@@ -1680,3 +1680,72 @@ body {
     grid-template-columns: 1fr;
   }
 }
+
+/* =========================================
+   SPLIT SCREEN WORKSPACE (GENERATE MODE)
+========================================= */
+.workspace-split {
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.chat-pane {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  border-right: 1px solid rgba(255,255,255,0.08);
+  min-width: 350px;
+}
+
+.preview-pane {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--bg-tertiary);
+  position: relative;
+  min-width: 350px;
+}
+
+@media (max-width: 1024px) {
+  .workspace-split {
+    flex-direction: column;
+  }
+  .chat-pane {
+    flex: 1;
+    border-right: none;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+  .preview-pane {
+    flex: 1;
+  }
+}
+
+.credentials-panel {
+  background: rgba(0, 242, 254, 0.05);
+  border: 1px solid rgba(0, 242, 254, 0.2);
+  border-radius: 8px;
+  padding: 12px;
+  margin: 10px 15px;
+}
+
+.credential-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 8px;
+  align-items: center;
+}
+
+.credential-input {
+  flex: 1;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  color: #fff;
+  padding: 8px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+}
