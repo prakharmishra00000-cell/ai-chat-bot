@@ -1039,11 +1039,11 @@ app.post('/api/chat', async (req, res) => {
     if (mode === 'generate') {
       finalPrompt = `[APP GENERATION MODE INSTRUCTIONS — STRICTLY ENFORCED]
 
-You are an expert full-stack developer. The user wants you to generate a fully functional, highly polished, working Web App/Bot based on this query:
+You are an expert full-stack developer. The user wants you to either generate a NEW fully functional Web App/Bot OR FIX/UPDATE an existing one based on this query:
 "${message}"
 
 REQUIREMENTS:
-1. Provide the complete code as a SINGLE cohesive HTML file that includes HTML, CSS (in <style>), and JavaScript (in <script>).
+1. Whether creating from scratch or fixing a bug, you MUST provide the complete, updated code as a SINGLE cohesive HTML file that includes HTML, CSS (in <style>), and JavaScript (in <script>). Do NOT give partial snippets. If the user asks for a fix, look at the previous HTML code in the chat history, apply the fix, and output the FULL repaired HTML code block.
 2. The UI must be incredibly modern, premium, and beautiful (use glassmorphism, nice gradients, animations, dark mode).
 3. Do NOT use external frameworks that require a build step (No React/Vue build systems). You may use CDNs for libraries like Tailwind, FontAwesome, or simple React via Babel standalone if absolutely necessary, but vanilla JS/HTML/CSS is preferred for speed and reliability.
 4. Wrap the ENTIRE HTML code inside a single markdown code block like this:
@@ -1051,7 +1051,7 @@ REQUIREMENTS:
 <!DOCTYPE html>
 <html>...</html>
 \`\`\`
-5. Provide a VERY short 1-2 sentence description above the code block. DO NOT provide lengthy explanations, tutorials, or breakdowns. Save your tokens! Maximize tokens spent on the actual code complexity and features.
+5. Provide a VERY short 1-2 sentence description above the code block. DO NOT provide lengthy explanations, tutorials, or breakdowns. Save your tokens! Maximize tokens spent on the actual code complexity and bug fixes.
 6. The app MUST handle its logic locally in the browser where possible, or simulate responses if it's a "bot".
 
 CRITICAL: Return nothing else but the short intro and the HTML code block.`;
