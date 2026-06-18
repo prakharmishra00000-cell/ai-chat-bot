@@ -910,6 +910,38 @@ app.get('/api/test-keys', async (req, res) => {
     timestamp: new Date().toISOString()
   });
 });
+// --- LIVE APP GENERATOR HOSTING ---
+const generatedApps = new Map(); // Store generated HTML files in memory. Key: short id, Value: raw HTML
+const crypto = require('crypto');
+
+app.post('/api/apps/share', (req, res) => {
+  const { htmlCode } = req.body;
+  if (!htmlCode) return res.status(400).json({ error: 'No HTML code provided' });
+  
+  // Generate a random 6-character ID
+  const id = crypto.randomBytes(3).toString('hex');
+  generatedApps.set(id, htmlCode);
+  
+  // Clean up old apps if map gets too large to prevent memory leaks (keep last 100)
+  if (generatedApps.size > 100) {
+    const firstKey = generatedApps.keys().next().value;
+    generatedApps.delete(firstKey);
+  }
+  
+  res.json({ success: true, url: `/api/apps/serve/${id}`, id });
+});
+
+app.get('/api/apps/serve/:id', (req, res) => {
+  const { id } = req.params;
+  const htmlCode = generatedApps.get(id);
+  
+  if (!htmlCode) {
+    return res.status(404).send('<h1>App Not Found or Expired</h1><p>This live app preview link has expired. Generate a new one in the MatrixMind dashboard.</p>');
+  }
+  
+  res.setHeader('Content-Type', 'text/html');
+  res.send(htmlCode);
+});
 
 // Main Chat AI Endpoint
 app.post('/api/chat', async (req, res) => {
@@ -1003,6 +1035,28 @@ app.post('/api/chat', async (req, res) => {
   try {
     let finalPrompt = message;
 
+    // AA. GENERATE APP MODE
+    if (mode === 'generate') {
+      finalPrompt = `[APP GENERATION MODE INSTRUCTIONS — STRICTLY ENFORCED]
+
+You are an expert full-stack developer. The user wants you to generate a fully functional, highly polished, working Web App/Bot based on this query:
+"${message}"
+
+REQUIREMENTS:
+1. Provide the complete code as a SINGLE cohesive HTML file that includes HTML, CSS (in <style>), and JavaScript (in <script>).
+2. The UI must be incredibly modern, premium, and beautiful (use glassmorphism, nice gradients, animations, dark mode).
+3. Do NOT use external frameworks that require a build step (No React/Vue build systems). You may use CDNs for libraries like Tailwind, FontAwesome, or simple React via Babel standalone if absolutely necessary, but vanilla JS/HTML/CSS is preferred for speed and reliability.
+4. Wrap the ENTIRE HTML code inside a single markdown code block like this:
+\`\`\`html
+<!DOCTYPE html>
+<html>...</html>
+\`\`\`
+5. Provide a VERY short 1-2 sentence description above the code block. DO NOT provide lengthy explanations, tutorials, or breakdowns. Save your tokens! Maximize tokens spent on the actual code complexity and features.
+6. The app MUST handle its logic locally in the browser where possible, or simulate responses if it's a "bot".
+
+CRITICAL: Return nothing else but the short intro and the HTML code block.`;
+    }
+
     // A. OPTIMIZE MODE — show restructured prompt + detailed answer
     if (mode === 'optimize') {
       finalPrompt = `[OPTIMIZE MODE INSTRUCTIONS — FOLLOW EXACTLY]
@@ -1031,7 +1085,7 @@ User's original raw query: ${message}`;
 
     // B. WEB SEARCH — only for factual/current queries, 3s timeout to keep responses fast
     let searchGroundingContext = '';
-    const needsSearch = /search|latest|news|weather|current|today|\b202[4-9]\b|who is|who won|score|price|stock|release|launch|update|trending/i.test(finalPrompt);
+    const needsSearch = mode !== 'generate' && /search|latest|news|weather|current|today|\b202[4-9]\b|who is|who won|score|price|stock|release|launch|update|trending/i.test(finalPrompt);
     
     if (needsSearch) {
       try {

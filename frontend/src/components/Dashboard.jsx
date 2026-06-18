@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   Menu, X, Plus, Search, Trash2, Send, Mic, Paperclip, 
   Camera, FileText, Image, Download, RotateCcw, ShieldCheck, 
-  BrainCircuit, LayoutGrid, Terminal, HelpCircle, Check, Info, LogOut, Shield, Users, Cpu, Play, Loader2
+  BrainCircuit, LayoutGrid, Terminal, HelpCircle, Check, Info, LogOut, Shield, Users, Cpu, Play, Loader2, Code, MonitorPlay, Share2
 } from 'lucide-react';
 import mermaid from 'mermaid';
 import CouncilRoom from './CouncilRoom';
@@ -328,8 +328,29 @@ function Dashboard({
   // Prompt states
   const [promptInput, setPromptInput] = useState('');
   const [personality, setPersonality] = useState('standard'); // 'standard', 'architect', 'analyst'
-  const [mode, setMode] = useState('normal'); // 'normal', 'matrix_simulation', 'optimize'
+  const [mode, setMode] = useState('normal'); // 'normal', 'matrix_simulation', 'optimize', 'generate'
   const [loading, setLoading] = useState(false);
+  const [livePreviewApp, setLivePreviewApp] = useState(null);
+
+  const handleShareApp = async (htmlContent) => {
+    try {
+      const res = await fetch('/api/apps/share', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ htmlCode: htmlContent })
+      });
+      const data = await res.json();
+      if (res.ok && data.url) {
+        const fullUrl = window.location.origin + data.url;
+        navigator.clipboard.writeText(fullUrl);
+        alert(`App hosted locally!\nLink: ${fullUrl}\n(Copied to clipboard)`);
+      } else {
+        alert('Failed to host app: ' + data.error);
+      }
+    } catch (err) {
+      alert('Error hosting app locally.');
+    }
+  };
 
   // Anonymize Input feature
   const [anonymizeEnabled, setAnonymizeEnabled] = useState(false);
@@ -1002,23 +1023,23 @@ function Dashboard({
     c.title.toLowerCase().includes(chatSearchQuery.toLowerCase())
   );
 
-  // Helper to render Markdown snippets (Basic support for tables, lists, code, and mermaid graphs)
+  // Helper to render Markdown snippets
   const renderMessageContent = (text) => {
     if (!text) return null;
     
-    // Look for Mermaid diagram code blocks (handles \n, \r\n, spaces after 'mermaid')
-    const mermaidRegex = /```mermaid\s*\n([\s\S]*?)```/g;
+    // Pattern to catch both mermaid and html blocks
+    const blockRegex = /```(mermaid|html)\s*\n([\s\S]*?)```/g;
     const parts = [];
     let lastIndex = 0;
     let match;
 
-    while ((match = mermaidRegex.exec(text)) !== null) {
+    while ((match = blockRegex.exec(text)) !== null) {
       const textBefore = text.substring(lastIndex, match.index);
       if (textBefore) {
         parts.push({ type: 'text', content: textBefore });
       }
-      parts.push({ type: 'mermaid', content: match[1].trim() });
-      lastIndex = mermaidRegex.lastIndex;
+      parts.push({ type: match[1], content: match[2].trim() });
+      lastIndex = blockRegex.lastIndex;
     }
 
     const remainingText = text.substring(lastIndex);
@@ -1029,6 +1050,29 @@ function Dashboard({
     return parts.map((part, i) => {
       if (part.type === 'mermaid') {
         return <MermaidChart key={i} chartCode={part.content} />;
+      }
+      
+      if (part.type === 'html') {
+        return (
+          <div key={i} className="html-app-block glass-panel" style={{ padding: '15px', marginTop: '10px', borderRadius: '10px' }}>
+            <h4 style={{ margin: '0 0 10px 0', color: 'var(--accent-cyan)' }}><Code size={16} style={{ verticalAlign: 'middle', marginRight: '5px' }}/> Live App Generated</h4>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button 
+                onClick={() => setLivePreviewApp(part.content)} 
+                style={{ flex: 1, padding: '10px', background: 'var(--accent-purple)', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}
+              >
+                <MonitorPlay size={16} style={{ verticalAlign: 'middle', marginRight: '5px' }} /> Live Preview
+              </button>
+              <button 
+                onClick={() => handleShareApp(part.content)}
+                style={{ padding: '10px 15px', background: 'rgba(255,255,255,0.1)', color: '#fff', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '6px', cursor: 'pointer' }}
+                title="Host Locally & Get Link"
+              >
+                <Share2 size={16} />
+              </button>
+            </div>
+          </div>
+        );
       }
       
       // Basic split formatting for lists, links, tables, and pre blocks
@@ -1231,6 +1275,13 @@ function Dashboard({
 
             {/* Mode toggle buttons */}
             <div className="header-modes">
+              <button 
+                className={`mode-toggle-btn ${mode === 'generate' ? 'active' : ''}`}
+                style={mode === 'generate' ? { background: 'linear-gradient(90deg, #ff007f, #7928ca)', color: '#fff', border: 'none' } : {}}
+                onClick={() => setMode(prev => prev === 'generate' ? 'normal' : 'generate')}
+              >
+                Generate App
+              </button>
               <button 
                 className={`mode-toggle-btn ${mode === 'optimize' ? 'active' : ''}`}
                 onClick={() => setMode(prev => prev === 'optimize' ? 'normal' : 'optimize')}
@@ -1520,6 +1571,41 @@ function Dashboard({
           onClose={() => setWorkflowMode(false)}
           onWorkflowComplete={handleWorkflowComplete}
         />
+      )}
+
+      {/* Live App Preview Modal */}
+      {livePreviewApp && (
+        <div className="live-preview-overlay" style={{
+          position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+          background: 'rgba(0,0,0,0.85)', zIndex: 9999, display: 'flex',
+          flexDirection: 'column', padding: '20px'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+            <h2 style={{ color: '#fff', margin: 0 }}><MonitorPlay size={24} style={{ verticalAlign: 'middle', marginRight: '10px' }}/> Live App Sandbox</h2>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button 
+                onClick={() => handleShareApp(livePreviewApp)} 
+                className="btn" style={{ background: '#00f2fe', color: '#000', border: 'none', padding: '8px 16px', borderRadius: '6px' }}
+              >
+                <Share2 size={16} style={{ verticalAlign: 'middle', marginRight: '5px' }}/> Share Locally
+              </button>
+              <button 
+                onClick={() => setLivePreviewApp(null)} 
+                className="btn btn-secondary" style={{ background: 'rgba(255,255,255,0.1)', padding: '8px 16px' }}
+              >
+                <X size={16} style={{ verticalAlign: 'middle' }}/> Close
+              </button>
+            </div>
+          </div>
+          <div style={{ flex: 1, background: '#fff', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 10px 40px rgba(0,242,254,0.2)' }}>
+            <iframe 
+              srcDoc={livePreviewApp} 
+              style={{ width: '100%', height: '100%', border: 'none', background: '#fff' }}
+              sandbox="allow-scripts allow-forms allow-same-origin allow-popups"
+              title="App Preview Sandbox"
+            />
+          </div>
+        </div>
       )}
     </div>
   );
