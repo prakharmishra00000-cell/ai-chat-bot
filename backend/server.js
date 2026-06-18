@@ -4,8 +4,24 @@ const fs = require('fs');
 const path = require('path');
 const fetch = require('node-fetch');
 const crypto = require('crypto');
-const { initializeApp, cert } = require('firebase-admin/app');
-const { getDatabase } = require('firebase-admin/database');
+let firebaseApp, firebaseDatabase;
+try {
+  firebaseApp = require('firebase-admin/app');
+  firebaseDatabase = require('firebase-admin/database');
+} catch (e) {
+  // Fallback for older cached versions of firebase-admin on Render
+  const admin = require('firebase-admin');
+  firebaseApp = {
+    initializeApp: admin.initializeApp.bind(admin),
+    cert: admin.credential ? admin.credential.cert.bind(admin.credential) : admin.cert
+  };
+  firebaseDatabase = {
+    getDatabase: () => admin.database()
+  };
+}
+
+const { initializeApp, cert } = firebaseApp;
+const { getDatabase } = firebaseDatabase;
 const { performWebSearch } = require('./search');
 const { generatePPT, parseSlideContent, extractTopicWithAI, DOWNLOADS_DIR } = require('./pptGenerator');
 
