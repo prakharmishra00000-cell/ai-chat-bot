@@ -53,6 +53,9 @@ body {
 .app-container, .dashboard-container {
   background-color: transparent !important;
   background: transparent !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  overflow: hidden;
 }
 
 @keyframes floatOrb {
