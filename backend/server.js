@@ -458,9 +458,13 @@ function writeDB(data) {
   }
   
   if (firebaseInitialized) {
-    getDatabase().ref('/').set(data).catch(e => {
-      console.error('[FIREBASE] Sync failed:', e.message);
-    });
+    try {
+      getDatabase().ref('/').set(data).catch(e => {
+        console.error('[FIREBASE] Sync failed asynchronously:', e.message);
+      });
+    } catch (e) {
+      console.error('[FIREBASE] Sync failed synchronously:', e.message);
+    }
   } else {
     // Try to init in case config was just updated
     initFirebase();
@@ -614,29 +618,33 @@ function incrementFeatureUsage(email, feature) {
 
 // User Auth Endpoint (Explicit Sign In / Sign Up) — Seamless cross-device auth
 app.post('/api/user/auth', (req, res) => {
-  const { email, action } = req.body;
-  if (!email || !action) return res.status(400).json({ error: 'Email and action are required' });
-  
-  const db = readDB();
-  const userExists = !!db.users[email];
+  try {
+    const { email, action } = req.body;
+    if (!email || !action) return res.status(400).json({ error: 'Email and action are required' });
+    
+    const db = readDB();
+    const userExists = !!db.users[email];
 
-  if (action === 'login') {
-    if (!userExists) {
-      // Auto-register on login attempt — seamless cross-device experience
+    if (action === 'login') {
+      if (!userExists) {
+        // Auto-register on login attempt — seamless cross-device experience
+        getOrCreateUser(email);
+        return res.json({ success: true, message: 'Account created and logged in successfully.', autoRegistered: true });
+      }
+      return res.json({ success: true, message: 'Logged in successfully.' });
+    } else if (action === 'signup') {
+      if (userExists) {
+        // If already registered, just log them in instead of showing error
+        return res.json({ success: true, message: 'Account found. Logged in successfully.', alreadyExists: true });
+      }
+      // Create the user implicitly via helper
       getOrCreateUser(email);
-      return res.json({ success: true, message: 'Account created and logged in successfully.', autoRegistered: true });
+      return res.json({ success: true, message: 'Signed up successfully.' });
+    } else {
+      return res.status(400).json({ error: 'INVALID_ACTION', message: 'Action must be login or signup.' });
     }
-    return res.json({ success: true, message: 'Logged in successfully.' });
-  } else if (action === 'signup') {
-    if (userExists) {
-      // If already registered, just log them in instead of showing error
-      return res.json({ success: true, message: 'Account found. Logged in successfully.', alreadyExists: true });
-    }
-    // Create the user implicitly via helper
-    getOrCreateUser(email);
-    return res.json({ success: true, message: 'Signed up successfully.' });
-  } else {
-    return res.status(400).json({ error: 'INVALID_ACTION', message: 'Action must be login or signup.' });
+  } catch (e) {
+    return res.status(500).json({ error: 'CRASH', message: e.message, stack: e.stack });
   }
 });
 
