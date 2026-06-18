@@ -525,13 +525,11 @@ app.get('/api/setup/status', (req, res) => {
 // Securely expose public config to frontend (Google Sign-In, UPI receiver details)
 app.get('/api/config/public', (req, res) => {
   const config = readConfig();
-  if (!config) {
-    return res.json({ googleClientId: '', receiverUpiId: '6372843175@kotakbank', receiverName: 'Prakhar Mishra' });
-  }
   res.json({
-    googleClientId: config.googleClientId || '',
-    receiverUpiId: config.RECEIVER_UPI_ID || '6372843175@kotakbank',
-    receiverName: config.RECEIVER_NAME || 'Prakhar Mishra'
+    googleClientId: config?.googleClientId || '',
+    razorpayKeyId: config?.razorpayKeyId || '',
+    receiverUpiId: config?.RECEIVER_UPI_ID || '6372843175@kotakbank',
+    receiverName: config?.RECEIVER_NAME || 'Prakhar Mishra'
   });
 });
 

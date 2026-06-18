@@ -100,25 +100,116 @@ function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess }) {
     const fetchPlans = async () => {
       try {
         const res = await fetch('/api/plans');
-        if (res.ok) {
-          const data = await res.json();
-          if (data.featureNames) {
-            setFeatureNames(data.featureNames);
-          }
-          const plansObj = data.plans || data; // handle backward compat
-          if (Object.keys(plansObj).length > 0) {
-            const ordered = ['free', 'standard', 'better', 'premium']
-              .map(id => plansObj[id])
-              .filter(Boolean);
-            if (ordered.length > 0) setDbPlans(ordered);
-          }
+        const data = await res.json();
+        if (data.plans) {
+          const arr = Object.values(data.plans);
+          if (arr.length > 0) setDbPlans(arr);
         }
-      } catch (e) {
-        console.warn('Failed to load plans from DB, using fallbacks:', e);
+        if (data.featureNames) {
+          setFeatureNames(data.featureNames);
+        }
+        if (data.receiverUpiId) setReceiverUpiId(data.receiverUpiId);
+        if (data.receiverName) setReceiverName(data.receiverName);
+      } catch (err) {
+        console.error('Failed to fetch plans', err);
       }
     };
     fetchPlans();
+
+    // Check if custom QR exists
+    fetch('/api/payment-qr', { method: 'HEAD' })
+      .then(res => setHasCustomQR(res.ok))
+      .catch(() => setHasCustomQR(false));
+      
+    // Load Razorpay Script dynamically
+    const loadRazorpay = () => {
+      if (!document.getElementById('rzp-script')) {
+        const script = document.createElement('script');
+        script.id = 'rzp-script';
+        script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+        script.async = true;
+        document.body.appendChild(script);
+      }
+    };
+    loadRazorpay();
   }, []);
+
+  const handleRazorpayCheckout = async (plan) => {
+    setLoading(true);
+    setError('');
+    
+    // Check if Razorpay script loaded
+    if (typeof window === 'undefined' || !window.Razorpay) {
+      setError('Payment gateway failed to load. Please try again or use Manual UPI.');
+      setLoading(false);
+      return;
+    }
+
+    try {
+      // Create Order on Backend
+      const orderRes = await fetch('/api/payment/razorpay/create-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ planId: plan.id, amountINR: plan.price })
+      });
+      
+      const orderData = await orderRes.json();
+      
+      if (!orderRes.ok || !orderData.order) {
+        // Fallback triggered: Razorpay keys likely not set in Admin
+        setError('Automated checkout is currently unavailable. Please use the Manual UPI method below.');
+        setLoading(false);
+        return;
+      }
+
+      // Initialize Razorpay Options
+      const options = {
+        key: "", // The backend doesn't send the key ID for security, Razorpay will fetch from order if omitted, wait, usually frontend needs the key. 
+        // Actually, frontend DOES need the key. We must fetch the public key.
+        // If we don't have it, we'll fetch it from the new config route.
+        // Let's rely on the order_id.
+        order_id: orderData.order.id,
+        name: "MatrixMind Advanced AI",
+        description: `Upgrade to ${plan.name} Plan`,
+        image: "https://cdn-icons-png.flaticon.com/512/2111/2111432.png", // Generic AI icon
+        handler: function (response) {
+          // Webhook handles the actual backend upgrade! We just show success here.
+          setSuccess(`Payment Successful! Your ${plan.name} plan is unlocking automatically...`);
+          setTimeout(() => {
+            if(onPaymentSuccess) onPaymentSuccess();
+          }, 3000);
+        },
+        prefill: {
+          email: email || "",
+        },
+        theme: {
+          color: "#00f2fe"
+        }
+      };
+
+      // We must inject the razorpay public key into options
+      const configRes = await fetch('/api/config/public');
+      const configData = await configRes.json();
+      if(configData.razorpayKeyId) {
+        options.key = configData.razorpayKeyId;
+      } else {
+        throw new Error('Missing public key');
+      }
+
+      const rzp = new window.Razorpay(options);
+      rzp.on('payment.failed', function (response){
+        setError(`Payment failed: ${response.error.description}`);
+      });
+      rzp.open();
+      
+    } catch (err) {
+      console.error('Razorpay Error:', err);
+      setError('Checkout failed to initialize. Please use Manual UPI below.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
 
   // Fetch public config for UPI ID
   useEffect(() => {
@@ -311,17 +402,49 @@ function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess }) {
                     ✓ Active
                   </div>
                 )}
+
+                {!isActive && plan.price > 0 && (
+                  <button 
+                    onClick={() => handleRazorpayCheckout(plan)}
+                    disabled={loading}
+                    style={{
+                      marginTop: 'auto',
+                      padding: '12px 16px',
+                      background: 'linear-gradient(135deg, #00f2fe 0%, #4facfe 100%)',
+                      border: 'none',
+                      borderRadius: '8px',
+                      color: '#fff',
+                      fontSize: '0.95rem',
+                      fontWeight: 700,
+                      textAlign: 'center',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.05em',
+                      cursor: 'pointer',
+                      boxShadow: '0 4px 15px rgba(0, 242, 254, 0.3)',
+                      transition: 'all 0.2s ease',
+                      display: 'flex',
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      gap: '8px'
+                    }}
+                    onMouseOver={(e) => e.target.style.transform = 'translateY(-2px)'}
+                    onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
+                  >
+                    {loading ? <Loader size={16} className="spin-animation" /> : '💳 Auto Unlock Plan'}
+                  </button>
+                )}
               </div>
             );
           })}
         </div>
 
-        {/* ===== PAYMENT SECTION ===== */}
+        {/* ===== PAYMENT SECTION (MANUAL FALLBACK) ===== */}
         {!success && (
           <div className="glass-panel" style={{ marginTop: '30px', padding: '25px', width: '100%', borderRadius: 'var(--radius-lg)' }}>
-            <h3 style={{ fontFamily: 'var(--font-heading)', color: 'var(--accent-cyan)', fontSize: '1.25rem', marginBottom: '20px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>
-              Complete Payment via UPI
+            <h3 style={{ fontFamily: 'var(--font-heading)', color: 'var(--accent-cyan)', fontSize: '1.25rem', marginBottom: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>
+              Manual UPI Fallback
             </h3>
+            <p style={{textAlign: 'center', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '20px'}}>If the automated "Auto Unlock Plan" button above fails, you can pay manually using UPI.</p>
 
             {/* QR Code */}
             <div style={{ textAlign: 'center', marginBottom: '20px' }}>
