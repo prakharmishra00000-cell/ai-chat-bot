@@ -257,12 +257,18 @@ function readConfig() {
     const single = process.env.GEMINI_API_KEY || process.env.GEMINI_KEY;
     if (single && single.trim()) envKeys.push(single.trim());
   }
-  if (envKeys.length > 0) {
+  if (envKeys.length > 0 || process.env.FIREBASE_DB_URL) {
     return {
       keys: envKeys,
       RECEIVER_UPI_ID: process.env.RECEIVER_UPI_ID || '6372843175@kotakbank',
       RECEIVER_NAME: process.env.RECEIVER_NAME || 'Prakhar Mishra',
       googleClientId: process.env.GOOGLE_CLIENT_ID || '',
+      firebaseDbUrl: process.env.FIREBASE_DB_URL || '',
+      firebaseServiceAccount: process.env.FIREBASE_SERVICE_ACCOUNT || '',
+      adminUsername: process.env.ADMIN_USERNAME || 'prakhar mishra',
+      adminPassword: process.env.ADMIN_PASSWORD || '',
+      smtpUser: process.env.SMTP_USER || '',
+      smtpPass: process.env.SMTP_PASS || ''
     };
   }
   return null;
