@@ -337,7 +337,24 @@ function initFirebase() {
   const config = readConfig();
   if (config && config.firebaseServiceAccount && config.firebaseDbUrl) {
     try {
-      const serviceAccount = typeof config.firebaseServiceAccount === 'string' ? JSON.parse(config.firebaseServiceAccount) : config.firebaseServiceAccount;
+      let serviceAccount;
+      if (typeof config.firebaseServiceAccount === 'string') {
+        try {
+          serviceAccount = JSON.parse(config.firebaseServiceAccount);
+        } catch (err) {
+          console.warn('[FIREBASE] Standard JSON parse failed, attempting to fix mangled newlines...');
+          // Fix unescaped newlines inside the JSON string (common issue when pasting into Render env vars)
+          const fixedString = config.firebaseServiceAccount.replace(/\n/g, '\\n').replace(/\r/g, '');
+          serviceAccount = JSON.parse(fixedString);
+        }
+      } else {
+        serviceAccount = config.firebaseServiceAccount;
+      }
+      
+      // Ensure the private key has correct actual newlines, not literal '\n' strings
+      if (serviceAccount.private_key) {
+        serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');
+      }
       admin.initializeApp({
         credential: admin.credential.cert(serviceAccount),
         databaseURL: config.firebaseDbUrl
