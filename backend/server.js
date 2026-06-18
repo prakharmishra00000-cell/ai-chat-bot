@@ -632,7 +632,7 @@ let lastGeminiError = '';
 async function queryGeminiAPI(keys, contents, systemInstruction, enableWebSearch = false) {
   const modelConfigs = [
     { model: 'gemini-2.0-flash', api: 'v1beta' },
-    { model: 'gemini-1.5-flash', api: 'v1beta' }
+    { model: 'gemini-1.5-pro', api: 'v1beta' }
   ];
 
   // Try each key with each model
@@ -731,7 +731,7 @@ async function queryGeminiAPI(keys, contents, systemInstruction, enableWebSearch
       if (systemInstruction && payloadContents.length > 0 && payloadContents[0].role === 'user') {
         payloadContents[0].parts[0].text = `[System Instruction: ${systemInstruction}]\n\n` + payloadContents[0].parts[0].text;
       }
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`;
       const requestPayloadFinal = { contents: payloadContents };
       if (enableWebSearch) requestPayloadFinal.tools = [{ googleSearch: {} }];
 
