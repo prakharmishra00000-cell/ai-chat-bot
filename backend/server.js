@@ -487,7 +487,9 @@ function writeDB(data) {
       return true;
     }
     try {
-      getDatabase().ref('/').set(data).catch(e => {
+      const config = readConfig() || {};
+      const payload = { ...data, _config: config };
+      getDatabase().ref('/').set(payload).catch(e => {
         console.error('[FIREBASE] Sync failed asynchronously:', e.message);
       });
     } catch (e) {
@@ -2348,15 +2350,12 @@ app.post('/api/plans/update', async (req, res) => {
     db.featureNames = featureNames;
   }
   
-  // Explicitly write to Firebase to guarantee persistence before returning success
-  globalDB = db;
-  try {
-    fs.writeFileSync(DB_PATH, JSON.stringify(db, null, 2), 'utf8');
-  } catch (e) { }
-
+  // Explicitly write to Firebase to guarantee persistence
+  writeDB(db);
   if (firebaseInitialized && firebaseFirstLoadComplete) {
     try {
-      await getDatabase().ref('/').set(db);
+      const config = readConfig() || {};
+      await getDatabase().ref('/').set({ ...db, _config: config });
       console.log('[FIREBASE] Plans updated successfully in cloud.');
     } catch (err) {
       console.error('[FIREBASE] Failed to update plans:', err);

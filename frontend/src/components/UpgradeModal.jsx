@@ -312,7 +312,7 @@ function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess }) {
       const res = await fetch('/api/payment/submit-utr', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, utr: utrInput, planRequested: '' })
+        body: JSON.stringify({ email, utr: utrInput, planRequested: selectedManualPlan })
       });
 
       const data = await res.json();
@@ -330,12 +330,13 @@ function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess }) {
     }
   };
 
-  const manualUpiId = '6372843175@kotakbank';
+  const manualUpiId = 'prakharmishra555782.rzp@rxairtel';
   const activePlanObj = dbPlans.find(p => p.id === selectedManualPlan) || { price: 99, name: 'Basic' };
   const manualAmount = activePlanObj.price;
   const manualName = activePlanObj.name;
 
-  const manualUpiLink = `upi://pay?pa=${manualUpiId}&pn=${encodeURIComponent('MatrixMind Bot')}&am=${manualAmount}&cu=INR&tn=Upgrade%20to%20${manualName}`;
+  // Razorpay-compatible dynamic merchant UPI payee link
+  const manualUpiLink = `upi://pay?cu=INR&mc=5817&mode=19&pa=${manualUpiId}&tn=PaymentToPrakharMishra&tr=T3XH5bgAIiHCyQqrv2&am=${manualAmount}`;
   const manualQrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&margin=10&data=${encodeURIComponent(manualUpiLink)}`;
   const upiIntentUrl = manualUpiLink;
 
@@ -511,22 +512,43 @@ function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess }) {
             {/* QR Code Container */}
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', margin: '20px 0' }}>
               <div style={{
-                padding: '10px',
-                background: '#fff',
+                position: 'relative',
+                width: '260px',
                 borderRadius: '12px',
+                overflow: 'hidden',
                 boxShadow: '0 8px 24px rgba(0,242,254,0.15)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                border: '2px solid rgba(0, 242, 254, 0.3)'
+                border: '2px solid rgba(0, 242, 254, 0.3)',
+                background: '#0a0b10'
               }}>
-                <img
-                  src={manualQrUrl}
-                  alt={`Scan QR code to pay ₹${manualAmount}`}
-                  style={{ width: '180px', height: '180px', display: 'block' }}
+                {/* Background static Razorpay QR card image */}
+                <img 
+                  src="/razorpay_qr.jpg" 
+                  alt="Razorpay Payment Card"
+                  style={{ width: '100%', height: 'auto', display: 'block' }}
                 />
+                
+                {/* Dynamically generated overlay QR code centered exactly over the static QR code */}
+                <div style={{
+                  position: 'absolute',
+                  left: '21.7%',
+                  top: '40.0%',
+                  width: '56.3%',
+                  aspectRatio: '1 / 1',
+                  background: '#fff',
+                  padding: '2.5%',
+                  borderRadius: '4px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  <img
+                    src={manualQrUrl}
+                    alt={`Scan QR code to pay ₹${manualAmount}`}
+                    style={{ width: '100%', height: '100%', display: 'block' }}
+                  />
+                </div>
               </div>
-              <p style={{ fontSize: '0.8rem', color: '#ffe259', fontWeight: 600, marginTop: '10px', textAlign: 'center' }}>
+              <p style={{ fontSize: '0.8rem', color: '#ffe259', fontWeight: 600, marginTop: '12px', textAlign: 'center' }}>
                 Scan to pay ₹{manualAmount} for {manualName} Plan
               </p>
             </div>
@@ -550,7 +572,7 @@ function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess }) {
                 </button>
               </div>
               <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                Receiver: MatrixMind Bot
+                Receiver: Prakhar Mishra (MatrixMind AI)
               </p>
             </div>
 

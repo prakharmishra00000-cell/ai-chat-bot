@@ -831,27 +831,27 @@ function Admin({ onBack, email }) {
                           <td>
                             {req.status === 'pending' ? (
                               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', minWidth: '200px' }}>
-                                <button 
-                                  className="btn" 
-                                  onClick={() => handleApprovalAction(req.id, 'approve', 'standard')}
-                                  style={{ padding: '5px 8px', fontSize: '0.7rem', background: 'var(--accent-neon-green)', color: '#000', fontWeight: 700 }}
-                                >
-                                  ₹99 Standard
-                                </button>
-                                <button 
-                                  className="btn" 
-                                  onClick={() => handleApprovalAction(req.id, 'approve', 'better')}
-                                  style={{ padding: '5px 8px', fontSize: '0.7rem', background: 'linear-gradient(135deg, #ffe259, #ffa751)', color: '#000', fontWeight: 700 }}
-                                >
-                                  ₹199 Better
-                                </button>
-                                <button 
-                                  className="btn" 
-                                  onClick={() => handleApprovalAction(req.id, 'approve', 'premium')}
-                                  style={{ padding: '5px 8px', fontSize: '0.7rem', background: 'linear-gradient(135deg, #ff3366, #ff6b9d)', color: '#fff', fontWeight: 700 }}
-                                >
-                                  ₹999 Premium
-                                </button>
+                                {Object.keys(editingPlans || {}).filter(k => k !== 'free').map((planKey) => {
+                                  const planInfo = editingPlans[planKey];
+                                  let btnBg = 'var(--accent-neon-green)';
+                                  let btnColor = '#000';
+                                  if (planKey === 'better') {
+                                    btnBg = 'linear-gradient(135deg, #ffe259, #ffa751)';
+                                  } else if (planKey === 'premium') {
+                                    btnBg = 'linear-gradient(135deg, #ff3366, #ff6b9d)';
+                                    btnColor = '#fff';
+                                  }
+                                  return (
+                                    <button 
+                                      key={planKey}
+                                      className="btn" 
+                                      onClick={() => handleApprovalAction(req.id, 'approve', planKey)}
+                                      style={{ padding: '5px 8px', fontSize: '0.7rem', background: btnBg, color: btnColor, fontWeight: 700 }}
+                                    >
+                                      ₹{planInfo.price} {planInfo.name}
+                                    </button>
+                                  );
+                                })}
                                 <button 
                                   className="btn" 
                                   onClick={() => handleApprovalAction(req.id, 'reject')}
