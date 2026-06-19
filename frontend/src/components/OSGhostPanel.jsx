@@ -52,6 +52,8 @@ export default function OSGhostPanel({ onClose, initialPrompt }) {
   const [showTerminalWindow, setShowTerminalWindow] = useState(false);
   const [terminalLines, setTerminalLines] = useState([]);
   const [filesToDelete, setFilesToDelete] = useState([3, 11]);
+  const [planModifications, setPlanModifications] = useState([]);
+  const [modificationInput, setModificationInput] = useState('');
 
   // Auto-run if initialPrompt is passed from Dashboard
   useEffect(() => {
@@ -71,16 +73,23 @@ export default function OSGhostPanel({ onClose, initialPrompt }) {
     }
   }, [logs]);
 
+  const handleAddModification = () => {
+    if (!modificationInput.trim()) return;
+    setPlanModifications(prev => [...prev, modificationInput.trim()]);
+    addLog('SYSTEM', `Execution plan updated by user: "${modificationInput.trim()}"`);
+    setModificationInput('');
+  };
+
   // Capture Escape key for Emergency Override
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (e.key === 'Escape' && running) {
+      if (e.key === 'Escape' && (running || status === 'staging' || status === 'running')) {
         triggerEmergencyOverride();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [running]);
+  }, [running, status]);
 
   const triggerEmergencyOverride = () => {
     setStatus('emergency_override');
@@ -119,6 +128,7 @@ export default function OSGhostPanel({ onClose, initialPrompt }) {
     setShowTerminalWindow(false);
     setTerminalLines([]);
     setFilesToDelete([3, 11]);
+    setPlanModifications([]);
     setDesktopFiles([
       { id: 1, name: 'invoice_acme_corp.pdf', type: 'pdf', size: '145 KB', x: 50, y: 70, status: 'visible' },
       { id: 2, name: 'invoice_stark_ind.pdf', type: 'pdf', size: '280 KB', x: 50, y: 150, status: 'visible' },
@@ -240,9 +250,6 @@ export default function OSGhostPanel({ onClose, initialPrompt }) {
       addLog('VERIFICATION', 'Validating CRM portal state: Invoice #INV-2026-004 status is APPROVED.');
       await wait(600);
       addLog('VERIFICATION', 'Task Completed Successfully. Returning system controls.');
-
-      setStatus('completed');
-      setRunning(false);
     } else if (scenario === 'start_menu') {
       // Move to Start button [x: 28, y: 515]
       addLog('ACTION', 'Moving cursor to Start Menu launcher button [x: 28, y: 515]...');
@@ -314,9 +321,6 @@ export default function OSGhostPanel({ onClose, initialPrompt }) {
       addLog('VERIFICATION', 'Terminal subprocess confirmed running with PID 8942. Standard output verified.');
       await wait(600);
       addLog('VERIFICATION', 'Task Completed Successfully. Returning system controls.');
-
-      setStatus('completed');
-      setRunning(false);
     } else {
       // Create folders
       addLog('ACTION', 'Creating target subdirectories for clean grouping...');
@@ -444,10 +448,64 @@ export default function OSGhostPanel({ onClose, initialPrompt }) {
       addLog('VERIFICATION', `Validating final filesystem output. 5 files moved, ${filesCount} duplicate files sent to Trash.`);
       await wait(600);
       addLog('VERIFICATION', 'Task Completed Successfully. Returning system controls to User.');
-
-      setStatus('completed');
-      setRunning(false);
     }
+
+    // --- USER-ADDED PLAN MODIFICATIONS ---
+    if (planModifications.length > 0) {
+      addLog('ACTION', 'Executing user-added custom plan adjustments...');
+      await wait(800);
+      for (let i = 0; i < planModifications.length; i++) {
+        const mod = planModifications[i];
+        addLog('ACTION', `Executing custom step: "${mod}"`);
+        
+        if (/close|terminal|quit/i.test(mod)) {
+          if (showTerminalWindow) {
+            addLog('ACTION', 'Moving cursor to Terminal Close button [x: 665, y: 88]...');
+            setCursorPos({ x: 665, y: 88 });
+            await wait(1000);
+            setCursorClick(true);
+            await wait(100);
+            setCursorClick(false);
+            setShowTerminalWindow(false);
+            addLog('ACTION', 'click(left, single) -> Closed System Terminal window.');
+          } else {
+            addLog('ACTION', 'Terminal window already closed or not open.');
+          }
+        } else if (/dashboard|tab 1|switch tab/i.test(mod)) {
+          addLog('ACTION', 'Moving cursor to browser Tab 1: "CRM Dashboard" [x: 100, y: 40]...');
+          setCursorPos({ x: 100, y: 40 });
+          await wait(1000);
+          setCursorClick(true);
+          await wait(100);
+          setCursorClick(false);
+          setActiveBrowserTab(1);
+          addLog('ACTION', 'click(left, single) -> Switched active tab back to CRM Dashboard.');
+        } else if (/start|menu|close start/i.test(mod) && showStartMenu) {
+          addLog('ACTION', 'Moving cursor to Start Menu launcher button to close it [x: 28, y: 515]...');
+          setCursorPos({ x: 28, y: 515 });
+          await wait(1000);
+          setCursorClick(true);
+          await wait(100);
+          setCursorClick(false);
+          setShowStartMenu(false);
+          addLog('ACTION', 'click(left, single) -> Closed OS Start Menu Launcher.');
+        } else {
+          addLog('ACTION', 'Moving cursor to click icon or change tab dynamically...');
+          const targetX = 180 + (i * 60);
+          const targetY = 150 + (i * 40);
+          setCursorPos({ x: targetX, y: targetY });
+          await wait(1000);
+          setCursorClick(true);
+          await wait(100);
+          setCursorClick(false);
+          addLog('ACTION', `Completed custom step: "${mod}" successfully.`);
+        }
+        await wait(800);
+      }
+    }
+
+    setStatus('completed');
+    setRunning(false);
   };
 
   return (
@@ -637,7 +695,7 @@ export default function OSGhostPanel({ onClose, initialPrompt }) {
                 <h3 style={{ fontSize: '0.95rem', fontWeight: 800, margin: 0 }}>Safety Gates: Proposed Action List</h3>
               </div>
               <p style={{ fontSize: '0.75rem', color: '#cbd5e1', margin: 0, lineHeight: '1.4' }}>
-                System-level mouse inputs are currently frozen. Authorize the following operations before proceeding:
+                System-level mouse inputs are currently frozen. The AI cursor will execute automatically once authorized. Read the full plan below:
               </p>
               
               <div style={{
@@ -648,27 +706,27 @@ export default function OSGhostPanel({ onClose, initialPrompt }) {
                   <>
                     <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
                       <span style={{ color: '#ff9900' }}>•</span>
-                      <span>Create directory <b>/Documents/Acme_Corp</b></span>
+                      <span>Create directory <b>/Documents/Acme_Corp</b> <span style={{ color: '#94a3b8' }}>(AI cursor will automatically execute)</span></span>
                     </div>
                     <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
                       <span style={{ color: '#ff9900' }}>•</span>
-                      <span>Create directory <b>/Documents/Stark_Ind</b></span>
+                      <span>Create directory <b>/Documents/Stark_Ind</b> <span style={{ color: '#94a3b8' }}>(AI cursor will automatically execute)</span></span>
                     </div>
                     <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
                       <span style={{ color: '#ff9900' }}>•</span>
-                      <span>Create directory <b>/Documents/Creative</b></span>
+                      <span>Create directory <b>/Documents/Creative</b> <span style={{ color: '#94a3b8' }}>(AI cursor will automatically execute)</span></span>
                     </div>
                     <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
                       <span style={{ color: '#ff9900' }}>•</span>
-                      <span>Move 2 matching Acme Corp PDFs</span>
+                      <span>Move 2 matching Acme Corp PDFs <span style={{ color: '#94a3b8' }}>(AI cursor will automatically execute)</span></span>
                     </div>
                     <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
                       <span style={{ color: '#ff9900' }}>•</span>
-                      <span>Move 1 matching Stark Industries PDF</span>
+                      <span>Move 1 matching Stark Industries PDF <span style={{ color: '#94a3b8' }}>(AI cursor will automatically execute)</span></span>
                     </div>
                     <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
                       <span style={{ color: '#ff9900' }}>•</span>
-                      <span>Move 2 matching design images</span>
+                      <span>Move 2 matching design images <span style={{ color: '#94a3b8' }}>(AI cursor will automatically execute)</span></span>
                     </div>
                     <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start', flexDirection: 'column', width: '100%' }}>
                       <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
@@ -724,45 +782,110 @@ export default function OSGhostPanel({ onClose, initialPrompt }) {
                   <>
                     <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
                       <span style={{ color: '#ff9900' }}>•</span>
-                      <span>Locate Start Menu Launcher Button at bottom-left corner [x: 28, y: 515]</span>
+                      <span>Locate Start Menu Launcher Button at bottom-left corner [x: 28, y: 515] <span style={{ color: '#94a3b8' }}>(AI cursor will automatically click)</span></span>
                     </div>
                     <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
                       <span style={{ color: '#ff9900' }}>•</span>
-                      <span>Click Start Menu Button to reveal launcher shortcuts</span>
+                      <span>Click Start Menu Button to reveal launcher shortcuts <span style={{ color: '#94a3b8' }}>(AI cursor will automatically click)</span></span>
                     </div>
                     <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
                       <span style={{ color: '#ff9900' }}>•</span>
-                      <span>Identify 'System Terminal' list item at [x: 100, y: 440]</span>
+                      <span>Identify 'System Terminal' list item at [x: 100, y: 440] <span style={{ color: '#94a3b8' }}>(AI cursor will automatically click)</span></span>
                     </div>
                     <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
                       <span style={{ color: '#ff9900' }}>•</span>
-                      <span>Click launcher item to spawn simulated Windows PowerShell / Terminal instance</span>
+                      <span>Click launcher item to spawn simulated Windows PowerShell / Terminal instance <span style={{ color: '#94a3b8' }}>(AI cursor will automatically click)</span></span>
                     </div>
                     <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
                       <span style={{ color: '#2dd4bf' }}>•</span>
-                      <span>Verify terminal standard output is responsive</span>
+                      <span>Verify terminal standard output is responsive <span style={{ color: '#94a3b8' }}>(AI cursor will automatically execute)</span></span>
                     </div>
                   </>
                 ) : (
                   <>
                     <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
                       <span style={{ color: '#ff9900' }}>•</span>
-                      <span>Launch browser and load <b>crm.matrixmind.io</b></span>
+                      <span>Launch browser and load <b>crm.matrixmind.io</b> <span style={{ color: '#94a3b8' }}>(AI cursor will automatically execute)</span></span>
                     </div>
                     <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
                       <span style={{ color: '#ff9900' }}>•</span>
-                      <span>Navigate browser tab: click Tab 2 <b>'CRM Invoices'</b> [x: 240, y: 40]</span>
+                      <span>Navigate browser tab: click Tab 2 <b>'CRM Invoices'</b> [x: 240, y: 40] <span style={{ color: '#94a3b8' }}>(AI cursor will automatically click)</span></span>
                     </div>
                     <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
                       <span style={{ color: '#ff9900' }}>•</span>
-                      <span>Approve pending invoice for client <b>Acme Corp</b> [x: 620, y: 195]</span>
+                      <span>Approve pending invoice for client <b>Acme Corp</b> [x: 620, y: 195] <span style={{ color: '#94a3b8' }}>(AI cursor will automatically click)</span></span>
                     </div>
                     <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
                       <span style={{ color: '#2dd4bf' }}>•</span>
-                      <span>Verify invoice approval status badge & success banner</span>
+                      <span>Verify invoice approval status badge & success banner <span style={{ color: '#94a3b8' }}>(AI cursor will automatically execute)</span></span>
                     </div>
                   </>
                 )}
+
+                {/* Render custom user modifications */}
+                {planModifications.length > 0 && (
+                  <div style={{ marginTop: '8px', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '8px' }}>
+                    <span style={{ fontSize: '0.72rem', color: '#ff9900', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>
+                      Custom Additions:
+                    </span>
+                    {planModifications.map((mod, idx) => (
+                      <div key={idx} style={{ display: 'flex', gap: '6px', alignItems: 'flex-start', fontSize: '0.72rem', color: '#fff' }}>
+                        <span style={{ color: '#ff9900' }}>+</span>
+                        <span>{mod} <span style={{ color: '#94a3b8' }}>(AI will execute at the end)</span></span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Modification prompt box and dedicated OK button */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '4px' }}>
+                <span style={{ fontSize: '0.72rem', color: '#94a3b8', fontWeight: 'bold' }}>
+                  Add instructions or changes to the plan:
+                </span>
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  <input
+                    type="text"
+                    value={modificationInput}
+                    onChange={(e) => setModificationInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddModification();
+                      }
+                    }}
+                    placeholder="e.g. close terminal after running / switch back to Tab 1"
+                    style={{
+                      flex: 1,
+                      background: 'rgba(0,0,0,0.5)',
+                      border: '1px solid rgba(255, 153, 0, 0.3)',
+                      borderRadius: '4px',
+                      padding: '6px 10px',
+                      fontSize: '0.72rem',
+                      color: '#fff',
+                      outline: 'none'
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddModification}
+                    style={{
+                      background: 'rgba(255, 153, 0, 0.2)',
+                      border: '1px solid #ff9900',
+                      color: '#ff9900',
+                      borderRadius: '4px',
+                      padding: '4px 12px',
+                      fontSize: '0.72rem',
+                      fontWeight: 'bold',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s'
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255, 153, 0, 0.35)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255, 153, 0, 0.2)'; }}
+                  >
+                    OK / Add
+                  </button>
+                </div>
               </div>
 
               <button
