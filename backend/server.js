@@ -145,12 +145,11 @@ let dbInitData = {
       name: "Free",
       price: 0,
       prompts: 30,
-      featureLimits: { ppt: 3, mindmap: 5, matrix: 3, optimize: 3, masking: 5, interview: 3, workflow: 1, council: 1, leads: -1, graph: 5 },
+      featureLimits: { ppt: 3, mindmap: 5, matrix: 3, optimize: 3, masking: 5, workflow: 1, council: 1, leads: -1, graph: 5 },
       features: [
         "30 daily prompts limit",
         "All features unlocked (Trial)",
         "Data Masking (5/day)",
-        "Interview Mode (3/day)",
         "Workflow Sequencer (1/day)",
         "Council Room (1/day)",
         "PPT Generator (3/day)",
@@ -171,12 +170,11 @@ let dbInitData = {
       duration: "1 Month",
       days: 30,
       prompts: 100,
-      featureLimits: { ppt: 5, mindmap: 8, matrix: 5, optimize: 5, masking: 20, interview: 10, workflow: 0, council: 0, leads: 10, graph: 10 },
+      featureLimits: { ppt: 5, mindmap: 8, matrix: 5, optimize: 5, masking: 20, workflow: 0, council: 0, leads: 10, graph: 10 },
       features: [
         "100 daily prompts limit",
         "Standard processing priority",
         "Data Masking (20/day)",
-        "Interview Mode (10/day)",
         "PPT Generator (5/day)",
         "Mind Maps (8/day)",
         "Matrix Simulation (5/day)",
@@ -194,12 +192,11 @@ let dbInitData = {
       duration: "3 Months",
       days: 90,
       prompts: 150,
-      featureLimits: { ppt: 7, mindmap: 10, matrix: 10, optimize: 10, masking: 50, interview: 30, workflow: 10, council: 0, leads: 50, graph: 30 },
+      featureLimits: { ppt: 7, mindmap: 10, matrix: 10, optimize: 10, masking: 50, workflow: 10, council: 0, leads: 50, graph: 30 },
       features: [
         "150 daily prompts limit",
         "Better processing priority",
         "Data Masking (50/day)",
-        "Interview Mode (30/day)",
         "Workflow Sequencer (10/day)",
         "PPT Generator (7/day)",
         "Mind Maps (10/day)",
@@ -219,12 +216,11 @@ let dbInitData = {
       duration: "1 Year",
       days: 365,
       prompts: 200,
-      featureLimits: { ppt: 10, mindmap: 15, matrix: -1, optimize: -1, masking: -1, interview: -1, workflow: -1, council: -1, leads: -1, graph: -1 },
+      featureLimits: { ppt: 10, mindmap: 15, matrix: -1, optimize: -1, masking: -1, workflow: -1, council: -1, leads: -1, graph: -1 },
       features: [
         "200 daily prompts limit",
         "Maximum processing priority",
         "Data Masking (Unlimited)",
-        "Interview Mode (Unlimited)",
         "Workflow Sequencer (Unlimited)",
         "Council Room (Unlimited)",
         "PPT Generator (10/day)",
@@ -248,7 +244,6 @@ let dbInitData = {
     matrix: "Matrix Simulation",
     optimize: "Prompt Optimization",
     masking: "Data Masking",
-    interview: "Interview Mode",
     workflow: "Workflow Sequences",
     council: "AI Council Debates",
     leads: "Lead Generation",
@@ -597,14 +592,14 @@ function getOrCreateUser(email) {
       promptsUsed: 0,
       lastResetDate: today,
       planExpiry: null,
-      featureUsage: { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, interview: 0, workflow: 0, council: 0, leads: 0, graph: 0 }
+      featureUsage: { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, workflow: 0, council: 0, leads: 0, graph: 0 }
     };
     db.users[email] = user;
     writeDB(db);
   } else {
     // Ensure featureUsage field exists (for existing users)
     if (!user.featureUsage) {
-      user.featureUsage = { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, interview: 0, workflow: 0, council: 0, leads: 0, graph: 0 };
+      user.featureUsage = { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, workflow: 0, council: 0, leads: 0, graph: 0 };
     }
 
     // Check Plan Expiry
@@ -621,7 +616,7 @@ function getOrCreateUser(email) {
     // Daily Reset at Midnight (prompts + feature usage)
     if (user.lastResetDate !== today) {
       user.promptsUsed = 0;
-      user.featureUsage = { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, interview: 0, workflow: 0, council: 0, leads: 0, graph: 0 };
+      user.featureUsage = { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, workflow: 0, council: 0, leads: 0, graph: 0 };
       user.lastResetDate = today;
       db.users[email] = user;
       writeDB(db);
@@ -637,7 +632,7 @@ function checkFeatureLimit(email, feature) {
   const user = getOrCreateUser(email);
   const db = readDB();
   const planInfo = db.plans && db.plans[user.plan];
-  const limits = planInfo?.featureLimits || { ppt: 3, mindmap: 5, matrix: 3, optimize: 3, masking: 5, interview: 3, workflow: 1, council: 1, leads: -1, graph: 5 };
+  const limits = planInfo?.featureLimits || { ppt: 3, mindmap: 5, matrix: 3, optimize: 3, masking: 5, workflow: 1, council: 1, leads: -1, graph: 5 };
   const limit = limits[feature];
   const used = user.featureUsage?.[feature] || 0;
   
@@ -652,7 +647,7 @@ function incrementFeatureUsage(email, feature) {
   const db = readDB();
   const user = db.users[email];
   if (user) {
-    if (!user.featureUsage) user.featureUsage = { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, interview: 0, workflow: 0, council: 0, leads: 0, graph: 0 };
+    if (!user.featureUsage) user.featureUsage = { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, workflow: 0, council: 0, leads: 0, graph: 0 };
     user.featureUsage[feature] = (user.featureUsage[feature] || 0) + 1;
     db.users[email] = user;
     writeDB(db);
@@ -702,7 +697,7 @@ app.post('/api/user/status', async (req, res) => {
   const db = readDB();
   const planInfo = db.plans && db.plans[user.plan];
   const userLimit = planInfo ? planInfo.prompts : (user.plan === 'free' ? 30 : 100);
-  const featureLimits = planInfo?.featureLimits || { ppt: 3, mindmap: 5, matrix: 3, optimize: 3, masking: 5, interview: 3, workflow: 1, council: 1, leads: -1, graph: 5 };
+  const featureLimits = planInfo?.featureLimits || { ppt: 3, mindmap: 5, matrix: 3, optimize: 3, masking: 5, workflow: 1, council: 1, leads: -1, graph: 5 };
   const isAdmin = email === ADMIN_EMAIL;
   
   res.json({
@@ -711,8 +706,8 @@ app.post('/api/user/status', async (req, res) => {
     promptsUsed: user.promptsUsed,
     limit: userLimit,
     expiry: user.planExpiry,
-    featureUsage: isAdmin ? { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, interview: 0, workflow: 0, council: 0, leads: 0, graph: 0 } : (user.featureUsage || { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, interview: 0, workflow: 0, council: 0, leads: 0, graph: 0 }),
-    featureLimits: isAdmin ? { ppt: -1, mindmap: -1, matrix: -1, optimize: -1, masking: -1, interview: -1, workflow: -1, council: -1, leads: -1, graph: -1 } : featureLimits
+    featureUsage: isAdmin ? { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, workflow: 0, council: 0, leads: 0, graph: 0 } : (user.featureUsage || { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, workflow: 0, council: 0, leads: 0, graph: 0 }),
+    featureLimits: isAdmin ? { ppt: -1, mindmap: -1, matrix: -1, optimize: -1, masking: -1, workflow: -1, council: -1, leads: -1, graph: -1 } : featureLimits
   });
 });
 
@@ -1946,193 +1941,6 @@ Use clear headers, structured tables/lists, and detailed recommendations. Make i
   } catch (error) {
     console.error('[WORKFLOW] Consolidation error:', error.message);
     res.status(500).json({ error: 'Failed to consolidate workflow report.' });
-  }
-});
-
-// ==================== INTERVIEW MODE (REVERSE PROMPTING) ====================
-app.post('/api/chat/interview/start', async (req, res) => {
-  await waitForFirebase();
-  const { email, message, personality } = req.body;
-  if (!email || !message) return res.status(400).json({ error: 'Email and message are required.' });
-
-  const check = checkFeatureLimit(email, 'interview');
-  if (!check.allowed) {
-    return res.status(403).json({ error: 'FEATURE_LIMIT', message: `Interview Mode daily limit reached (${check.used}/${check.limit}). Upgrade your plan for more.` });
-  }
-
-  // Check Plan limits
-  const db = readDB();
-  const user = getOrCreateUser(email);
-  const planInfo = db.plans && db.plans[user.plan];
-  const userLimit = planInfo ? planInfo.prompts : (user.plan === 'free' ? 30 : 100);
-  const isAdmin = email === ADMIN_EMAIL;
-
-  if (!isAdmin && Number(userLimit) !== -1 && user.promptsUsed >= Number(userLimit)) {
-    return res.status(403).json({
-      error: 'LIMIT_EXCEEDED',
-      message: `You have reached your daily limit of ${userLimit} prompts. Please upgrade your plan.`
-    });
-  }
-
-  const config = readConfig();
-  if (!config?.keys?.length) return res.status(500).json({ error: 'AI not configured.' });
-
-  try {
-    const analysisPrompt = `You are a diagnostic prompt analyzer. The user wants to write a prompt or run a request, but it is vague:
-"${message.substring(0, 500)}"
-
-Identify exactly 3 critical missing parameters/constraints required to produce a highly customized, functional, and flawless solution on the first try.
-Generate exactly 3 questions in a questionnaire.
-Each question type must be one of:
-- 'select' (a single-choice dropdown menu)
-- 'checkbox' (multiple choice checklist)
-- 'radio' (single-choice radio button list)
-
-Return a JSON object with this EXACT format. Do not use markdown, do not wrap in code blocks, do not add introductory text. ONLY output valid raw JSON:
-{
-  "questions": [
-    {
-      "id": "param_1",
-      "type": "select",
-      "label": "[Question text, e.g. Target Operating System?]",
-      "options": ["Windows", "macOS", "Linux"]
-    },
-    {
-      "id": "param_2",
-      "type": "checkbox",
-      "label": "[Question text, e.g. What categories should be processed?]",
-      "options": ["Extensions (.pdf, .zip)", "Creation Date", "File Size"]
-    },
-    {
-      "id": "param_3",
-      "type": "radio",
-      "label": "[Question text, e.g. How to handle existing duplicates?]",
-      "options": ["Auto-rename suffix", "Overwrite files", "Skip duplicates"]
-    }
-  ]
-}`;
-
-    const contents = [{ role: 'user', parts: [{ text: analysisPrompt }] }];
-    const raw = await queryGeminiAPI(config.keys, contents, 'You are a JSON generator. Return only a valid JSON object.');
-    
-    let parsed;
-    try {
-      const cleaned = raw.replace(/```json/gi, '').replace(/```/g, '').trim();
-      // Handle edge cases where the AI replies with text before the JSON
-      const firstBrace = cleaned.indexOf('{');
-      const lastBrace = cleaned.lastIndexOf('}');
-      if (firstBrace >= 0 && lastBrace >= 0) {
-        parsed = JSON.parse(cleaned.substring(firstBrace, lastBrace + 1));
-      } else {
-        throw new Error("No JSON object found");
-      }
-    } catch (e) {
-      // Fallback questionnaire if parsing fails
-      parsed = {
-        questions: [
-          { id: 'param_1', type: 'select', label: 'Target Operating System?', options: ['Windows', 'macOS', 'Linux'] },
-          { id: 'param_2', type: 'checkbox', label: 'File Categorization Rule?', options: ['By Extension (.pdf, .jpg)', 'By Creation Date', 'By File Size'] },
-          { id: 'param_3', type: 'radio', label: 'Duplicate File Action?', options: ['Auto-rename with suffix', 'Overwrite', 'Skip file'] }
-        ]
-      };
-    }
-
-    incrementFeatureUsage(email, 'interview');
-    res.json({ success: true, questions: parsed.questions });
-  } catch (error) {
-    console.error('[INTERVIEW] Start error:', error.message);
-    res.status(500).json({ error: 'Failed to generate diagnostic questions.' });
-  }
-});
-
-// Track Standalone Feature Usage (e.g. Local Data Masking)
-app.post('/api/feature/track', (req, res) => {
-  const { email, feature } = req.body;
-  if (!email || !feature) return res.status(400).json({ error: 'Email and feature required.' });
-
-  const check = checkFeatureLimit(email, feature);
-  if (!check.allowed) {
-    return res.status(403).json({ error: 'FEATURE_LIMIT', message: `Daily limit reached for ${feature} (${check.used}/${check.limit}). Upgrade your plan for more.` });
-  }
-
-  incrementFeatureUsage(email, feature);
-  res.json({ success: true, used: check.used + 1, limit: check.limit });
-});
-
-app.post('/api/chat/interview/submit', async (req, res) => {
-  await waitForFirebase();
-  const { email, originalPrompt, answers, history, personality } = req.body;
-  if (!email || !originalPrompt || !answers) return res.status(400).json({ error: 'Missing required parameters.' });
-
-  // Check Plan limits
-  const db = readDB();
-  const user = getOrCreateUser(email);
-  const planInfo = db.plans && db.plans[user.plan];
-  const userLimit = planInfo ? planInfo.prompts : (user.plan === 'free' ? 30 : 100);
-  const isAdmin = email === ADMIN_EMAIL;
-
-  if (!isAdmin && Number(userLimit) !== -1 && user.promptsUsed >= Number(userLimit)) {
-    return res.status(403).json({
-      error: 'LIMIT_EXCEEDED',
-      message: `You have reached your daily limit of ${userLimit} prompts. Please upgrade your plan.`
-    });
-  }
-
-  const config = readConfig();
-  if (!config?.keys?.length) return res.status(500).json({ error: 'AI not configured.' });
-
-  try {
-    // Format answers summary
-    const summary = answers.map(ans => `- **${ans.label}**: ${Array.isArray(ans.selection) ? ans.selection.join(', ') : ans.selection}`).join('\n');
-
-    let finalPrompt = `The user originally requested: "${originalPrompt}"
-To resolve prompt ambiguity, the user has completed a diagnostic questionnaire and selected these parameters:
-${summary}
-
-Based on these specific variables, please output a flawless, custom-tailored solution. If code or scripts are requested, write complete, production-ready, error-free code that targets these choices perfectly.`;
-
-    // Implement standard personality behavior
-    let systemInstruction = "You are MatrixMind, a super advanced, friendly AI Assistant. ";
-    if (personality === 'architect') {
-      systemInstruction += "You are currently in ARCHITECT mode. You are a senior-level technical Architect and full-stack developer. You must write complete, functional, production-ready code with no shortcuts. Explain sections, integrations, and dependencies. ";
-    } else if (personality === 'analyst') {
-      systemInstruction += "You are currently in ANALYST mode. You are a data Analyst and statistician. Answer step-by-step using tables, lists, and numbers. ";
-    } else {
-      systemInstruction += "You are currently in STANDARD mode. A general-purpose assistant. If they ask for programming scripts, advise them to switch to Architect mode; however, since they completed the diagnostic parameters, provide a high-level explanation and code guidelines matching their choices. MANDATORY LINKS RULE: At the VERY END of your response, you MUST append a section titled '**?? Official Sources & References:**' providing 2-5 valid, authentic, clickable markdown links relevant to the topic. NEVER skip this rule.";
-    }
-
-    systemInstruction += ' MANDATORY LINKS RULE: At the VERY END of your response, you MUST append a section titled \'**?? Official Sources & References:**\' providing 2-5 valid, authentic, clickable markdown links relevant to the topic. NEVER skip this rule.';
-    const contents = [];
-    if (history && Array.isArray(history)) {
-      history.forEach(item => {
-        contents.push({
-          role: item.sender === 'user' ? 'user' : 'model',
-          parts: [{ text: item.text }]
-        });
-      });
-    }
-
-    contents.push({
-      role: 'user',
-      parts: [{ text: finalPrompt }]
-    });
-
-    const aiResponse = await queryGeminiAPI(config.keys, contents, systemInstruction);
-
-    // Charge 1 prompt limit
-    user.promptsUsed += 1;
-    db.users[email] = user;
-    writeDB(db);
-
-    res.json({
-      success: true,
-      response: aiResponse,
-      promptsUsed: user.promptsUsed,
-      limit: userLimit
-    });
-  } catch (error) {
-    console.error('[INTERVIEW] Submit error:', error.message);
-    res.status(500).json({ error: 'Failed to compile optimized solution.' });
   }
 });
 
