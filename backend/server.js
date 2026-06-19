@@ -1176,6 +1176,83 @@ app.get('/api/apps/serve/:id', (req, res) => {
   res.send(htmlCode);
 });
 
+function detectLanguage(message, history) {
+  const msgLower = message.toLowerCase();
+  
+  // 1. Explicit english requests
+  if (/\bin\s+english\b/i.test(msgLower) || /\benglish\s+me\b/i.test(msgLower) || /\benglish\s+mein\b/i.test(msgLower)) {
+    return 'english';
+  }
+  
+  // 2. Explicit hindi requests
+  if (/\bin\s+hindi\b/i.test(msgLower) || /\bhindi\s+me\b/i.test(msgLower) || /\bhindi\s+mein\b/i.test(msgLower)) {
+    return 'hindi';
+  }
+
+  // 3. Devanagari character range check
+  const hasDevanagari = /[\u0900-\u097F]/.test(message);
+  if (hasDevanagari) {
+    return 'hindi';
+  }
+
+  // 4. Hinglish patterns
+  const hinglishPatterns = [
+    /\bkya\b/i, /\bhai\b/i, /\bhain\b/i, /\bko\b/i, /\bka\b/i, /\bki\b/i, /\bke\b/i,
+    /\bbanao\b/i, /\bkaise\b/i, /\bkyun\b/i, /\bkyon\b/i, /\bbatao\b/i, /\bsamjhao\b/i,
+    /\bkar\b/i, /\bkaro\b/i, /\bkarte\b/i, /\bkrna\b/i, /\bkarna\b/i, /\bhota\b/i,
+    /\bhoti\b/i, /\bhote\b/i, /\bse\b/i, /\bme\b/i, /\bmein\b/i, /\bpar\b/i, /\bpe\b/i,
+    /\bek\b/i, /\bhi\b/i, /\btoh\b/i, /\bto\b/i, /\btha\b/i, /\bthi\b/i, /\bthe\b/i,
+    /\braha\b/i, /\brahi\b/i, /\brahe\b/i, /\bho\b/i, /\bgaya\b/i, /\bgayi\b/i, /\bgaye\b/i,
+    /\bbanaen\b/i, /\bbanaiye\b/i, /\bchahiye\b/i, /\bkijiye\b/i, /\bkr\b/i, /\bbaat\b/i
+  ];
+  const isHinglish = hinglishPatterns.some(pattern => pattern.test(msgLower));
+  if (isHinglish) {
+    return 'hindi';
+  }
+
+  const isContinuation = [
+    'explain', 'explain it', 'more', 'tell me more', 'elaborate', 'go on', 'details',
+    'why', 'how', 'continue', 'proceed', 'next', 'ok', 'okay', 'yes', 'no', 'sure', 'fine'
+  ].includes(message.trim().toLowerCase());
+
+  // 5. English question indicators
+  const englishQuestionIndicators = [
+    /\bwhat\b/i, /\bhow\b/i, /\bwhy\b/i, /\bwho\b/i, /\bwhen\b/i, /\bwhere\b/i,
+    /\bexplain\b/i, /\bdefine\b/i, /\bdescribe\b/i, /\bphysics\b/i, /\bscience\b/i,
+    /\bwrite\b/i, /\bcode\b/i, /\bcreate\b/i, /\bgenerate\b/i, /\bshow\b/i, /\bgive\b/i,
+    /\bwhat's\b/i
+  ];
+  const isEnglishQuestion = !isContinuation && englishQuestionIndicators.some(p => p.test(msgLower));
+  if (isEnglishQuestion) {
+    return 'english';
+  }
+
+  // 6. Check history for continuous 4 times Hindi/Hinglish
+  let consecutiveHindiCount = 0;
+  if (history && Array.isArray(history)) {
+    const userHistory = history.filter(h => h.sender === 'user');
+    for (let i = userHistory.length - 1; i >= 0; i--) {
+      const txt = userHistory[i].text;
+      const txtLower = txt.toLowerCase();
+      const histDevanagari = /[\u0900-\u097F]/.test(txt);
+      const histHinglish = hinglishPatterns.some(pattern => pattern.test(txtLower)) || /\bin\s+hindi\b/i.test(txtLower) || /\bhindi\s+me\b/i.test(txtLower) || /\bhindi\s+mein\b/i.test(txtLower);
+      const histEnglish = /\bin\s+english\b/i.test(txtLower) || /\benglish\s+me\b/i.test(txtLower) || /\benglish\s+mein\b/i.test(txtLower);
+      
+      if ((histDevanagari || histHinglish) && !histEnglish) {
+        consecutiveHindiCount++;
+      } else {
+        break;
+      }
+    }
+  }
+
+  if (consecutiveHindiCount >= 4) {
+    return 'hindi';
+  }
+
+  return 'english';
+}
+
 // Main Chat AI Endpoint
 app.post('/api/chat', async (req, res) => {
   let config = readConfig();
@@ -1396,16 +1473,36 @@ User's original raw query: ${message}`;
 
       // Safety and language instruction
       systemInstruction += "SAFETY: Politely handle or refuse adult queries, illegal activities, or copyright infringement requests. Keep your content safe and appropriate for users of all ages. ";
-      systemInstruction += "LANGUAGE AND CITATION: If the user asks in English, answer in English. If in Hinglish, answer in Hinglish. ";
+      
+      // Dynamic language rules
+      const detectedLang = detectLanguage(message, history);
+      if (detectedLang === 'hindi') {
+        systemInstruction += "STRICT LANGUAGE RULE: You MUST reply STRICTLY in Hindi (using Hindi Devanagari script characters, e.g., 'भौतिक विज्ञान एक...'). Do NOT reply in English or Hinglish (Romanized Hindi). Translate all explanations to Hindi. ";
+      } else {
+        systemInstruction += "STRICT LANGUAGE RULE: You MUST reply ONLY in English. Do NOT reply in Hindi or Hinglish under any circumstances. ";
+      }
+
+      // Mind map / Visual diagram instructions
+      const wantsDiagram = /mind\s*map|diagram|flow\s*chart|block\s*diagram|tree|chart|graph|map/i.test(message);
+      if (wantsDiagram) {
+        if (detectedLang === 'hindi') {
+          systemInstruction += "VISUAL DIAGRAMS RULE: You MUST generate a Mermaid.js diagram (such as mindmap, graph TD, flowchart LR, etc.) inside a ```mermaid code block. You MUST write all diagram node labels specifically in the Hindi language using Hindi Devanagari letters (e.g., root((\"विषय\")) or A[\"सौर मंडल\"]). Do NOT write node labels in English. ";
+        } else {
+          systemInstruction += "VISUAL DIAGRAMS RULE: You MUST generate a Mermaid.js diagram (such as mindmap, graph TD, flowchart LR, etc.) inside a ```mermaid code block. You MUST write all diagram node labels specifically in the English language. ";
+        }
+        
+        systemInstruction += "Follow these STRICT Mermaid rules: ";
+        systemInstruction += "1. Use ONLY these diagram types: graph TD, graph LR, mindmap, flowchart TD, flowchart LR, sequenceDiagram, classDiagram, pie. ";
+        systemInstruction += "2. Keep node labels SHORT (under 30 chars). Use quotes around labels with special characters: A[\"Label (info)\"]. ";
+        systemInstruction += "3. Do NOT use HTML tags in labels. Do NOT use emojis in node IDs. ";
+        systemInstruction += "4. For mind maps use: ```mermaid\\nmindmap\\n  root((Topic))\\n    Branch1\\n      Sub1\\n    Branch2\\n      Sub2\\n```. ";
+        systemInstruction += "5. Always produce VALID Mermaid syntax that renders without errors. Test your output mentally before writing. ";
+      } else {
+        systemInstruction += "STRICT VISUAL DIAGRAMS RULE: Do NOT generate any Mermaid.js diagrams, flowcharts, mind maps, or visual graphs under any circumstances. You were not asked for one, and including one would be a failure. ";
+      }
+
+      systemInstruction += "RESPONSE SPEED: Keep your response concise yet complete. Respond within a single message. Do not split answers across multiple messages. ";
       systemInstruction += "MANDATORY LINKS RULE (CRITICAL — NEVER SKIP): At the VERY END of EVERY single response, regardless of mode (normal, optimize, matrix simulation, or any other), you MUST include a section titled '**📎 Official Sources & References:**' containing 2-5 real, authentic, official clickable links relevant to the topic discussed. Format as markdown: [Website Name](https://url). Examples: Wikipedia, official docs, government sites, reputable news outlets. This section is ABSOLUTELY REQUIRED in every response without exception. If you skip this section, the response is considered INCOMPLETE and FAILED. NEVER use fake or made-up URLs. ";
-      systemInstruction += "VISUAL DIAGRAMS RULE: You must ONLY generate Mermaid.js diagrams when the user EXPLICITLY asks for a mind map, diagram, flowchart, block diagram, tree, chart, or graph. Do NOT include diagrams in regular answers. When diagrams ARE requested, use Mermaid.js syntax inside a ```mermaid code block. Follow these STRICT Mermaid rules: ";
-      systemInstruction += "1. Use ONLY these diagram types: graph TD, graph LR, mindmap, flowchart TD, flowchart LR, sequenceDiagram, classDiagram, pie. ";
-      systemInstruction += "2. Keep node labels SHORT (under 30 chars). Use quotes around labels with special characters: A[\"Label (info)\"]. ";
-      systemInstruction += "3. Do NOT use HTML tags in labels. Do NOT use emojis in node IDs. ";
-      systemInstruction += "4. For mind maps use: ```mermaid\\nmindmap\\n  root((Topic))\\n    Branch1\\n      Sub1\\n    Branch2\\n      Sub2\\n```. ";
-      systemInstruction += "5. Always produce VALID Mermaid syntax that renders without errors. Test your output mentally before writing. ";
-      systemInstruction += "RESPONSE SPEED: Keep your response concise yet complete. Respond within a single message. Do not split answers across multiple messages.";
-      systemInstruction += " MANDATORY LINKS RULE: At the VERY END of your response, you MUST append a section titled '**📎 Official Sources & References:**' providing 2-5 valid, authentic, clickable markdown links relevant to the topic. NEVER skip this rule.";
 
     // D. BIND CHAT HISTORY
     const contents = [];
