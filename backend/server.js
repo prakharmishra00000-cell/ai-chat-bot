@@ -454,7 +454,10 @@ function initFirebase() {
           } else {
             // Normal operation: deep merge to preserve local admin settings with Firebase as source of truth
             const localDB = globalDB || readLocalDB();
-            if (localDB.plans && val.plans) {
+            
+            // Protect plans from getting wiped out if missing in Firebase (val.plans is undefined)
+            if (localDB.plans) {
+              if (!val.plans) val.plans = {};
               Object.keys(localDB.plans).forEach(planKey => {
                 if (val.plans[planKey]) {
                   // Firebase (val) takes precedence over local defaults (localDB)
@@ -465,7 +468,9 @@ function initFirebase() {
               });
             }
             
-            if (localDB.users && val.users) {
+            // Protect users list
+            if (localDB.users) {
+              if (!val.users) val.users = {};
               Object.keys(localDB.users).forEach(userKey => {
                 if (!val.users[userKey]) {
                   val.users[userKey] = localDB.users[userKey];
@@ -473,6 +478,7 @@ function initFirebase() {
               });
             }
             
+            // Protect featureNames
             if (localDB.featureNames) {
               if (val.featureNames) {
                 val.featureNames = { ...localDB.featureNames, ...val.featureNames };
@@ -480,6 +486,13 @@ function initFirebase() {
                 val.featureNames = localDB.featureNames;
               }
             }
+
+            // Protect other database schema arrays/objects from being deleted
+            if (!val.transactions) val.transactions = localDB.transactions || [];
+            if (!val.visits) val.visits = localDB.visits || {};
+            if (!val.anonymousVisits) val.anonymousVisits = localDB.anonymousVisits || {};
+            if (!val.supportQueries) val.supportQueries = localDB.supportQueries || [];
+            if (!val.pendingApprovals) val.pendingApprovals = localDB.pendingApprovals || [];
           }
           
           globalDB = val;
@@ -493,6 +506,7 @@ function initFirebase() {
           if (!globalDB) globalDB = readLocalDB();
           const initialPayload = { ...globalDB, _config: readConfig() || {} };
           getDatabase().ref('/').set(initialPayload);
+          dbIsHardcodedSeed = false; // Disable hardcoded seed flag to enable writing updates to Firebase
         }
         firebaseFirstLoadComplete = true;
       });
