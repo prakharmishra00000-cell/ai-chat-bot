@@ -3111,7 +3111,21 @@ app.use(express.static(distPath));
 app.get('*', (req, res) => {
   const indexPath = path.join(distPath, 'index.html');
   if (fs.existsSync(indexPath)) {
-    res.sendFile(indexPath);
+    try {
+      let html = fs.readFileSync(indexPath, 'utf8');
+      const protocol = req.secure || req.headers['x-forwarded-proto'] === 'https' ? 'https' : 'http';
+      const host = req.get('host') || 'ai-chat-bot-gykb.onrender.com';
+      const absoluteLogoUrl = `${protocol}://${host}/matrixmind-logo.jpg`;
+      
+      // Inject absolute paths for social sharing cards & browser icons
+      html = html.replace(/content="\/matrixmind-logo\.jpg"/g, `content="${absoluteLogoUrl}"`);
+      html = html.replace(/href="\/matrixmind-logo\.jpg"/g, `href="${absoluteLogoUrl}"`);
+      
+      res.send(html);
+    } catch (err) {
+      console.error('Error reading index.html:', err);
+      res.sendFile(indexPath);
+    }
   } else {
     res.send('Server is active. Frontend is not built yet. Please run npm run build inside the frontend directory.');
   }
