@@ -541,10 +541,12 @@ app.post('/api/setup', (req, res) => {
   if (cleanKeys.length === 0) {
     return res.status(400).json({ error: 'At least one valid Gemini API Key is required.' });
   }
+  // Preserve existing payment settings from previous config
+  const existingConfig = readConfig() || {};
   const success = writeConfig({
     keys: cleanKeys,
-    RECEIVER_UPI_ID: '6372843175@kotakbank',
-    RECEIVER_NAME: 'Prakhar Mishra',
+    RECEIVER_UPI_ID: existingConfig.RECEIVER_UPI_ID || '6372843175@kotakbank',
+    RECEIVER_NAME: existingConfig.RECEIVER_NAME || 'Prakhar Mishra',
     googleClientId: googleClientId || '',
     adminUsername,
     adminPassword,
