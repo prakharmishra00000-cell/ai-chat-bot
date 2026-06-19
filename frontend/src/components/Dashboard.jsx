@@ -602,6 +602,8 @@ function Dashboard({
       const currentChat = conversations.find(c => c.id === activeChatId);
       if (!currentChat) return;
 
+      const originalRawInput = textToSend;
+
       const userMsg = {
         id: 'msg_user_' + Date.now(),
         sender: 'user',
@@ -638,14 +640,23 @@ function Dashboard({
           targetScenario = 'start_menu';
         }
 
-        // If it's a modification (currentOsPlan exists)
+        // Reconstruct planModifications from actual conversation messages
+        const newMods = [];
+        let foundInitial = false;
+        for (const msg of updatedMessages) {
+          if (msg.sender === 'user') {
+            if (foundInitial) {
+              newMods.push(msg.text);
+            } else {
+              foundInitial = true;
+            }
+          }
+        }
+        setPlanModifications(newMods);
+
         let newSteps = [];
-        let newMods = [...planModifications];
-        
-        if (currentOsPlan && currentOsPlan.scenario === targetScenario) {
+        if (newMods.length > 0) {
           newSteps = [...currentOsPlan.steps];
-          newMods.push(originalRawInput);
-          setPlanModifications(newMods);
         } else {
           // Initial plan generation
           if (targetScenario === 'browser') {
@@ -673,8 +684,6 @@ function Dashboard({
               "Move 2 matching design images (AI cursor will automatically execute)"
             ];
           }
-          newMods = [];
-          setPlanModifications([]);
         }
 
         const planObj = {
