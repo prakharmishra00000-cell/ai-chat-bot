@@ -2197,7 +2197,7 @@ app.get('/api/plans', async (req, res) => {
 });
 
 // UPDATE SUBSCRIPTION PLANS ENDPOINT (ADMIN ONLY)
-app.post('/api/plans/update', (req, res) => {
+app.post('/api/plans/update', async (req, res) => {
   const { email, plans, featureNames } = req.body;
   if (email !== 'prakharmishra00000@gmail.com') {
     return res.status(401).json({ error: 'UNAUTHORIZED' });
@@ -2219,7 +2219,22 @@ app.post('/api/plans/update', (req, res) => {
   if (featureNames) {
     db.featureNames = featureNames;
   }
-  writeDB(db);
+  
+  // Explicitly write to Firebase to guarantee persistence before returning success
+  globalDB = db;
+  try {
+    fs.writeFileSync(DB_PATH, JSON.stringify(db, null, 2), 'utf8');
+  } catch (e) { }
+
+  if (firebaseInitialized && firebaseFirstLoadComplete) {
+    try {
+      await getDatabase().ref('/').set(db);
+      console.log('[FIREBASE] Plans updated successfully in cloud.');
+    } catch (err) {
+      console.error('[FIREBASE] Failed to update plans:', err);
+    }
+  }
+  
   res.json({ success: true, message: 'Plans updated successfully.' });
 });
 

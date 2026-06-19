@@ -16,7 +16,14 @@ function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [view, setView] = useState('login'); // 'login', 'chat', 'admin', 'legal'
   const [legalType, setLegalType] = useState('tos'); // 'tos', 'privacy'
-  const [theme, setTheme] = useState(localStorage.getItem('theme') || 'default');
+  const [theme, setTheme] = useState(() => {
+    const saved = localStorage.getItem('theme');
+    const validThemes = [
+      'cosmic-web', 'deep-field', 'calm-nebula', 'milky-way', 'hyperspace',
+      'space-aurora', 'event-horizon', 'binary-stars', 'planetary-rings', 'deep-space'
+    ];
+    return validThemes.includes(saved) ? saved : 'cosmic-web';
+  });
   const [isOwnerSecured, setIsOwnerSecured] = useState(false);
   const [nextViewAfterOwnerSecured, setNextViewAfterOwnerSecured] = useState('');
   
@@ -166,7 +173,7 @@ function App() {
   return (
     <div className={`app-container theme-${theme}`}>
       {/* GLOBAL 3D BACKGROUND (Visible on Login, Dashboard, Subscription, etc.) */}
-      <SpaceBackground />
+      <SpaceBackground theme={theme} />
 
       {view === 'setup' && (
         <Setup 

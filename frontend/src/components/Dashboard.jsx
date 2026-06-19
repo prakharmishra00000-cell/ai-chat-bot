@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   Menu, X, Plus, Search, Trash2, Send, Mic, Paperclip, 
   Camera, FileText, Image, Download, RotateCcw, ShieldCheck, 
-  BrainCircuit, LayoutGrid, Terminal, HelpCircle, Check, Info, LogOut, Shield, Users, Cpu, Play, Loader2, Code, MonitorPlay, Share2
+  BrainCircuit, LayoutGrid, Terminal, HelpCircle, Check, Info, LogOut, Shield, Users, Cpu, Play, Loader2, Code, MonitorPlay, Share2, Orbit
 } from 'lucide-react';
 import mermaid from 'mermaid';
 import CouncilRoom from './CouncilRoom';
@@ -66,6 +66,19 @@ function MermaidChart({ chartCode }) {
   );
 }
 
+const themeOptions = [
+  { value: 'cosmic-web', label: 'Cosmic Web', color: '#00f2fe', bg: '#05050e' },
+  { value: 'deep-field', label: 'Deep Field', color: '#ffaa55', bg: '#07080a' },
+  { value: 'calm-nebula', label: 'Calm Nebula', color: '#ff00ff', bg: '#09040e' },
+  { value: 'milky-way', label: 'Milky Way', color: '#ffddaa', bg: '#0a0806' },
+  { value: 'hyperspace', label: 'Hyperspace', color: '#88ccff', bg: '#020204' },
+  { value: 'space-aurora', label: 'Space Aurora', color: '#00ff88', bg: '#020806' },
+  { value: 'event-horizon', label: 'Event Horizon', color: '#ff5500', bg: '#060505' },
+  { value: 'binary-stars', label: 'Binary Stars', color: '#aaccff', bg: '#04060c' },
+  { value: 'planetary-rings', label: 'Planetary Rings', color: '#8899aa', bg: '#080808' },
+  { value: 'deep-space', label: 'Deep Space', color: '#ffffff', bg: '#030303' }
+];
+
 function Dashboard({ 
   currentUser, 
   userPlanDetails, 
@@ -83,6 +96,7 @@ function Dashboard({
   
   // Search bar for filtering chats
   const [chatSearchQuery, setChatSearchQuery] = useState('');
+  const [themeDropdownOpen, setThemeDropdownOpen] = useState(false);
 
   // Prompt states
   const [promptInput, setPromptInput] = useState('');
@@ -969,10 +983,106 @@ function Dashboard({
 
         <div className="sidebar-footer">
           {/* Theme switcher */}
-          <div className="theme-switcher">
-            <button className={`theme-btn ${theme === 'default' ? 'active' : ''}`} onClick={() => setTheme('default')}>Dark</button>
-            <button className={`theme-btn ${theme === 'cyberpunk' ? 'active' : ''}`} onClick={() => setTheme('cyberpunk')}>Cyber</button>
-            <button className={`theme-btn ${theme === 'light-aurora' ? 'active' : ''}`} onClick={() => setTheme('light-aurora')}>Light</button>
+          <div className="theme-dropdown-container" style={{ position: 'relative', width: '100%', marginBottom: '5px' }}>
+            <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px', display: 'block' }}>
+              Stellar Theme
+            </label>
+            <button 
+              className="btn btn-secondary" 
+              onClick={() => setThemeDropdownOpen(!themeDropdownOpen)}
+              style={{ 
+                width: '100%', 
+                padding: '10px 14px', 
+                fontSize: '0.85rem', 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'space-between',
+                borderColor: 'var(--border-glass)',
+                background: 'rgba(0,0,0,0.3)',
+                textAlign: 'left'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Orbit size={16} color={themeOptions.find(o => o.value === theme)?.color || '#00f2fe'} />
+                <span>{themeOptions.find(o => o.value === theme)?.label || 'Cosmic Web'}</span>
+              </div>
+              <span style={{ fontSize: '0.7rem', opacity: 0.6 }}>▼</span>
+            </button>
+            
+            {themeDropdownOpen && (
+              <>
+                <div 
+                  style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999 }}
+                  onClick={() => setThemeDropdownOpen(false)}
+                />
+                <div 
+                  className="glass-panel" 
+                  style={{ 
+                    position: 'absolute', 
+                    bottom: '100%', 
+                    left: 0, 
+                    right: 0, 
+                    marginBottom: '8px', 
+                    maxHeight: '260px', 
+                    overflowY: 'auto', 
+                    zIndex: 1000,
+                    borderRadius: 'var(--radius-md)',
+                    border: '1px solid var(--border-glass)',
+                    background: 'rgba(10, 15, 30, 0.95)',
+                    padding: '6px'
+                  }}
+                >
+                  {themeOptions.map((opt) => (
+                    <button
+                      key={opt.value}
+                      onClick={() => {
+                        setTheme(opt.value);
+                        setThemeDropdownOpen(false);
+                      }}
+                      style={{
+                        width: '100%',
+                        padding: '10px 12px',
+                        background: theme === opt.value ? 'rgba(255,255,255,0.08)' : 'transparent',
+                        border: 'none',
+                        color: theme === opt.value ? 'var(--text-main)' : 'var(--text-muted)',
+                        borderRadius: 'var(--radius-sm)',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        fontSize: '0.85rem',
+                        transition: 'var(--transition-smooth)'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
+                        e.currentTarget.style.color = 'var(--text-main)';
+                      }}
+                      onMouseLeave={(e) => {
+                        if (theme !== opt.value) {
+                          e.currentTarget.style.background = 'transparent';
+                          e.currentTarget.style.color = 'var(--text-muted)';
+                        } else {
+                          e.currentTarget.style.background = 'rgba(255,255,255,0.08)';
+                          e.currentTarget.style.color = 'var(--text-main)';
+                        }
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ 
+                          width: '10px', 
+                          height: '10px', 
+                          borderRadius: '50%', 
+                          background: opt.color,
+                          boxShadow: `0 0 8px ${opt.color}`
+                        }} />
+                        <span>{opt.label}</span>
+                      </div>
+                      {theme === opt.value && <Check size={14} color="var(--accent-cyan)" />}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
 
           {/* Help & Support button */}

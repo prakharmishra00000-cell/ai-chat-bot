@@ -238,33 +238,51 @@ const THEMES = [
   ThemeDeepSpaceSilence
 ];
 
-function SceneManager({ intervalSeconds = 45 }) { 
+const THEME_MAP = {
+  'cosmic-web': 0,
+  'deep-field': 1,
+  'calm-nebula': 2,
+  'milky-way': 3,
+  'hyperspace': 4,
+  'space-aurora': 5,
+  'event-horizon': 6,
+  'binary-stars': 7,
+  'planetary-rings': 8,
+  'deep-space': 9
+};
+
+function SceneManager({ theme }) { 
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [nextIndex, setNextIndex] = useState(1);
+  const [nextIndex, setNextIndex] = useState(0);
   const [fading, setFading] = useState(false);
   const fadeRef = useRef();
 
+  // Handle explicit theme changes with transition
   useEffect(() => {
-    const timer = setInterval(() => {
-      setNextIndex((prev) => (prev + 1) % THEMES.length);
-      setFading(true);
-    }, intervalSeconds * 1000);
-    return () => clearInterval(timer);
-  }, [intervalSeconds]);
+    if (theme && THEME_MAP[theme] !== undefined) {
+      const targetIndex = THEME_MAP[theme];
+      if (targetIndex !== currentIndex) {
+        setNextIndex(targetIndex);
+        setFading(true);
+      }
+    }
+  }, [theme, currentIndex]);
 
   useFrame((state, delta) => {
     if (!fadeRef.current) return;
     
     if (fading) {
-      fadeRef.current.opacity += delta * 0.5; 
+      // Fade to black
+      fadeRef.current.opacity += delta * 1.5; 
       if (fadeRef.current.opacity >= 1) {
         fadeRef.current.opacity = 1;
         setCurrentIndex(nextIndex); 
         setFading(false); 
       }
     } else {
+      // Fade in the new scene
       if (fadeRef.current.opacity > 0) {
-        fadeRef.current.opacity -= delta * 0.5; 
+        fadeRef.current.opacity -= delta * 1.5; 
         if (fadeRef.current.opacity <= 0) fadeRef.current.opacity = 0;
       }
     }
@@ -296,7 +314,7 @@ function MasterCamera() {
   return null;
 }
 
-export default function SpaceBackground() {
+export default function SpaceBackground({ theme }) {
   return (
     <div style={{
       position: 'fixed',
@@ -310,7 +328,7 @@ export default function SpaceBackground() {
     }}>
       <Canvas camera={{ position: [0, 10, 70], fov: 45 }}>
         <MasterCamera />
-        <SceneManager intervalSeconds={45} />
+        <SceneManager theme={theme} />
       </Canvas>
     </div>
   );
