@@ -431,6 +431,11 @@ function initFirebase() {
             delete val._config; // Remove from DB object so it doesn't pollute globalDB
           }
           globalDB = val;
+          try {
+            fs.writeFileSync(DB_PATH, JSON.stringify(val, null, 2), 'utf8');
+          } catch (err) {
+            console.error('[FIREBASE] Failed to write local DB copy:', err.message);
+          }
         } else {
           // If Firebase is empty, initialize it with the local db.json and config.json
           if (!globalDB) globalDB = readLocalDB();
