@@ -1277,6 +1277,7 @@ function Dashboard({
                   style={mode === 'generate' ? { background: 'linear-gradient(90deg, #ff007f, #7928ca)', color: '#fff', border: 'none' } : {}}
                   onClick={() => setMode(prev => prev === 'generate' ? 'normal' : 'generate')}
                 >
+                  <Code size={14} style={{ marginRight: '6px' }} />
                   Generate App
                 </button>
                 <div className="tooltip-text">Autonomous AI Web Developer that builds real React code!</div>
@@ -1287,6 +1288,7 @@ function Dashboard({
                   className={`mode-toggle-btn ${mode === 'optimize' ? 'active' : ''}`}
                   onClick={() => setMode(prev => prev === 'optimize' ? 'normal' : 'optimize')}
                 >
+                  <Orbit size={14} style={{ marginRight: '6px' }} />
                   Optimize
                 </button>
                 <div className="tooltip-text">Analyzes and improves code performance and structure.</div>
@@ -1297,6 +1299,7 @@ function Dashboard({
                   className={`mode-toggle-btn matrix ${mode === 'matrix_simulation' ? 'active' : ''}`}
                   onClick={() => setMode(prev => prev === 'matrix_simulation' ? 'normal' : 'matrix_simulation')}
                 >
+                  <BrainCircuit size={14} style={{ marginRight: '6px' }} />
                   Matrix
                 </button>
                 <div className="tooltip-text">Multi-dimensional reasoning for complex edge-cases.</div>
@@ -1308,6 +1311,7 @@ function Dashboard({
                   style={mode === 'os_ghost' ? { background: 'linear-gradient(90deg, #ff9900, #ff5f56)', color: '#000', border: 'none' } : {}}
                   onClick={() => setMode(prev => prev === 'os_ghost' ? 'normal' : 'os_ghost')}
                 >
+                  <MonitorPlay size={14} style={{ marginRight: '6px' }} />
                   OS Ghost
                 </button>
                 <div className="tooltip-text">Take control of the desktop with virtual cursor automation.</div>

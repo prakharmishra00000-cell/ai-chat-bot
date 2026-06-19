@@ -614,14 +614,16 @@ export default function OSGhostPanel({ onClose, initialPrompt, autoExecute = fal
                 disabled={running || status === 'staging'}
                 onClick={() => setDirectivePrompt("Clean up my machine. Sort all PDFs into folders by client name, move images to a 'Creative' folder, and delete any duplicate screenshots.")}
                 style={{
-                  background: 'rgba(255,255,255,0.05)',
-                  border: '1px solid rgba(255,255,255,0.1)',
-                  borderRadius: '12px',
-                  padding: '2px 8px',
-                  fontSize: '0.68rem',
-                  color: '#94a3b8',
+                  background: directivePrompt.includes("Clean up my machine") ? 'linear-gradient(90deg, #10b981, #059669)' : 'rgba(255,255,255,0.05)',
+                  border: directivePrompt.includes("Clean up my machine") ? 'none' : '1px solid rgba(255,255,255,0.15)',
+                  borderRadius: '16px',
+                  padding: '4px 12px',
+                  fontSize: '0.78rem',
+                  fontWeight: 600,
+                  color: directivePrompt.includes("Clean up my machine") ? '#000' : '#94a3b8',
                   cursor: 'pointer',
-                  transition: 'all 0.2s'
+                  transition: 'all 0.3s ease',
+                  boxShadow: directivePrompt.includes("Clean up my machine") ? '0 0 10px rgba(16, 185, 129, 0.4)' : 'none'
                 }}
               >
                 💻 Clean Desktop
@@ -630,14 +632,16 @@ export default function OSGhostPanel({ onClose, initialPrompt, autoExecute = fal
                 disabled={running || status === 'staging'}
                 onClick={() => setDirectivePrompt("Open Chrome, switch to the CRM Invoices tab, and approve the pending invoice for Acme Corp.")}
                 style={{
-                  background: 'rgba(255,255,255,0.05)',
-                  border: '1px solid rgba(255,255,255,0.1)',
-                  borderRadius: '12px',
-                  padding: '2px 8px',
-                  fontSize: '0.68rem',
-                  color: '#94a3b8',
+                  background: directivePrompt.includes("Open Chrome") ? 'linear-gradient(90deg, #3b82f6, #1d4ed8)' : 'rgba(255,255,255,0.05)',
+                  border: directivePrompt.includes("Open Chrome") ? 'none' : '1px solid rgba(255,255,255,0.15)',
+                  borderRadius: '16px',
+                  padding: '4px 12px',
+                  fontSize: '0.78rem',
+                  fontWeight: 600,
+                  color: directivePrompt.includes("Open Chrome") ? '#fff' : '#94a3b8',
                   cursor: 'pointer',
-                  transition: 'all 0.2s'
+                  transition: 'all 0.3s ease',
+                  boxShadow: directivePrompt.includes("Open Chrome") ? '0 0 10px rgba(59, 130, 246, 0.4)' : 'none'
                 }}
               >
                 🌐 Approve CRM Invoice
@@ -646,14 +650,16 @@ export default function OSGhostPanel({ onClose, initialPrompt, autoExecute = fal
                 disabled={running || status === 'staging'}
                 onClick={() => setDirectivePrompt("Click on start menu on my screen, open System Terminal, and verify it works.")}
                 style={{
-                  background: 'rgba(255,255,255,0.05)',
-                  border: '1px solid rgba(255,255,255,0.1)',
-                  borderRadius: '12px',
-                  padding: '2px 8px',
-                  fontSize: '0.68rem',
-                  color: '#94a3b8',
+                  background: directivePrompt.includes("Click on start menu") ? 'linear-gradient(90deg, #ff9900, #ea580c)' : 'rgba(255,255,255,0.05)',
+                  border: directivePrompt.includes("Click on start menu") ? 'none' : '1px solid rgba(255,255,255,0.15)',
+                  borderRadius: '16px',
+                  padding: '4px 12px',
+                  fontSize: '0.78rem',
+                  fontWeight: 600,
+                  color: directivePrompt.includes("Click on start menu") ? '#000' : '#94a3b8',
                   cursor: 'pointer',
-                  transition: 'all 0.2s'
+                  transition: 'all 0.3s ease',
+                  boxShadow: directivePrompt.includes("Click on start menu") ? '0 0 10px rgba(255, 153, 0, 0.4)' : 'none'
                 }}
               >
                 🖥️ Start Menu & Terminal
