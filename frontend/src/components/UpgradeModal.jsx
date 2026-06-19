@@ -247,15 +247,46 @@ function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess }) {
     checkQR();
   }, []);
 
+  // Polling loop to check if plan is unlocked in background via webhook or manual UTR approval
+  useEffect(() => {
+    let interval;
+    if (currentPlan === 'free' && email) {
+      interval = setInterval(async () => {
+        try {
+          const res = await fetch('/api/user/status', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email })
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (data && data.plan && data.plan !== 'free') {
+              setSuccess(`🎉 Thank you for choosing our ${data.plan.toUpperCase()} plan! Hope you will enjoy your new features!`);
+              clearInterval(interval);
+              setTimeout(() => {
+                if (onPaymentSuccess) onPaymentSuccess();
+              }, 3500);
+            }
+          }
+        } catch (e) {
+          console.warn('Background check for plan upgrade failed:', e);
+        }
+      }, 3000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [currentPlan, email, onPaymentSuccess]);
+
   // Copy UPI ID
   const handleCopyUpiId = async () => {
     try {
-      await navigator.clipboard.writeText(receiverUpiId);
+      await navigator.clipboard.writeText(manualUpiId);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
       const el = document.createElement('textarea');
-      el.value = receiverUpiId;
+      el.value = manualUpiId;
       document.body.appendChild(el);
       el.select();
       document.execCommand('copy');

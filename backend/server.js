@@ -636,8 +636,13 @@ function checkFeatureLimit(email, feature) {
   const user = getOrCreateUser(email);
   const db = readDB();
   const planInfo = db.plans && db.plans[user.plan];
-  const limits = planInfo?.featureLimits || { ppt: 3, mindmap: 5, matrix: 3, optimize: 3, masking: 5, workflow: 1, council: 1, leads: -1 };
-  const limit = limits[feature];
+  
+  const defaultLimits = { ppt: 3, mindmap: 5, matrix: 3, optimize: 3, masking: 5, interview: 3, workflow: 1, council: 1, leads: -1, threed: 3 };
+  const limits = planInfo?.featureLimits || defaultLimits;
+  let limit = limits[feature];
+  if (limit === undefined) {
+    limit = defaultLimits[feature] !== undefined ? defaultLimits[feature] : 0;
+  }
   const used = user.featureUsage?.[feature] || 0;
   
   if (Number(limit) === -1) return { allowed: true, used, limit: -1 }; // unlimited
@@ -651,7 +656,7 @@ function incrementFeatureUsage(email, feature) {
   const db = readDB();
   const user = db.users[email];
   if (user) {
-    if (!user.featureUsage) user.featureUsage = { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, workflow: 0, council: 0, leads: 0 };
+    if (!user.featureUsage) user.featureUsage = { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, interview: 0, workflow: 0, council: 0, leads: 0, threed: 0 };
     user.featureUsage[feature] = (user.featureUsage[feature] || 0) + 1;
     db.users[email] = user;
     writeDB(db);
@@ -2460,46 +2465,81 @@ app.post('/api/payment/razorpay/webhook', express.raw({ type: 'application/json'
       .digest('hex');
 
     if (expectedSignature !== signature) {
+      console.warn('[WEBHOOK] Signature verification failed.');
       return res.status(400).send('Invalid signature');
     }
 
     // Process event
     const payload = JSON.parse(body.toString());
+    console.log(`[WEBHOOK] Received Razorpay event: ${payload.event}`);
+
     if (payload.event === 'payment.captured' || payload.event === 'order.paid') {
-      const paymentInfo = payload.payload.payment.entity;
-      const { email, planId, durationDays } = paymentInfo.notes;
+      let email = null;
+      let planId = null;
+      let durationDays = null;
+      let amountPaid = 0;
+      let paymentRef = '';
+
+      // Try reading from payment entity
+      if (payload.payload && payload.payload.payment && payload.payload.payment.entity) {
+        const payment = payload.payload.payment.entity;
+        email = payment.notes?.email;
+        planId = payment.notes?.planId;
+        durationDays = payment.notes?.durationDays;
+        amountPaid = payment.amount / 100;
+        paymentRef = payment.id;
+      }
+
+      // Fallback: Try reading from order entity
+      if ((!email || !planId) && payload.payload && payload.payload.order && payload.payload.order.entity) {
+        const order = payload.payload.order.entity;
+        email = email || order.notes?.email;
+        planId = planId || order.notes?.planId;
+        durationDays = durationDays || order.notes?.durationDays;
+        amountPaid = amountPaid || (order.amount_paid ? order.amount_paid / 100 : order.amount / 100);
+        paymentRef = paymentRef || order.id;
+      }
 
       if (!email || !planId) {
-        console.warn('[WEBHOOK] Payment successful but missing email/plan metadata.');
+        console.warn('[WEBHOOK] Payment successful but missing email/plan metadata in notes.', {
+          paymentNotes: payload.payload?.payment?.entity?.notes,
+          orderNotes: payload.payload?.order?.entity?.notes
+        });
         return res.status(200).send('Missing metadata');
       }
 
+      const cleanEmail = email.trim();
+      console.log(`[WEBHOOK] Processing upgrade for: ${cleanEmail}, plan: ${planId}, duration: ${durationDays}`);
+
       // Automatically Unlock Plan
       const db = readDB();
-      const user = getOrCreateUser(email);
+      const user = getOrCreateUser(cleanEmail);
       user.plan = planId;
       
-      const days = parseInt(durationDays) || 30;
+      const dbPlans = db.plans || {};
+      const planConfig = dbPlans[planId];
+      const days = parseInt(durationDays) || (planConfig ? parseInt(planConfig.days) : 30) || 30;
+
       const expiryDate = new Date();
       expiryDate.setDate(expiryDate.getDate() + days);
       user.planExpiry = expiryDate.toISOString();
 
-      db.users[email] = user;
+      db.users[cleanEmail] = user;
 
       // Log automated transaction
       if (!db.transactions) db.transactions = [];
       db.transactions.push({
         id: `txn_auto_${Date.now()}`,
-        email,
-        amount: paymentInfo.amount / 100,
+        email: cleanEmail,
+        amount: amountPaid,
         plan: planId,
-        paymentRef: paymentInfo.id,
+        paymentRef: paymentRef,
         date: new Date().toISOString(),
         automated: true
       });
 
       writeDB(db);
-      console.log(`[WEBHOOK] Successfully auto-unlocked ${planId} for ${email} via Razorpay!`);
+      console.log(`[WEBHOOK] Successfully auto-unlocked ${planId} for ${cleanEmail} via Razorpay! Expiry: ${user.planExpiry}`);
     }
 
     res.status(200).json({ status: 'ok' });
