@@ -680,7 +680,7 @@ function Dashboard({
         isBlueprint: true,
         blueprintSteps: planSteps,
         blueprintPrompt: textToSend,
-        blueprintStatus: 'pending',
+        blueprintStatus: 'executing',
         timestamp: new Date().toISOString()
       };
 
@@ -694,6 +694,12 @@ function Dashboard({
 
       saveChatsToLocal(updatedChatList);
       setPromptInput('');
+
+      // Auto-execute physical task immediately without manual user approval
+      setTimeout(() => {
+        handleApproveBlueprint(activeChatId, botMsg.id, botMsg.blueprintPrompt, botMsg.blueprintSteps);
+      }, 50);
+
       return;
     }
 
