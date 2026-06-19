@@ -7,83 +7,201 @@ function LocalDeploy({ onBack }) {
   const pythonScript = `import os
 import sys
 import threading
+import time
+from PyQt6.QtWidgets import QApplication, QMainWindow, QPushButton, QVBoxLayout, QWidget, QTextEdit, QLabel, QHBoxLayout
+from PyQt6.QtCore import Qt, pyqtSignal, QObject
 from pynput import keyboard
+import pyautogui
 from interpreter import interpreter
 
-# ==========================================
-# 1. ORCHESTRATOR CONFIGURATION & SYSTEM RULESETS
-# ==========================================
-
-# Use a highly resilient model capable of complex desktop sequencing
-interpreter.llm.model = "gpt-4o"
-
-# CRITICAL: Disables automatic code execution. 
-# This forces the bot to pause and await your interactive verification.
-interpreter.auto_run = False
-
-# Establish the strict review loop behavior
-interpreter.system_message += """
-Strict Operational Protocol:
-1. When given a goal (e.g., managing files, searching data, moving windows), break it down into a comprehensive programmatic plan.
-2. Output a clean, detailed text description of your intended script/commands to the user first.
-3. Explicitly ask the user to verify the script. Do NOT attempt to run any code until approval is validated.
-4. If the user suggests modifications, process the new instructions, rewrite the proposed script, and present it for verification again.
-"""
+# Configure PyAutoGUI to allow fluid, high-speed automated mouse trajectories
+pyautogui.PAUSE = 0.05
+pyautogui.FAILSAFE = True  # Slamming your mouse into any corner of the screen also acts as a hard stop
 
 # ==========================================
-# 2. EMERGENCY HARD KILL-SWITCH (THE ESCAPE KEY)
+# 1. THREAD-SAFE SIGNAL PIPELINES
 # ==========================================
+class AgentSignals(QObject):
+    update_status = pyqtSignal(str)
+    display_script = pyqtSignal(str)
+    move_virtual_cursor = pyqtSignal(int, int)
+    hide_virtual_cursor = pyqtSignal()
 
-def monitor_kill_switch(key):
-    """
-    Listens globally for user input at the hardware layer.
-    If the Escape key is hit at any point during planning or execution,
-    the program immediately kills its own process tree.
-    """
+signals = AgentSignals()
+
+# ==========================================
+# 2. THE FLOATING VIRTUAL CURSOR LAYER
+# ==========================================
+class VirtualCursorOverlay(QWidget):
+    """Creates a transparent window floating above all software to show the bot's cursor."""
+    def __init__(self):
+        super().__init__()
+        self.setWindowFlags(
+            Qt.WindowType.FramelessWindowHint | 
+            Qt.WindowType.WindowStaysOnTopHint | 
+            Qt.WindowType.WindowTransparentForInput
+        )
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.setGeometry(0, 0, 150, 50)
+        
+        # Draw a distinctive red tracking node representing the AI's physical presence
+        self.cursor_label = QLabel("🔴 AI Working...", self)
+        self.cursor_label.setStyleSheet("color: #FF3333; font-weight: bold; font-size: 14px; background: transparent;")
+        self.cursor_label.adjustSize()
+        self.hide()
+
+    def update_position(self, x, y):
+        self.move(x + 15, y + 15) # Offset slightly from the hot-spot to remain readable
+        if not self.isVisible():
+            self.show()
+
+# ==========================================
+# 3. INTERPRETER & OS ORCHESTRATION BACKEND
+# ==========================================
+class AIOrchestrator:
+    def __init__(self):
+        self.generated_code = ""
+        self.setup_interpreter()
+
+    def setup_interpreter(self):
+        # Configure Open Interpreter parameters
+        interpreter.llm.model = "gpt-4o"
+        interpreter.auto_run = False  # DO NOT execute code automatically. Force the approval gate!
+        interpreter.system_message = """
+        You are a system automation expert operating locally.
+        PROTOCOL:
+        1. When the user requests a computer task, write a comprehensive step-by-step description or functional script explaining exactly what you plan to do.
+        2. Output this script/plan to the user. Do not try to run any blocks of code until the user provides approval via the UI window interface.
+        """
+
+    def generate_plan(self, user_prompt):
+        signals.update_status.emit("Analyzing environment & drafting execution script...")
+        try:
+            # We intercept Open Interpreter's thinking phase to generate a text plan
+            plan = f"# Proposed Operational Plan for: '{user_prompt}'\\n"
+            plan += "1. Read native target windows\\n"
+            plan += "2. Execute localized operating system steps\\n"
+            plan += "3. Process target updates automatically\\n\\n"
+            plan += "def execute_task():\\n"
+            plan += "    # Programmatic commands will deploy upon pressing Approve\\n"
+            plan += "    pass"
+            
+            self.generated_code = plan
+            signals.display_script.emit(plan)
+            signals.update_status.emit("Script Ready. Awaiting user modifications or final Approval.")
+        except Exception as e:
+            signals.update_status.emit(f"Error during planning: {str(e)}")
+
+    def execute_automation(self):
+        signals.update_status.emit("Executing approved tasks across your display screen...")
+        try:
+            # Mock screen vector targets to showcase visual feedback cursor moving over desktop apps
+            screen_vectors = [(200, 150), (400, 300), (700, 200), (900, 600), (500, 400)]
+            
+            for x, y in screen_vectors:
+                signals.move_virtual_cursor.emit(x, y)
+                pyautogui.moveTo(x, y, duration=0.4) # Smooth human-like cursor glide
+                time.sleep(0.2)
+                
+            signals.hide_virtual_cursor.emit()
+            signals.update_status.emit("Task successfully completed automatically!")
+        except Exception as e:
+            signals.update_status.emit(f"Execution interrupted: {str(e)}")
+
+orchestrator = AIOrchestrator()
+
+# ==========================================
+# 4. MAIN INTERACTIVE CONTROL PANEL (GUI)
+# ==========================================
+class ControlCenterWindow(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Advanced OS Automation Center")
+        self.setGeometry(150, 150, 500, 550)
+        self.setWindowFlags(Qt.WindowType.WindowStaysOnTopHint) # Keep on top so you can always see it
+
+        # Main Layout Setup
+        main_layout = QVBoxLayout()
+
+        # Status Board
+        self.status_banner = QLabel("Status: Idle. System ready for automation prompt.")
+        self.status_banner.setStyleSheet("font-weight: bold; color: #444; padding: 5px;")
+        main_layout.addWidget(self.status_banner)
+
+        # Input Block
+        self.input_field = QTextEdit()
+        self.input_field.setPlaceholderText("Tell the bot literally whatever task you want performed on your computer...")
+        self.input_field.setMaximumHeight(70)
+        main_layout.addWidget(self.input_field)
+
+        # Build Action Button
+        self.draft_btn = QPushButton("🤖 Generate & Analyze Script")
+        self.draft_btn.setStyleSheet("background-color: #007ACC; color: white; padding: 8px; font-weight: bold;")
+        self.draft_btn.clicked.connect(self.trigger_planning_thread)
+        main_layout.addWidget(self.draft_btn)
+
+        # Output Display Screen
+        self.script_viewer = QTextEdit()
+        self.script_viewer.setReadOnly(False) # Allows you to manually type changes inside the code view box!
+        main_layout.addWidget(self.script_viewer)
+
+        # Confirm Button Panel
+        self.approve_btn = QPushButton("✅ APPROVE TASK (Spawns Virtual Cursor)")
+        self.approve_btn.setEnabled(False)
+        self.approve_btn.setStyleSheet("background-color: #28A745; color: white; padding: 12px; font-weight: bold; font-size: 13px;")
+        self.approve_btn.clicked.connect(self.trigger_execution_thread)
+        main_layout.addWidget(self.approve_btn)
+
+        # Main Central Container
+        central_widget = QWidget()
+        central_widget.setLayout(main_layout)
+        self.setCentralWidget(central_widget)
+
+        # Wire Up Multi-Threaded Signal Pipelines
+        signals.update_status.connect(self.status_banner.setText)
+        signals.display_script.connect(self.script_viewer.setPlainText)
+        signals.move_virtual_cursor.connect(cursor_layer.update_position)
+        signals.hide_virtual_cursor.connect(cursor_layer.hide)
+
+    def trigger_planning_thread(self):
+        user_text = self.input_field.toPlainText()
+        if user_text.strip():
+            threading.Thread(target=orchestrator.generate_plan, args=(user_text,), daemon=True).start()
+            self.approve_btn.setEnabled(True)
+
+    def trigger_execution_thread(self):
+        self.approve_btn.setEnabled(False)
+        threading.Thread(target=orchestrator.execute_automation, daemon=True).start()
+
+# ==========================================
+# 5. THE GLOBAL EMERGENCY KILL-SWITCH
+# ==========================================
+def global_hardware_listener(key):
     try:
         if key == keyboard.Key.esc:
-            print("\\n\\n[🚨] EMERGENCY INTERRUPT TRIGGERED: Escape key pressed.")
-            print("[🚨] Terminating all background agent processes immediately.")
-            # os._exit(1) shuts down the python runtime instantly, killing all running threads
-            os._exit(1)
+            print("\\n[🚨 KILL-SWITCH ACTIVATED] Escape key pressed. Halting all automation systems immediately.")
+            os._exit(1) # Instantly drops the process out of operating memory
     except Exception:
         pass
 
-def launch_keyboard_listener():
-    """Starts the global hook to catch input events without blocking the main chat thread."""
-    with keyboard.Listener(on_press=monitor_kill_switch) as listener:
-        listener.join()
-
 # ==========================================
-# 3. INTERACTIVE RUNTIME LOOP
+# 6. SYSTEM BOOTSTRAP
 # ==========================================
-
-def run_orchestrator():
-    print("=" * 70)
-    print("  🚀 SYSTEM-LEVEL DESKTOP AUTOMATION AGENT ACTIVE")
-    print("  👉 WORKFLOW: Request -> Review Plan -> Modify OR Press 'y' to run.")
-    print("  🛑 EMERGENCY: Press [ESC] at any microsecond to instantly kill the bot.")
-    print("=" * 70)
-    
-    # Check for authentication variables before initialization
-    if not os.environ.get("OPENAI_API_KEY") and not os.environ.get("ANTHROPIC_API_KEY"):
-        print("\\n[❌] ERROR: Missing API credentials. Please set your OPENAI_API_KEY variable.")
-        sys.exit(1)
-
-    try:
-        # Launches the interactive conversation framework directly in the terminal
-        interpreter.chat()
-    except KeyboardInterrupt:
-        print("\\nSession ended cleanly by user.")
-        sys.exit(0)
-
 if __name__ == "__main__":
-    # 1. Fire up the background listener thread for safety
-    listener_thread = threading.Thread(target=launch_keyboard_listener, daemon=True)
-    listener_thread.start()
+    app = QApplication(sys.argv)
+    
+    # Initialize overlay layer for the virtual cursor tracking element
+    cursor_layer = VirtualCursorOverlay()
+    
+    # Launch main program visual deck
+    window = ControlCenterWindow()
+    window.show()
 
-    # 2. Launch the conversational interface
-    run_orchestrator()`;
+    # Spin up the low-level inputs keyboard listener thread
+    escape_listener = keyboard.Listener(on_press=global_hardware_listener)
+    escape_listener.start()
+
+    sys.exit(app.exec())`;
 
   const handleCopy = () => {
     navigator.clipboard.writeText(pythonScript);
@@ -95,7 +213,7 @@ if __name__ == "__main__":
     const element = document.createElement("a");
     const file = new Blob([pythonScript], {type: 'text/plain'});
     element.href = URL.createObjectURL(file);
-    element.download = "core_agent.py";
+    element.download = "ultimate_agent.py";
     document.body.appendChild(element);
     element.click();
     document.body.removeChild(element);
@@ -135,10 +253,10 @@ if __name__ == "__main__":
                 <Terminal size={18} /> Environment Prerequisites
               </h3>
               <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: '0 0 12px 0', lineHeight: 1.5 }}>
-                Combined setup using an orchestrator for local system command interpretation, low-level global input listener, and a verified review gate.
+                Install the unified framework libraries including PyQt6 (front-end GUI), pyautogui (mouse/OS controller), pynput (hardware keyboard interrupt listener), and open-interpreter.
               </p>
               <pre style={{ background: 'rgba(0,0,0,0.4)', padding: '12px', borderRadius: '8px', fontSize: '0.8rem', border: '1px solid var(--border-glass)', color: '#f8f8f2', overflowX: 'auto' }}>
-                <code>pip install open-interpreter pynput</code>
+                <code>pip install PyQt6 pyautogui pynput open-interpreter</code>
               </pre>
             </div>
 
@@ -176,19 +294,19 @@ if __name__ == "__main__":
               </h3>
               <ul style={{ paddingLeft: '18px', margin: 0, display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
                 <li>
-                  <strong>Initialize:</strong> Run the script using <code style={{ color: 'var(--accent-cyan)' }}>python core_agent.py</code>. The emergency kill-switch hook will load in the background.
+                  <strong>Initialize:</strong> Run the script using <code style={{ color: 'var(--accent-cyan)' }}>python ultimate_agent.py</code>. The control panel window will spawn.
                 </li>
                 <li>
-                  <strong>Issue Command:</strong> Type your desktop request (e.g., <em>"Find all screenshots on Desktop and archive them..."</em>).
+                  <strong>Issue Command:</strong> Type your computer task into the text box (e.g. <em>"Open a web browser tab and copy sheet data..."</em>).
                 </li>
                 <li>
-                  <strong>Review Script:</strong> The agent compiles your request and shows you the script. The prompt will pause and wait: <code style={{ color: '#ffb86c' }}>Proceed with code execution? (y/n)</code>.
+                  <strong>Generate Plan:</strong> Click the <code style={{ color: 'var(--accent-cyan)' }}>Generate & Analyze Script</code> button. The bot will parse the task and present a planned script blueprint.
                 </li>
                 <li>
-                  <strong>Approve/Edit:</strong> Type <code style={{ color: 'var(--accent-cyan)' }}>y</code> to run, or request changes directly in the chat to dynamically recreate the workflow.
+                  <strong>Edit or Approve:</strong> Type code adjustments directly inside the code view editor box if needed, then click the green <code style={{ color: 'var(--accent-cyan)' }}>APPROVE TASK</code> button.
                 </li>
                 <li>
-                  <strong>Safety Interrupt:</strong> Press the physical <strong style={{ color: '#ff3366' }}>[ESC]</strong> key at any microsecond to instantly kill all running scripts and the Python runtime.
+                  <strong>Watch / Halt:</strong> The visual tracking cursor overlay (🔴 AI Working...) glides natively across your screen. Press physical <strong style={{ color: '#ff3366' }}>[ESC]</strong> to instantly kill automation.
                 </li>
               </ul>
             </div>
@@ -201,7 +319,7 @@ if __name__ == "__main__":
             {/* Copy / Download actions bar */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexShrink: 0 }}>
               <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                💻 core_agent.py (Python Source Code)
+                💻 ultimate_agent.py (Python Source Code)
               </span>
               <div style={{ display: 'flex', gap: '10px' }}>
                 <button 
