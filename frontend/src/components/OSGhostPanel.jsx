@@ -14,7 +14,7 @@ const steps = [
   { id: 6, label: 'Continuous Verification Loop', desc: 'Capturing new states, confirming layout, & finalizing task' }
 ];
 
-export default function OSGhostPanel({ onClose }) {
+export default function OSGhostPanel({ onClose, initialPrompt }) {
   const [running, setRunning] = useState(false);
   const [currentStep, setCurrentStep] = useState(0); 
   const [status, setStatus] = useState('idle'); // 'idle', 'staging', 'running', 'emergency_override', 'completed'
@@ -51,6 +51,14 @@ export default function OSGhostPanel({ onClose }) {
   const [showStartMenu, setShowStartMenu] = useState(false);
   const [showTerminalWindow, setShowTerminalWindow] = useState(false);
   const [terminalLines, setTerminalLines] = useState([]);
+  const [filesToDelete, setFilesToDelete] = useState([3, 11]);
+
+  // Auto-run if initialPrompt is passed from Dashboard
+  useEffect(() => {
+    if (initialPrompt) {
+      startOSGhostWorkflow(initialPrompt);
+    }
+  }, [initialPrompt]);
 
 
   const addLog = (tag, message) => {
@@ -82,12 +90,17 @@ export default function OSGhostPanel({ onClose }) {
   };
 
   // Main execution timeline
-  const startOSGhostWorkflow = async () => {
+  const startOSGhostWorkflow = async (promptOverride = null) => {
+    const activePrompt = promptOverride !== null ? promptOverride : directivePrompt;
+    if (promptOverride !== null) {
+      setDirectivePrompt(promptOverride);
+    }
+
     // Detect scenario based on prompt content
     let chosenScenario = 'desktop';
-    if (/tab|crm|browser|web|page|approve|invoice/i.test(directivePrompt)) {
+    if (/tab|crm|browser|web|page|approve|invoice/i.test(activePrompt)) {
       chosenScenario = 'browser';
-    } else if (/start|menu|taskbar|launch|button/i.test(directivePrompt)) {
+    } else if (/start|menu|taskbar|launch|button/i.test(activePrompt)) {
       chosenScenario = 'start_menu';
     }
     setScenario(chosenScenario);
@@ -105,6 +118,7 @@ export default function OSGhostPanel({ onClose }) {
     setShowStartMenu(false);
     setShowTerminalWindow(false);
     setTerminalLines([]);
+    setFilesToDelete([3, 11]);
     setDesktopFiles([
       { id: 1, name: 'invoice_acme_corp.pdf', type: 'pdf', size: '145 KB', x: 50, y: 70, status: 'visible' },
       { id: 2, name: 'invoice_stark_ind.pdf', type: 'pdf', size: '280 KB', x: 50, y: 150, status: 'visible' },
@@ -386,31 +400,48 @@ export default function OSGhostPanel({ onClose }) {
       await wait(800);
 
       // Drag screenshot_1_dup.png (ID 3) -> Trash Bin [x: 750, y: 500]
-      addLog('ACTION', 'Sending duplicate screenshots to Recycle Bin...');
-      setCursorPos({ x: 50, y: 230 });
-      await wait(750);
-      setCursorPos({ x: 750, y: 500 });
-      await wait(750);
-      setDesktopFiles(prev => prev.map(f => f.id === 3 ? { ...f, status: 'deleted' } : f));
-      setTrashCount(prev => prev + 1);
-      addLog('ACTION', 'rm("screenshot_1_dup.png") -> Sent to Trash');
-      await wait(800);
+      let trashAdded = 0;
+      let filesCount = 0;
+      if (filesToDelete.includes(3)) {
+        addLog('ACTION', 'Sending duplicate screenshot_1_dup.png to Recycle Bin...');
+        setCursorPos({ x: 50, y: 230 });
+        await wait(750);
+        setCursorPos({ x: 750, y: 500 });
+        await wait(750);
+        setDesktopFiles(prev => prev.map(f => f.id === 3 ? { ...f, status: 'deleted' } : f));
+        trashAdded++;
+        filesCount++;
+        addLog('ACTION', 'rm("screenshot_1_dup.png") -> Sent to Trash');
+        await wait(800);
+      } else {
+        addLog('ACTION', 'Skipped screenshot_1_dup.png deletion (excluded by user preference).');
+        await wait(300);
+      }
 
       // Drag screenshot_2_dup.png (ID 11) -> Trash Bin [x: 750, y: 500]
-      setCursorPos({ x: 310, y: 230 });
-      await wait(750);
-      setCursorPos({ x: 750, y: 500 });
-      await wait(750);
-      setDesktopFiles(prev => prev.map(f => f.id === 11 ? { ...f, status: 'deleted' } : f));
-      setTrashCount(prev => prev + 1);
-      addLog('ACTION', 'rm("screenshot_2_dup.png") -> Sent to Trash');
-      await wait(1000);
+      if (filesToDelete.includes(11)) {
+        addLog('ACTION', 'Sending duplicate screenshot_2_dup.png to Recycle Bin...');
+        setCursorPos({ x: 310, y: 230 });
+        await wait(750);
+        setCursorPos({ x: 750, y: 500 });
+        await wait(750);
+        setDesktopFiles(prev => prev.map(f => f.id === 11 ? { ...f, status: 'deleted' } : f));
+        trashAdded++;
+        filesCount++;
+        addLog('ACTION', 'rm("screenshot_2_dup.png") -> Sent to Trash');
+        await wait(1000);
+      } else {
+        addLog('ACTION', 'Skipped screenshot_2_dup.png deletion (excluded by user preference).');
+        await wait(300);
+      }
+
+      setTrashCount(prev => prev + trashAdded);
 
       // --- STEP 6: Verification ---
       setCurrentStep(6);
       addLog('VERIFICATION', 'Taking final screen snapshot...');
       await wait(800);
-      addLog('VERIFICATION', 'Validating final filesystem output. 5 files moved, 2 duplicate files sent to Trash.');
+      addLog('VERIFICATION', `Validating final filesystem output. 5 files moved, ${filesCount} duplicate files sent to Trash.`);
       await wait(600);
       addLog('VERIFICATION', 'Task Completed Successfully. Returning system controls to User.');
 
@@ -639,9 +670,54 @@ export default function OSGhostPanel({ onClose }) {
                       <span style={{ color: '#ff9900' }}>•</span>
                       <span>Move 2 matching design images</span>
                     </div>
-                    <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
-                      <span style={{ color: '#ef4444' }}>•</span>
-                      <span>Permanently delete 2 duplicate screenshots</span>
+                    <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start', flexDirection: 'column', width: '100%' }}>
+                      <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
+                        <span style={{ color: '#ef4444' }}>•</span>
+                        <span>Verify file deletion list (click to keep any file):</span>
+                      </div>
+                      
+                      <div style={{
+                        width: '100%',
+                        background: 'rgba(239, 68, 68, 0.05)',
+                        border: '1px solid rgba(239, 68, 68, 0.2)',
+                        borderRadius: '6px',
+                        padding: '8px',
+                        marginTop: '4px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '6px',
+                        boxSizing: 'border-box'
+                      }}>
+                        {desktopFiles.filter(f => f.id === 3 || f.id === 11).map(file => {
+                          const isSelected = filesToDelete.includes(file.id);
+                          return (
+                            <div key={file.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.72rem' }}>
+                              <span style={{ color: isSelected ? '#ef4444' : '#94a3b8', textDecoration: isSelected ? 'none' : 'line-through', fontWeight: isSelected ? 'bold' : 'normal' }}>
+                                📄 {file.name}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (isSelected) {
+                                    setFilesToDelete(prev => prev.filter(id => id !== file.id));
+                                  } else {
+                                    setFilesToDelete(prev => [...prev, file.id]);
+                                  }
+                                }}
+                                style={{
+                                  background: isSelected ? 'rgba(239, 68, 68, 0.15)' : 'rgba(16, 185, 129, 0.15)',
+                                  border: `1px solid ${isSelected ? '#ef4444' : '#10b981'}`,
+                                  color: isSelected ? '#f87171' : '#34d399',
+                                  borderRadius: '4px', padding: '2px 6px', fontSize: '0.62rem', cursor: 'pointer'
+                                }}
+                              >
+                                {isSelected ? '🗑️ Delete' : '✅ Keep'}
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                   </>
                 ) : scenario === 'start_menu' ? (

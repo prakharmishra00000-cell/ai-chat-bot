@@ -148,6 +148,7 @@ function Dashboard({
   const [chatSearchQuery, setChatSearchQuery] = useState('');
   const [themeDropdownOpen, setThemeDropdownOpen] = useState(false);
   const [osGhostMode, setOsGhostMode] = useState(false);
+  const [osGhostInitialPrompt, setOsGhostInitialPrompt] = useState('');
 
   // Prompt states
   const [promptInput, setPromptInput] = useState('');
@@ -581,6 +582,15 @@ function Dashboard({
     const textToSend = textOverride || promptInput;
     if (!textToSend.trim() && !attachment) return;
     if (loading) return;
+
+    // Detect if this is an OS Ghost / Take the Wheel command
+    const isOSGhostCommand = /take the wheel|start menu|start button|taskbar|system terminal|clean desktop|delete.*files|approve.*invoice|go to downloads/i.test(textToSend);
+    if (isOSGhostCommand) {
+      setOsGhostInitialPrompt(textToSend);
+      setOsGhostMode(true);
+      setPromptInput('');
+      return;
+    }
 
     // Check Plan limitations locally before calling backend
     if (userPlanDetails) {
@@ -1241,7 +1251,15 @@ function Dashboard({
                 <button 
                   className={`mode-toggle-btn ${osGhostMode ? 'active' : ''}`}
                   style={osGhostMode ? { background: 'linear-gradient(90deg, #ff007f, #00f2fe)', color: '#fff', border: 'none' } : {}}
-                  onClick={() => setOsGhostMode(true)}
+                  onClick={() => {
+                    if (promptInput.trim()) {
+                      setOsGhostInitialPrompt(promptInput);
+                      setPromptInput('');
+                    } else {
+                      setOsGhostInitialPrompt('');
+                    }
+                    setOsGhostMode(true);
+                  }}
                 >
                   Take the Wheel
                 </button>
@@ -1594,7 +1612,11 @@ function Dashboard({
       {/* OS Ghost Simulator overlay */}
       {osGhostMode && (
         <OSGhostPanel
-          onClose={() => setOsGhostMode(false)}
+          initialPrompt={osGhostInitialPrompt}
+          onClose={() => {
+            setOsGhostMode(false);
+            setOsGhostInitialPrompt('');
+          }}
         />
       )}
 
