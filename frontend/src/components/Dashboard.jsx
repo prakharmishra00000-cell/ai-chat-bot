@@ -7,7 +7,7 @@ import {
 import mermaid from 'mermaid';
 import CouncilRoom from './CouncilRoom';
 import WorkflowPanel from './WorkflowPanel';
-import OSGhostPanel from './OSGhostPanel';
+
 
 const MindMap3D = React.lazy(() => import('./MindMap3D'));
 const Interactive3DObject = React.lazy(() => import('./Interactive3DObject'));
@@ -157,16 +157,12 @@ function Dashboard({
   const [chatSearchQuery, setChatSearchQuery] = useState('');
   const [themeDropdownOpen, setThemeDropdownOpen] = useState(false);
 
-  const [takeTheWheelActive, setTakeTheWheelActive] = useState(false);
-  const [currentOsPlan, setCurrentOsPlan] = useState(null);
-  const [planModifications, setPlanModifications] = useState([]);
-  const [osGhostAutoExecute, setOsGhostAutoExecute] = useState(false);
-  const [osGhostPrompt, setOsGhostPrompt] = useState('');
+
 
   // Prompt states
   const [promptInput, setPromptInput] = useState('');
   const [personality, setPersonality] = useState('standard'); // 'standard', 'architect', 'analyst'
-  const [mode, setMode] = useState('normal'); // 'normal', 'matrix_simulation', 'optimize', 'generate', 'os_ghost'
+  const [mode, setMode] = useState('normal'); // 'normal', 'matrix_simulation', 'optimize', 'generate'
   const [loading, setLoading] = useState(false);
   const [livePreviewApp, setLivePreviewApp] = useState(null);
 
@@ -420,10 +416,7 @@ function Dashboard({
     const updated = [newChat, ...conversations];
     saveChatsToLocal(updated);
     setActiveChatId(newChat.id);
-    setTakeTheWheelActive(false);
-    setCurrentOsPlan(null);
-    setPlanModifications([]);
-    setOsGhostAutoExecute(false);
+
   };
 
   const handleDeleteChat = (id, e) => {
@@ -600,108 +593,7 @@ function Dashboard({
     if (!textToSend.trim() && !attachment) return;
     if (loading) return;
 
-    if (mode === 'os_ghost') {
-      const currentChat = conversations.find(c => c.id === activeChatId);
-      if (!currentChat) return;
 
-      const userMsg = {
-        id: 'msg_user_' + Date.now(),
-        sender: 'user',
-        text: textToSend,
-        attachment: null,
-        timestamp: new Date().toISOString()
-      };
-
-      // Find the last blueprint message in current chat
-      const lastBlueprintIdx = currentChat.messages.reduce((acc, m, idx) => {
-        if (m.isBlueprint) return idx;
-        return acc;
-      }, -1);
-      
-      const lastBlueprint = lastBlueprintIdx !== -1 ? currentChat.messages[lastBlueprintIdx] : null;
-
-      if (lastBlueprint && lastBlueprint.blueprintStatus === 'pending') {
-        const updatedSteps = [...lastBlueprint.blueprintSteps, `${textToSend} (User custom step)`];
-        
-        const updatedMessages = currentChat.messages.map((m, idx) => {
-          if (idx === lastBlueprintIdx) {
-            return {
-              ...m,
-              blueprintSteps: updatedSteps
-            };
-          }
-          return m;
-        });
-
-        const finalMessages = [...updatedMessages, userMsg];
-        const updatedChatList = conversations.map(c => {
-          if (c.id === activeChatId) {
-            return { ...c, messages: finalMessages };
-          }
-          return c;
-        });
-
-        saveChatsToLocal(updatedChatList);
-        setPromptInput('');
-        return;
-      }
-
-      let planSteps = [
-        'Analyze desktop screen coordinates',
-        'Determine active application states'
-      ];
-      if (/screenshot|delete|clean|downloads/i.test(textToSend)) {
-        planSteps = [
-          'Locate system Downloads folder',
-          'Scan for files with "screenshot" in name',
-          'Open Downloads folder visually',
-          'Highlight target screenshot files on screen',
-          'Delete duplicate screenshots natively on PC'
-        ];
-      } else if (/chrome|browser|invoice|crm|tab/i.test(textToSend)) {
-        planSteps = [
-          'Locate browser launcher',
-          'Switch active tab to CRM Invoices tab',
-          'Scan invoice tables for Acme Corp Invoice',
-          'Execute mouse hover and click Approve button'
-        ];
-      } else {
-        planSteps = [
-          'Locate Windows Start Launcher',
-          'Open System PowerShell Terminal',
-          'Execute diagnostic checks and return status code'
-        ];
-      }
-
-      const botMsg = {
-        id: 'msg_bot_' + Date.now(),
-        sender: 'model',
-        text: `Here is the operational blueprint to automate this task on your PC:`,
-        isBlueprint: true,
-        blueprintSteps: planSteps,
-        blueprintPrompt: textToSend,
-        blueprintStatus: 'executing',
-        timestamp: new Date().toISOString()
-      };
-
-      const finalMessages = [...currentChat.messages, userMsg, botMsg];
-      const updatedChatList = conversations.map(c => {
-        if (c.id === activeChatId) {
-          return { ...c, messages: finalMessages };
-        }
-        return c;
-      });
-
-      saveChatsToLocal(updatedChatList);
-      setPromptInput('');
-
-      // Auto-execute physical task immediately without manual user approval
-      setTimeout(() => {
-        handleApproveBlueprint(activeChatId, botMsg.id, botMsg.blueprintPrompt, botMsg.blueprintSteps);
-      }, 50);
-
-      return;
-    }
 
 
 
@@ -1125,105 +1017,12 @@ function Dashboard({
     return linkParts.length > 0 ? linkParts : <span dangerouslySetInnerHTML={{ __html: cleanLine }} />;
   };
 
-  // Handle Escape key globally to abort OS Ghost native execution
-  useEffect(() => {
-    const handleGlobalKeyDown = (e) => {
-      if (e.key === 'Escape') {
-        setConversations(prev => {
-          let modified = false;
-          const updated = prev.map(chat => {
-            const hasExecuting = chat.messages.some(m => m.isBlueprint && m.blueprintStatus === 'executing');
-            if (hasExecuting) {
-              modified = true;
-              return {
-                ...chat,
-                messages: chat.messages.map(m => m.isBlueprint && m.blueprintStatus === 'executing' ? { ...m, blueprintStatus: 'aborted' } : m)
-              };
-            }
-            return chat;
-          });
-          if (modified) {
-            localStorage.setItem(`chats_${currentUser.email}`, JSON.stringify(updated));
-          }
-          return updated;
-        });
-      }
-    };
-    window.addEventListener('keydown', handleGlobalKeyDown);
-    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-  }, [currentUser]);
 
-  const handleApproveBlueprint = async (chatId, messageId, promptText, steps) => {
-    // 1. Update status to 'executing'
-    setConversations(prev => {
-      const updated = prev.map(chat => {
-        if (chat.id === chatId) {
-          return {
-            ...chat,
-            messages: chat.messages.map(m => m.id === messageId ? { ...m, blueprintStatus: 'executing' } : m)
-          };
-        }
-        return chat;
-      });
-      localStorage.setItem(`chats_${currentUser.email}`, JSON.stringify(updated));
-      return updated;
-    });
-
-    try {
-      const res = await fetch('/api/os-ghost/execute', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: promptText, modifications: steps })
-      });
-      const data = await res.json();
-
-      // 2. Update status based on execution result
-      setConversations(prev => {
-        const updated = prev.map(chat => {
-          if (chat.id === chatId) {
-            return {
-              ...chat,
-              messages: chat.messages.map(m => {
-                if (m.id === messageId) {
-                  // Only update if it wasn't aborted by ESC key in the meantime
-                  if (m.blueprintStatus === 'executing') {
-                    return { ...m, blueprintStatus: res.ok && data.success ? 'completed' : 'aborted' };
-                  }
-                }
-                return m;
-              })
-            };
-          }
-          return chat;
-        });
-        localStorage.setItem(`chats_${currentUser.email}`, JSON.stringify(updated));
-        return updated;
-      });
-    } catch (err) {
-      console.error('OS Ghost execution error:', err);
-      setConversations(prev => {
-        const updated = prev.map(chat => {
-          if (chat.id === chatId) {
-            return {
-              ...chat,
-              messages: chat.messages.map(m => m.id === messageId && m.blueprintStatus === 'executing' ? { ...m, blueprintStatus: 'aborted' } : m)
-            };
-          }
-          return chat;
-        });
-        localStorage.setItem(`chats_${currentUser.email}`, JSON.stringify(updated));
-        return updated;
-      });
-    }
-  };
 
   // Auto-close sidebar on mobile when chat selected
   const handleChatSelect = (chatId) => {
     setActiveChatId(chatId);
-    setTakeTheWheelActive(false);
-    setCurrentOsPlan(null);
-    setPlanModifications([]);
-    setOsGhostAutoExecute(false);
+
     if (window.innerWidth <= 768) setSidebarOpen(false);
   };
 
@@ -1492,17 +1291,7 @@ function Dashboard({
                 <div className="tooltip-text">Multi-dimensional reasoning for complex edge-cases.</div>
               </div>
 
-              <div className="tooltip-container">
-                <button 
-                  className={`mode-toggle-btn ghost ${mode === 'os_ghost' ? 'active' : ''}`}
-                  style={mode === 'os_ghost' ? { background: 'linear-gradient(90deg, #ff9900, #ff5f56)', color: '#000', border: 'none' } : {}}
-                  onClick={() => setMode(prev => prev === 'os_ghost' ? 'normal' : 'os_ghost')}
-                >
-                  <MonitorPlay size={14} style={{ marginRight: '6px' }} />
-                  OS Ghost
-                </button>
-                <div className="tooltip-text">Take control of the desktop with virtual cursor automation.</div>
-              </div>
+
 
 
               
@@ -1628,85 +1417,7 @@ function Dashboard({
                       {/* Bot/User text */}
                       {renderMessageContent(m.text)}
 
-                      {m.isBlueprint && (
-                        <div style={{
-                          marginTop: '12px',
-                          background: 'rgba(0, 0, 0, 0.4)',
-                          border: `1px solid ${
-                            m.blueprintStatus === 'executing' ? '#00f2fe' : 
-                            m.blueprintStatus === 'completed' ? '#10b981' : 
-                            m.blueprintStatus === 'aborted' ? '#ef4444' : '#ff9900'
-                          }`,
-                          borderRadius: '8px',
-                          padding: '14px',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          gap: '10px'
-                        }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold', color: m.blueprintStatus === 'aborted' ? '#ef4444' : '#ff9900' }}>
-                            <Terminal size={16} />
-                            <span>PC Automation Plan Blueprint</span>
-                          </div>
 
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontFamily: 'monospace', fontSize: '0.8rem' }}>
-                            {m.blueprintSteps.map((step, idx) => (
-                              <div key={idx} style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
-                                <span style={{ color: '#ff9900' }}>•</span>
-                                <span>{step}</span>
-                              </div>
-                            ))}
-                          </div>
-
-                          {m.blueprintStatus === 'pending' && (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '8px' }}>
-                              <button
-                                onClick={() => handleApproveBlueprint(activeChat.id, m.id, m.blueprintPrompt, m.blueprintSteps)}
-                                style={{
-                                  width: '100%',
-                                  padding: '10px',
-                                  background: '#ff9900',
-                                  color: '#000',
-                                  border: 'none',
-                                  borderRadius: '6px',
-                                  fontWeight: 'bold',
-                                  cursor: 'pointer',
-                                  fontSize: '0.85rem',
-                                  boxShadow: '0 0 15px rgba(255, 153, 0, 0.3)',
-                                  transition: 'transform 0.2s'
-                                }}
-                                onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.02)'}
-                                onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1.0)'}
-                              >
-                                Approve & Start PC Task
-                              </button>
-                              <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textAlign: 'center' }}>
-                                💡 Or type instructions to modify this blueprint. Press <b>Escape</b> to cancel.
-                              </span>
-                            </div>
-                          )}
-
-                          {m.blueprintStatus === 'executing' && (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#00f2fe', marginTop: '8px', fontSize: '0.8rem', fontWeight: 'bold' }}>
-                              <Loader2 size={16} className="animate-spin" />
-                              <span>Executing task literally on your PC... Press ESC to stop.</span>
-                            </div>
-                          )}
-
-                          {m.blueprintStatus === 'completed' && (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#10b981', marginTop: '8px', fontSize: '0.8rem', fontWeight: 'bold' }}>
-                              <Check size={16} />
-                              <span>Task completed successfully on your PC!</span>
-                            </div>
-                          )}
-
-                          {m.blueprintStatus === 'aborted' && (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#ef4444', marginTop: '8px', fontSize: '0.8rem', fontWeight: 'bold' }}>
-                              <X size={16} />
-                              <span>Execution aborted or terminated by user.</span>
-                            </div>
-                          )}
-                        </div>
-                      )}
 
                     </div>
                   </div>
