@@ -145,7 +145,7 @@ let dbInitData = {
       name: "Free",
       price: 0,
       prompts: 30,
-      featureLimits: { ppt: 3, mindmap: 5, matrix: 3, optimize: 3, masking: 5, workflow: 1, council: 1, leads: -1 },
+      featureLimits: { ppt: 3, mindmap: 5, matrix: 3, optimize: 3, masking: 5, workflow: 1, council: 1, leads: -1, threed: 3 },
       features: [
         "30 daily prompts limit",
         "All features unlocked (Trial)",
@@ -170,7 +170,7 @@ let dbInitData = {
       duration: "1 Month",
       days: 30,
       prompts: 100,
-      featureLimits: { ppt: 5, mindmap: 8, matrix: 5, optimize: 5, masking: 20, workflow: 0, council: 0, leads: 10 },
+      featureLimits: { ppt: 5, mindmap: 8, matrix: 5, optimize: 5, masking: 20, workflow: 0, council: 0, leads: 10, threed: 5 },
       features: [
         "100 daily prompts limit",
         "Standard processing priority",
@@ -192,7 +192,7 @@ let dbInitData = {
       duration: "3 Months",
       days: 90,
       prompts: 150,
-      featureLimits: { ppt: 7, mindmap: 10, matrix: 10, optimize: 10, masking: 50, workflow: 10, council: 0, leads: 50 },
+      featureLimits: { ppt: 7, mindmap: 10, matrix: 10, optimize: 10, masking: 50, workflow: 10, council: 0, leads: 50, threed: 10 },
       features: [
         "150 daily prompts limit",
         "Better processing priority",
@@ -216,7 +216,7 @@ let dbInitData = {
       duration: "1 Year",
       days: 365,
       prompts: 200,
-      featureLimits: { ppt: 10, mindmap: 15, matrix: -1, optimize: -1, masking: -1, workflow: -1, council: -1, leads: -1 },
+      featureLimits: { ppt: 10, mindmap: 15, matrix: -1, optimize: -1, masking: -1, workflow: -1, council: -1, leads: -1, threed: -1 },
       features: [
         "200 daily prompts limit",
         "Maximum processing priority",
@@ -247,7 +247,7 @@ let dbInitData = {
     workflow: "Workflow Sequences",
     council: "AI Council Debates",
     leads: "Lead Generation",
-    graph: "Knowledge Graph"
+    threed: "3D Shape Generator"
   }
 };
 
@@ -277,12 +277,11 @@ function readConfig() {
     try {
       const config = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
       if (config && config.keys && config.keys.length > 0) {
-        // Fallback to env vars if missing in config.json
-        if (!config.firebaseDbUrl && process.env.FIREBASE_DB_URL) config.firebaseDbUrl = process.env.FIREBASE_DB_URL;
-        if (!config.firebaseServiceAccount && process.env.FIREBASE_SERVICE_ACCOUNT) config.firebaseServiceAccount = process.env.FIREBASE_SERVICE_ACCOUNT;
-        if (!config.razorpayKeyId && process.env.RAZORPAY_KEY_ID) config.razorpayKeyId = process.env.RAZORPAY_KEY_ID;
-        if (!config.razorpayKeySecret && process.env.RAZORPAY_KEY_SECRET) config.razorpayKeySecret = process.env.RAZORPAY_KEY_SECRET;
-        if (!config.razorpayWebhookSecret && process.env.RAZORPAY_WEBHOOK_SECRET) config.razorpayWebhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
+        if (process.env.FIREBASE_DB_URL) config.firebaseDbUrl = process.env.FIREBASE_DB_URL;
+        if (process.env.FIREBASE_SERVICE_ACCOUNT) config.firebaseServiceAccount = process.env.FIREBASE_SERVICE_ACCOUNT;
+        if (process.env.RAZORPAY_KEY_ID) config.razorpayKeyId = process.env.RAZORPAY_KEY_ID;
+        if (process.env.RAZORPAY_KEY_SECRET) config.razorpayKeySecret = process.env.RAZORPAY_KEY_SECRET;
+        if (process.env.RAZORPAY_WEBHOOK_SECRET) config.razorpayWebhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
         return config;
       }
     } catch (e) {
@@ -1341,6 +1340,15 @@ app.post('/api/chat', async (req, res) => {
       }
     }
 
+    const is3DRequest = /\b3d\b/i.test(message) && /(generate|render|make|create|draw|show|build|mode)\b/i.test(message);
+    if (is3DRequest) {
+      const check = checkFeatureLimit(email, 'threed');
+      if (!check.allowed) {
+        return res.status(403).json({ error: 'FEATURE_LIMIT', message: `3D Shape Generator daily limit reached (${check.used}/${check.limit}). Upgrade your plan for more.` });
+      }
+      incrementFeatureUsage(email, 'threed');
+    }
+
   }
 
   if (!isAdmin && Number(userLimit) !== -1 && user.promptsUsed >= Number(userLimit)) {
@@ -1514,6 +1522,8 @@ User's original raw query: ${message}`;
       } else {
         systemInstruction += "STRICT VISUAL DIAGRAMS RULE: Do NOT generate any Mermaid.js diagrams, flowcharts, mind maps, or visual graphs under any circumstances. You were not asked for one, and including one would be a failure. ";
       }
+
+      systemInstruction += "3D SHAPE GENERATION: If the user asks to generate ANY kind of 3D image, shape, scene or object, you MUST output a special token in your text response: `[3D_SHAPE_RENDER: shape=<shape>, color=<color>, material=<material>, text=<label>]` OR if it is a complex scene, you can generate a custom composite scene using: `[3D_SHAPE_RENDER: composite=<part1>;<part2>;...; text=<label>]` where each part is: `shapeName,color,material,scaleX,scaleY,scaleZ,posX,posY,posZ,rotX,rotY,rotZ`. Supported shapes: cube, sphere, torus, cylinder, cone, dodecahedron, torusKnot, capsule, pyramid, ring. Supported materials: metallic, matte, glow, glass, plastic. Pre-built composite shapes you can use for shape: tree, car, house, robot, rocket, duck, sword, heart, star. You can combine multiple primitives in the composite parameter (separated by ;) to build literally any 3D object the user requests (e.g., a table, a chair, a snowman, a coffee cup, etc.). Do not output HTML canvas code or base64; only use this token. ";
 
       systemInstruction += "RESPONSE SPEED: Keep your response concise yet complete. Respond within a single message. Do not split answers across multiple messages. ";
       systemInstruction += "MANDATORY LINKS RULE (CRITICAL — NEVER SKIP): At the VERY END of EVERY single response, regardless of mode (normal, optimize, matrix simulation, or any other), you MUST include a section titled '**📎 Official Sources & References:**' containing 2-5 real, authentic, official clickable links relevant to the topic discussed. Format as markdown: [Website Name](https://url). Examples: Wikipedia, official docs, government sites, reputable news outlets. This section is ABSOLUTELY REQUIRED in every response without exception. If you skip this section, the response is considered INCOMPLETE and FAILED. NEVER use fake or made-up URLs. ";
@@ -2395,9 +2405,9 @@ app.post('/api/payment/razorpay/create-order', async (req, res) => {
     return res.status(500).json({ error: 'Razorpay keys are not configured by the admin.' });
   }
 
-  const { planId, amountINR } = req.body;
-  if (!planId || !amountINR) {
-    return res.status(400).json({ error: 'Plan ID and Amount are required.' });
+  const { planId, amountINR, email } = req.body;
+  if (!planId || !amountINR || !email) {
+    return res.status(400).json({ error: 'Plan ID, Amount, and Email are required.' });
   }
 
   try {
@@ -2406,10 +2416,19 @@ app.post('/api/payment/razorpay/create-order', async (req, res) => {
       key_secret: config.razorpayKeySecret,
     });
 
+    const db = readDB();
+    const plan = db.plans && db.plans[planId];
+    const durationDays = plan ? (plan.days || 30) : 30;
+
     const options = {
       amount: parseInt(amountINR) * 100, // amount in smallest currency unit (paise)
       currency: "INR",
-      receipt: `rcpt_${Date.now()}`
+      receipt: `rcpt_${Date.now()}`,
+      notes: {
+        email: email,
+        planId: planId,
+        durationDays: durationDays
+      }
     };
 
     const order = await rzp.orders.create(options);

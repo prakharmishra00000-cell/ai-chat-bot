@@ -9,6 +9,7 @@ import CouncilRoom from './CouncilRoom';
 import WorkflowPanel from './WorkflowPanel';
 
 import MindMap3D from './MindMap3D';
+import Interactive3DObject from './Interactive3DObject';
 
 // Initialize Mermaid.js configuration
 try {
@@ -921,7 +922,28 @@ function Dashboard({
       return (
         <div key={i} className="markdown-render">
           {part.content.split('\n').map((line, lineIdx) => {
+            // 3D Shape Renderer (handles primitive shape token or composite scenes DSL)
+            if (line.includes('[3D_SHAPE_RENDER:')) {
+              const startIdx = line.indexOf('[3D_SHAPE_RENDER:');
+              const endIdx = line.indexOf(']', startIdx);
+              if (endIdx !== -1) {
+                const tokenContent = line.substring(startIdx + 17, endIdx);
+                
+                const shapeParam = tokenContent.match(/shape\s*=\s*([^,;\]]+)/);
+                const colorParam = tokenContent.match(/color\s*=\s*([^,;\]]+)/);
+                const materialParam = tokenContent.match(/material\s*=\s*([^,;\]]+)/);
+                const compositeParam = tokenContent.match(/composite\s*=\s*([^;\]]+)/);
+                const textParam = tokenContent.match(/text\s*=\s*([^;\]]+)/);
 
+                const shape = shapeParam ? shapeParam[1].trim() : null;
+                const color = colorParam ? colorParam[1].trim() : null;
+                const material = materialParam ? materialParam[1].trim() : null;
+                const composite = compositeParam ? compositeParam[1].trim() : null;
+                const label = textParam ? textParam[1].trim() : (composite ? "Custom 3D Object" : `${color || ''} ${material || ''} ${shape || 'Shape'}`);
+
+                return <Interactive3DObject key={lineIdx} shape={shape} color={color} material={material} composite={composite} label={label} />;
+              }
+            }
 
             // Check headers
             if (line.startsWith('### ')) {

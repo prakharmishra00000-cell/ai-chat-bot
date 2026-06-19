@@ -14,8 +14,7 @@ function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess }) {
         '30 daily prompts limit',
         'Standard processing priority',
         'Data Masking (5/day)',
-        'Interview Mode (3/day)',
-        'Knowledge Graph (5/day)'
+        'Interview Mode (3/day)'
       ]
     },
     {
@@ -32,7 +31,6 @@ function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess }) {
         'Interview Mode (10/day)',
         'Includes Web Grounding Search',
         'Standard AI rotation support',
-        'Knowledge Graph (10/day)',
         'Valid for 30 Days'
       ]
     },
@@ -52,7 +50,6 @@ function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess }) {
         'Workflow Sequencer (10/day)',
         'Web Search & Matrix groundings',
         'Priority AI rotation support',
-        'Knowledge Graph (30/day)',
         'Valid for 90 Days'
       ]
     },
@@ -72,7 +69,6 @@ function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess }) {
         'Council Room (Unlimited)',
         'Live Diagrams & Mind maps',
         'Ultimate key-rotation priority',
-        'Knowledge Graph (Unlimited)',
         'Valid for 365 Days'
       ]
     }
@@ -92,6 +88,7 @@ function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess }) {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [copied, setCopied] = useState(false);
+  const [selectedManualPlan, setSelectedManualPlan] = useState('standard'); // standard, better, premium
   const [receiverUpiId, setReceiverUpiId] = useState('');
   const [receiverName, setReceiverName] = useState('');
   const [hasCustomQR, setHasCustomQR] = useState(null); // null = loading, true/false = resolved
@@ -154,7 +151,7 @@ function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess }) {
       const orderRes = await fetch('/api/payment/razorpay/create-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ planId: plan.id, amountINR: plan.price })
+        body: JSON.stringify({ planId: plan.id, amountINR: plan.price, email })
       });
       
       const orderData = await orderRes.json();
@@ -185,6 +182,11 @@ function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess }) {
         },
         prefill: {
           email: email || "",
+        },
+        notes: {
+          email: email || "",
+          planId: plan.id,
+          durationDays: plan.days || 30
         },
         theme: {
           color: "#00f2fe"
@@ -297,15 +299,14 @@ function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess }) {
     }
   };
 
-  // Build the auto-generated QR URL from the receiver UPI ID (no amount)
-  const autoQrUrl = receiverUpiId
-    ? `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(`upi://pay?pa=${receiverUpiId}&pn=${encodeURIComponent(receiverName || 'Payment')}&cu=INR`)}`
-    : '';
+  const manualUpiId = '6372843175@kotakbank';
+  const activePlanObj = dbPlans.find(p => p.id === selectedManualPlan) || { price: 99, name: 'Basic' };
+  const manualAmount = activePlanObj.price;
+  const manualName = activePlanObj.name;
 
-  // UPI intent URL for mobile (no amount — admin decides the plan)
-  const upiIntentUrl = receiverUpiId
-    ? `upi://pay?pa=${receiverUpiId}&pn=${encodeURIComponent(receiverName || 'Payment')}&cu=INR`
-    : '';
+  const manualUpiLink = `upi://pay?pa=${manualUpiId}&pn=${encodeURIComponent('MatrixMind Bot')}&am=${manualAmount}&cu=INR&tn=Upgrade%20to%20${manualName}`;
+  const manualQrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&margin=10&data=${encodeURIComponent(manualUpiLink)}`;
+  const upiIntentUrl = manualUpiLink;
 
   return (
     <div className="modal-overlay">
@@ -369,7 +370,7 @@ function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess }) {
                   {(() => {
                     let displayFeatures = plan.features || [];
                     if (plan.featureLimits && Object.keys(featureNames).length > 0) {
-                      const baseFeatures = displayFeatures.filter(f => !f.includes('/day') && !f.includes('Unlimited') && !f.includes('Masking') && !f.includes('Workflow') && !f.includes('Council') && !f.includes('Interview') && !f.includes('PPT') && !f.includes('Mind Map') && !f.includes('Matrix') && !f.includes('Optimization') && !f.includes('Graph'));
+                      const baseFeatures = displayFeatures.filter(f => !f.includes('/day') && !f.includes('Unlimited') && !f.includes('Masking') && !f.includes('Workflow') && !f.includes('Council') && !f.includes('Interview') && !f.includes('PPT') && !f.includes('Mind Map') && !f.includes('Matrix') && !f.includes('Optimization'));
                       const dynamicFeatures = [];
                       Object.keys(plan.featureLimits).forEach(key => {
                         const limit = plan.featureLimits[key];
@@ -446,41 +447,84 @@ function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess }) {
         {!success && (
           <div className="glass-panel" style={{ marginTop: '30px', padding: '25px', width: '100%', borderRadius: 'var(--radius-lg)' }}>
             <h3 style={{ fontFamily: 'var(--font-heading)', color: 'var(--accent-cyan)', fontSize: '1.25rem', marginBottom: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>
-              Manual UPI Fallback
+              Direct UPI / QR Code Payment
             </h3>
-            <p style={{textAlign: 'center', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '20px'}}>If the automated "Auto Unlock Plan" button above fails, you can pay manually using UPI.</p>
+            <p style={{textAlign: 'center', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '20px'}}>
+              You can pay through the UPI ID or scan the QR code directly to pay. Select a plan to update the QR code:
+            </p>
 
-            {/* QR Code Removed as per request */}
+            {/* Plan selector pills */}
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', marginBottom: '20px' }}>
+              {dbPlans.filter(p => p.id !== 'free').map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => setSelectedManualPlan(p.id)}
+                  style={{
+                    padding: '8px 16px',
+                    borderRadius: '20px',
+                    border: '1px solid ' + (selectedManualPlan === p.id ? 'var(--accent-cyan)' : 'var(--border-glass)'),
+                    background: selectedManualPlan === p.id ? 'rgba(0, 242, 254, 0.15)' : 'rgba(255,255,255,0.05)',
+                    color: selectedManualPlan === p.id ? 'var(--accent-cyan)' : 'var(--text-muted)',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    fontSize: '0.8rem',
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  {p.name} (₹{p.price})
+                </button>
+              ))}
+            </div>
+
+            {/* QR Code Container */}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', margin: '20px 0' }}>
+              <div style={{
+                padding: '10px',
+                background: '#fff',
+                borderRadius: '12px',
+                boxShadow: '0 8px 24px rgba(0,242,254,0.15)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                border: '2px solid rgba(0, 242, 254, 0.3)'
+              }}>
+                <img
+                  src={manualQrUrl}
+                  alt={`Scan QR code to pay ₹${manualAmount}`}
+                  style={{ width: '180px', height: '180px', display: 'block' }}
+                />
+              </div>
+              <p style={{ fontSize: '0.8rem', color: '#ffe259', fontWeight: 600, marginTop: '10px', textAlign: 'center' }}>
+                Scan to pay ₹{manualAmount} for {manualName} Plan
+              </p>
+            </div>
 
             {/* UPI ID display + Copy */}
-            {receiverUpiId && (
-              <div style={{ textAlign: 'center', margin: '15px 0', padding: '15px', background: 'rgba(0,0,0,0.3)', borderRadius: '12px', border: '1px dashed var(--border-glass-glow)' }}>
-                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  UPI ID — Pay to
+            <div style={{ textAlign: 'center', margin: '15px 0', padding: '15px', background: 'rgba(0,0,0,0.3)', borderRadius: '12px', border: '1px dashed var(--border-glass-glow)' }}>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                UPI ID — Copy or Pay to
+              </p>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
+                <p style={{ fontSize: '1.2rem', color: 'var(--accent-cyan)', fontWeight: 800, fontFamily: 'monospace', margin: 0 }}>
+                  {manualUpiId}
                 </p>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
-                  <p style={{ fontSize: '1.2rem', color: 'var(--accent-cyan)', fontWeight: 800, fontFamily: 'monospace', margin: 0 }}>
-                    {receiverUpiId}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={handleCopyUpiId}
-                    style={{ background: 'none', border: '1px solid var(--border-glass)', borderRadius: '6px', padding: '4px 8px', color: copied ? '#00f2fe' : '#94a3b8', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem' }}
-                  >
-                    <Copy size={14} />
-                    {copied ? 'Copied!' : 'Copy'}
-                  </button>
-                </div>
-                {receiverName && (
-                  <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                    Receiver: {receiverName}
-                  </p>
-                )}
+                <button
+                  type="button"
+                  onClick={handleCopyUpiId}
+                  style={{ background: 'none', border: '1px solid var(--border-glass)', borderRadius: '6px', padding: '4px 8px', color: copied ? '#00f2fe' : '#94a3b8', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem' }}
+                >
+                  <Copy size={14} />
+                  {copied ? 'Copied!' : 'Copy'}
+                </button>
               </div>
-            )}
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                Receiver: MatrixMind Bot
+              </p>
+            </div>
 
             {/* Mobile: Pay via UPI App button */}
-            {isMobile && upiIntentUrl && (
+            {isMobile && (
               <a
                 href={upiIntentUrl}
                 className="btn"
@@ -488,10 +532,11 @@ function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess }) {
                   width: '100%', padding: '16px', fontSize: '1.05rem', marginBottom: '16px',
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
                   textDecoration: 'none', color: 'inherit', cursor: 'pointer',
-                  background: 'linear-gradient(135deg, #00d4ff 0%, #7c3aed 100%)'
+                  background: 'linear-gradient(135deg, #00d4ff 0%, #7c3aed 100%)',
+                  borderRadius: '8px', fontWeight: 'bold'
                 }}
               >
-                💳 Pay via UPI App
+                💳 Open UPI App to Pay ₹{manualAmount}
               </a>
             )}
 
@@ -499,11 +544,11 @@ function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess }) {
             <div style={{ padding: '15px', background: 'rgba(0,0,0,0.2)', borderRadius: '8px', marginBottom: '20px' }}>
               <p style={{ fontSize: '0.8rem', color: 'var(--accent-cyan)', fontWeight: 700, marginBottom: '8px' }}>📋 How to complete payment:</p>
               <ol style={{ fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.8, margin: 0, paddingLeft: '16px' }}>
-                <li>Make payment for your desired plan amount to the UPI ID {isMobile ? 'or using the UPI app button ' : ''}above</li>
-                <li>Enter the <strong style={{ color: 'var(--accent-cyan)' }}>exact plan amount</strong> — ₹99 (Standard), ₹199 (Better), or ₹999 (Premium)</li>
-                <li>Complete the payment with your UPI PIN</li>
-                <li>Note the <strong style={{ color: '#ffe259' }}>12-digit UTR/Reference number</strong> from your receipt</li>
-                <li>Enter the UTR below and submit for verification</li>
+                <li>Select your desired subscription plan above (Basic, Pro, or Ultimate).</li>
+                <li>Scan the generated QR code directly using your UPI app (GPay, PhonePe, Paytm, BHIM, etc.), or copy and enter the UPI ID: <strong style={{ color: 'var(--accent-cyan)' }}>{manualUpiId}</strong></li>
+                <li>Pay the exact amount of <strong style={{ color: 'var(--accent-cyan)' }}>₹{manualAmount}</strong> corresponding to your chosen plan.</li>
+                <li>Note the <strong style={{ color: '#ffe259' }}>12-digit UTR/Reference number</strong> from the payment confirmation.</li>
+                <li>Enter the UTR number in the field below and submit to unlock your features instantly.</li>
               </ol>
             </div>
 
