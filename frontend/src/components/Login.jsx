@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Mail, Lock, ShieldCheck, User } from 'lucide-react';
 
-function Login({ onLogin, onShowLegal, onShowSetup }) {
+function Login({ onLogin, onShowLegal, onShowSetup, preFetchedGoogleClientId }) {
   const [activeTab, setActiveTab] = useState('login'); // 'login' or 'signup'
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -60,25 +60,29 @@ function Login({ onLogin, onShowLegal, onShowSetup }) {
 
   // Fetch public keys and initialize Google Identity Services
   useEffect(() => {
-    const fetchPublicKeys = async () => {
-      try {
-        const res = await fetch('/api/config/public');
-        const data = await res.json();
-        if (data.googleClientId) {
-          setGoogleClientId(data.googleClientId);
+    if (preFetchedGoogleClientId) {
+      setGoogleClientId(preFetchedGoogleClientId);
+      setIsConfigLoaded(true);
+    } else {
+      const fetchPublicKeys = async () => {
+        try {
+          const res = await fetch('/api/config/public');
+          const data = await res.json();
+          if (data.googleClientId) {
+            setGoogleClientId(data.googleClientId);
+          }
+        } catch (e) {
+          console.warn('Failed to load public config:', e);
+        } finally {
+          setIsConfigLoaded(true);
         }
-      } catch (e) {
-        console.warn('Failed to load public config:', e);
-      } finally {
-        setIsConfigLoaded(true);
-      }
-    };
-    
-    fetchPublicKeys();
+      };
+      fetchPublicKeys();
+    }
 
     // Log anonymous visitor daily page views
     fetch('/api/visit/anonymous', { method: 'POST' }).catch(err => console.error(err));
-  }, []);
+  }, [preFetchedGoogleClientId]);
 
   // Poll for the Google SDK and the DOM container to be ready
   useEffect(() => {

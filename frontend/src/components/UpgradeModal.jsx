@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Check, Award, Flame, Zap, Copy, Loader, CheckCircle, AlertCircle } from 'lucide-react';
 
-function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess, preFetchedPlans, preFetchedFeatureNames }) {
+function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess, preFetchedPlans, preFetchedFeatureNames, preFetchedReceiverUpiId, preFetchedReceiverName, preFetchedRazorpayKeyId }) {
   // NO hardcoded prices — all prices come from the server (admin-configured)
   const iconsMap = {
     standard: <Zap size={32} color="#4facfe" />,
@@ -34,28 +34,30 @@ function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess, preFetche
         setFeatureNames(preFetchedFeatureNames);
       }
       setPlansLoaded(true);
-      return;
+      if (preFetchedReceiverUpiId) setReceiverUpiId(preFetchedReceiverUpiId);
+      if (preFetchedReceiverName) setReceiverName(preFetchedReceiverName);
+    } else {
+      const fetchPlans = async () => {
+        try {
+          const res = await fetch('/api/plans');
+          const data = await res.json();
+          if (data.plans) {
+            const arr = Object.values(data.plans);
+            if (arr.length > 0) setDbPlans(arr);
+          }
+          if (data.featureNames) {
+            setFeatureNames(data.featureNames);
+          }
+          if (data.receiverUpiId) setReceiverUpiId(data.receiverUpiId);
+          if (data.receiverName) setReceiverName(data.receiverName);
+        } catch (err) {
+          console.error('Failed to fetch plans', err);
+        } finally {
+          setPlansLoaded(true);
+        }
+      };
+      fetchPlans();
     }
-    const fetchPlans = async () => {
-      try {
-        const res = await fetch('/api/plans');
-        const data = await res.json();
-        if (data.plans) {
-          const arr = Object.values(data.plans);
-          if (arr.length > 0) setDbPlans(arr);
-        }
-        if (data.featureNames) {
-          setFeatureNames(data.featureNames);
-        }
-        if (data.receiverUpiId) setReceiverUpiId(data.receiverUpiId);
-        if (data.receiverName) setReceiverName(data.receiverName);
-      } catch (err) {
-        console.error('Failed to fetch plans', err);
-      } finally {
-        setPlansLoaded(true);
-      }
-    };
-    fetchPlans();
 
     // Check if custom QR exists
     fetch('/api/payment-qr', { method: 'HEAD' })
@@ -73,7 +75,7 @@ function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess, preFetche
       }
     };
     loadRazorpay();
-  }, []);
+  }, [preFetchedPlans, preFetchedFeatureNames, preFetchedReceiverUpiId, preFetchedReceiverName]);
 
   const handleRazorpayCheckout = async (plan) => {
     setLoading(true);
@@ -103,10 +105,14 @@ function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess, preFetche
         return;
       }
 
-      // Fetch the Razorpay public key
-      const configRes = await fetch('/api/config/public');
-      const configData = await configRes.json();
-      if (!configData.razorpayKeyId) {
+      // Use pre-fetched Razorpay key or fetch it dynamically
+      let keyId = preFetchedRazorpayKeyId;
+      if (!keyId) {
+        const configRes = await fetch('/api/config/public');
+        const configData = await configRes.json();
+        keyId = configData.razorpayKeyId;
+      }
+      if (!keyId) {
         throw new Error('Missing Razorpay public key');
       }
 
@@ -177,20 +183,25 @@ function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess, preFetche
 
   // Fetch public config for UPI ID
   useEffect(() => {
-    const fetchConfig = async () => {
-      try {
-        const res = await fetch('/api/config/public');
-        if (res.ok) {
-          const data = await res.json();
-          if (data.receiverUpiId) setReceiverUpiId(data.receiverUpiId);
-          if (data.receiverName) setReceiverName(data.receiverName);
+    if (preFetchedReceiverUpiId && preFetchedReceiverName) {
+      setReceiverUpiId(preFetchedReceiverUpiId);
+      setReceiverName(preFetchedReceiverName);
+    } else {
+      const fetchConfig = async () => {
+        try {
+          const res = await fetch('/api/config/public');
+          if (res.ok) {
+            const data = await res.json();
+            if (data.receiverUpiId) setReceiverUpiId(data.receiverUpiId);
+            if (data.receiverName) setReceiverName(data.receiverName);
+          }
+        } catch (e) {
+          console.warn('Failed to fetch public config:', e);
         }
-      } catch (e) {
-        console.warn('Failed to fetch public config:', e);
-      }
-    };
-    fetchConfig();
-  }, []);
+      };
+      fetchConfig();
+    }
+  }, [preFetchedReceiverUpiId, preFetchedReceiverName]);
 
   // Check if admin uploaded a custom QR
   useEffect(() => {

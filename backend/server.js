@@ -521,35 +521,50 @@ function readDB() {
   return globalDB;
 }
 
+let writeDBTimeout = null;
+let firebaseSyncTimeout = null;
+
 function writeDB(data) {
-  globalDB = data; // Update memory instantly for synchronous code
-  try {
-    fs.writeFileSync(DB_PATH, JSON.stringify(data, null, 2), 'utf8');
-  } catch (e) {
-    console.error('Error writing local DB:', e.message);
-  }
+  globalDB = data; // Update memory instantly for all read requests
   
+  // Debounce disk writes to prevent excessive file system locks
+  if (!writeDBTimeout) {
+    writeDBTimeout = setTimeout(() => {
+      writeDBTimeout = null;
+      try {
+        fs.writeFile(DB_PATH, JSON.stringify(globalDB, null, 2), 'utf8', (err) => {
+          if (err) console.error('[DB] Async disk write error:', err.message);
+        });
+      } catch (e) {
+        console.error('[DB] Async persistence failure:', e.message);
+      }
+    }, 100); // 100ms debounce
+  }
+
   // CRITICAL: NEVER push hardcoded seed data to Firebase.
-  // On cold start (Render ephemeral FS), db.json is created from hardcoded defaults.
-  // If we push those defaults to Firebase, it OVERWRITES all admin settings and user plans.
   if (dbIsHardcodedSeed) {
-    console.warn('[FIREBASE] BLOCKED: Refusing to sync hardcoded seed data to Firebase (would overwrite cloud data).');
     return true;
   }
-  
+
   if (firebaseInitialized) {
     if (!firebaseFirstLoadComplete) {
-      console.warn('[FIREBASE] Skipped sync: initial cloud load not yet complete (preventing overwrite).');
       return true;
     }
-    try {
-      const config = readConfig() || {};
-      const payload = { ...data, _config: config };
-      getDatabase().ref('/').set(payload).catch(e => {
-        console.error('[FIREBASE] Sync failed asynchronously:', e.message);
-      });
-    } catch (e) {
-      console.error('[FIREBASE] Sync failed synchronously:', e.message);
+    
+    // Debounce Firebase Realtime DB syncing
+    if (!firebaseSyncTimeout) {
+      firebaseSyncTimeout = setTimeout(() => {
+        firebaseSyncTimeout = null;
+        try {
+          const config = readConfig() || {};
+          const payload = { ...globalDB, _config: config };
+          getDatabase().ref('/').set(payload).catch(e => {
+            console.error('[FIREBASE] Async Sync failed:', e.message);
+          });
+        } catch (e) {
+          console.error('[FIREBASE] Async Sync failed:', e.message);
+        }
+      }, 500); // 500ms debounce for cloud database sync
     }
   } else {
     // Try to init in case config was just updated
@@ -557,6 +572,28 @@ function writeDB(data) {
   }
   return true;
 }
+
+// Flush pending database writes on process exit to prevent data loss
+process.on('SIGTERM', () => {
+  if (writeDBTimeout) {
+    clearTimeout(writeDBTimeout);
+    try {
+      fs.writeFileSync(DB_PATH, JSON.stringify(globalDB, null, 2), 'utf8');
+      console.log('[DB] Flushed database to disk on SIGTERM');
+    } catch (e) {}
+  }
+  process.exit(0);
+});
+process.on('SIGINT', () => {
+  if (writeDBTimeout) {
+    clearTimeout(writeDBTimeout);
+    try {
+      fs.writeFileSync(DB_PATH, JSON.stringify(globalDB, null, 2), 'utf8');
+      console.log('[DB] Flushed database to disk on SIGINT');
+    } catch (e) {}
+  }
+  process.exit(0);
+});
 
 // Call on startup
 initFirebase();
@@ -587,8 +624,17 @@ async function waitForFirebase() {
 // when they actually have a paid plan stored in Firebase cloud.
 // ============================================================
 app.use(async (req, res, next) => {
-  // Only block API routes, not static files
-  if (req.path.startsWith('/api/')) {
+  // Only block API routes that require user/transaction database state
+  const nonBlockingRoutes = [
+    '/api/setup/status',
+    '/api/config/public',
+    '/api/plans',
+    '/api/visit/anonymous',
+    '/api/health',
+    '/api/payment-qr'
+  ];
+  const isNonBlocking = nonBlockingRoutes.includes(req.path) || req.path.startsWith('/api/download-ppt/');
+  if (req.path.startsWith('/api/') && !isNonBlocking) {
     await waitForFirebase();
   }
   next();
@@ -2509,6 +2555,53 @@ app.post('/api/admin/payment-settings', (req, res) => {
   res.json({ success: true, message: 'Payment settings updated successfully.' });
 });
 
+// POST upload custom QR code image (base64)
+app.post('/api/admin/upload-qr', (req, res) => {
+  try {
+    const { imageData } = req.body;
+    if (!imageData) return res.status(400).json({ error: 'No image data provided.' });
+    
+    // imageData should be base64 string (data:image/png;base64,...)
+    const base64Data = imageData.replace(/^data:image\/\w+;base64,/, '');
+    const buffer = Buffer.from(base64Data, 'base64');
+    
+    if (buffer.length > 5 * 1024 * 1024) {
+      return res.status(400).json({ error: 'QR image too large. Max 5MB.' });
+    }
+    
+    fs.writeFileSync(QR_IMAGE_PATH, buffer);
+    console.log(`[ADMIN] Custom QR code uploaded (${Math.round(buffer.length / 1024)} KB)`);
+    res.json({ success: true, message: 'QR code uploaded successfully.' });
+  } catch (err) {
+    console.error('[ADMIN] QR upload error:', err.message);
+    res.status(500).json({ error: 'Failed to save QR image.' });
+  }
+});
+
+// DELETE custom QR code (revert to auto-generated)
+app.delete('/api/admin/upload-qr', (req, res) => {
+  try {
+    if (fs.existsSync(QR_IMAGE_PATH)) {
+      fs.unlinkSync(QR_IMAGE_PATH);
+      console.log('[ADMIN] Custom QR code removed');
+    }
+    res.json({ success: true, message: 'Custom QR removed. Auto-generated QR will be used.' });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to remove QR.' });
+  }
+});
+
+// GET serve the QR code image to frontend
+app.get('/api/payment-qr', (req, res) => {
+  if (fs.existsSync(QR_IMAGE_PATH)) {
+    res.setHeader('Content-Type', 'image/png');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.sendFile(QR_IMAGE_PATH);
+  } else {
+    res.status(404).json({ error: 'No custom QR uploaded.' });
+  }
+});
+
 
 
 // ==========================================
@@ -2959,8 +3052,12 @@ app.post('/api/visit/anonymous', (req, res) => {
   const db = readDB();
   db.anonymousVisits = db.anonymousVisits || {};
   db.anonymousVisits[today] = (db.anonymousVisits[today] || 0) + 1;
-  writeDB(db);
+  
+  // Return response immediately to client
   res.json({ success: true, count: db.anonymousVisits[today] });
+  
+  // Save in background
+  writeDB(db);
 });
 
 // AI SELF-CODING DEV-AGENT COMPILER LOOP ENDPOINT (ADMIN ONLY)
@@ -3110,16 +3207,19 @@ app.post('/api/admin/self-code', async (req, res) => {
 // Serve MatrixMind logo for social media previews (OG image) and standard browser icons/favicons
 app.get(['/matrixmind-logo.jpg', '/favicon.ico', '/apple-touch-icon.png', '/apple-touch-icon-precomposed.png'], (req, res) => {
   const logoPath = path.join(__dirname, 'matrixmind-logo.jpg');
-  if (fs.existsSync(logoPath)) {
-    res.sendFile(logoPath);
-  } else {
-    // Fallback to frontend dist
-    const distLogo = path.join(__dirname, '../frontend/dist/matrixmind-logo.jpg');
-    if (fs.existsSync(distLogo)) {
-      res.sendFile(distLogo);
+  const fileToServe = fs.existsSync(logoPath) ? logoPath : path.join(__dirname, '../frontend/dist/matrixmind-logo.jpg');
+  
+  if (fs.existsSync(fileToServe)) {
+    if (req.path.endsWith('.ico')) {
+      res.setHeader('Content-Type', 'image/x-icon');
+    } else if (req.path.endsWith('.png')) {
+      res.setHeader('Content-Type', 'image/png');
     } else {
-      res.status(404).send('Logo not found');
+      res.setHeader('Content-Type', 'image/jpeg');
     }
+    res.sendFile(fileToServe);
+  } else {
+    res.status(404).send('Logo not found');
   }
 });
 

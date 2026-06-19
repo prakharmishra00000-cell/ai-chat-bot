@@ -38,6 +38,10 @@ function App() {
   // Pre-fetched subscription plans (loaded on app startup for 0ms instant display)
   const [preFetchedPlans, setPreFetchedPlans] = useState([]);
   const [preFetchedFeatureNames, setPreFetchedFeatureNames] = useState({});
+  const [preFetchedGoogleClientId, setPreFetchedGoogleClientId] = useState('');
+  const [preFetchedReceiverUpiId, setPreFetchedReceiverUpiId] = useState('');
+  const [preFetchedReceiverName, setPreFetchedReceiverName] = useState('');
+  const [preFetchedRazorpayKeyId, setPreFetchedRazorpayKeyId] = useState('');
 
   const handleTogglePerfMode = () => {
     const newVal = !perfMode;
@@ -47,22 +51,37 @@ function App() {
   };
 
   useEffect(() => {
-    const preFetchPlans = async () => {
+    const preFetchData = async () => {
       try {
-        const res = await fetch('/api/plans');
-        const data = await res.json();
-        if (data.plans) {
-          const arr = Object.values(data.plans);
-          if (arr.length > 0) setPreFetchedPlans(arr);
-        }
-        if (data.featureNames) {
-          setPreFetchedFeatureNames(data.featureNames);
-        }
+        // Fetch plans
+        fetch('/api/plans')
+          .then(res => res.json())
+          .then(data => {
+            if (data.plans) {
+              const arr = Object.values(data.plans);
+              if (arr.length > 0) setPreFetchedPlans(arr);
+            }
+            if (data.featureNames) {
+              setPreFetchedFeatureNames(data.featureNames);
+            }
+          })
+          .catch(err => console.error('Failed to pre-fetch plans', err));
+
+        // Fetch public config
+        fetch('/api/config/public')
+          .then(res => res.json())
+          .then(data => {
+            if (data.googleClientId) setPreFetchedGoogleClientId(data.googleClientId);
+            if (data.receiverUpiId) setPreFetchedReceiverUpiId(data.receiverUpiId);
+            if (data.receiverName) setPreFetchedReceiverName(data.receiverName);
+            if (data.razorpayKeyId) setPreFetchedRazorpayKeyId(data.razorpayKeyId);
+          })
+          .catch(err => console.error('Failed to pre-fetch public config', err));
       } catch (err) {
-        console.error('Failed to pre-fetch plans', err);
+        console.error('Failed pre-fetching app config:', err);
       }
     };
-    preFetchPlans();
+    preFetchData();
   }, []);
 
   // Configuration settings (Gemini API key checks)
@@ -254,6 +273,7 @@ function App() {
           onLogin={handleLogin} 
           onShowLegal={(type) => { setLegalType(type); setView('legal'); }} 
           onShowSetup={() => setView('setup')}
+          preFetchedGoogleClientId={preFetchedGoogleClientId}
         />
       )}
 
@@ -353,6 +373,9 @@ function App() {
           }}
           preFetchedPlans={preFetchedPlans}
           preFetchedFeatureNames={preFetchedFeatureNames}
+          preFetchedReceiverUpiId={preFetchedReceiverUpiId}
+          preFetchedReceiverName={preFetchedReceiverName}
+          preFetchedRazorpayKeyId={preFetchedRazorpayKeyId}
         />
       )}
     </div>
