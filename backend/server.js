@@ -3286,74 +3286,168 @@ app.post('/api/os-ghost/execute', async (req, res) => {
     // Parse the user prompt to customize the python actions
     const isScreenshotClean = /screenshot|delete|clean|download/i.test(prompt);
     
-    let pythonCode = `
-import os
+    let pythonCode = `import os
+import sys
 import glob
 import time
 import pyautogui
 from pynput import keyboard
+import threading
 
 pyautogui.FAILSAFE = True
+pyautogui.PAUSE = 0.05
+
+use_overlay = True
+try:
+    from PyQt6.QtWidgets import QApplication, QWidget, QLabel
+    from PyQt6.QtCore import Qt, pyqtSignal, QObject
+except ImportError:
+    use_overlay = False
+
+if use_overlay:
+    try:
+        class CursorSignals(QObject):
+            move_cursor = pyqtSignal(int, int)
+            hide_cursor = pyqtSignal()
+            finished = pyqtSignal()
+        signals = CursorSignals()
+
+        class VirtualCursorOverlay(QWidget):
+            def __init__(self):
+                super().__init__()
+                self.setWindowFlags(
+                    Qt.WindowType.FramelessWindowHint | 
+                    Qt.WindowType.WindowStaysOnTopHint | 
+                    Qt.WindowType.WindowTransparentForInput
+                )
+                self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+                self.setGeometry(0, 0, 250, 60)
+                
+                self.label = QLabel("🔴 AI Ghost Working...", self)
+                self.label.setStyleSheet("""
+                    color: #ffffff;
+                    font-family: 'Segoe UI', Arial, sans-serif;
+                    font-weight: bold;
+                    font-size: 14px;
+                    background-color: rgba(20, 20, 20, 0.85);
+                    border: 2px solid #ff9900;
+                    border-radius: 12px;
+                    padding: 8px 16px;
+                """)
+                self.label.adjustSize()
+                self.hide()
+
+            def update_position(self, x, y):
+                self.move(x + 20, y + 20)
+                if not self.isVisible():
+                    self.show()
+    except Exception:
+        use_overlay = False
 
 def on_press(key):
     if key == keyboard.Key.esc:
         print("[ABORTED] Escape key pressed. Emergency shutdown.")
         os._exit(1)
 
-listener = keyboard.Listener(on_press=on_press)
-listener.start()
+escape_listener = keyboard.Listener(on_press=on_press)
+escape_listener.start()
 
-print("[OS GHOST] Started local virtual automation...")
+def update_virtual_cursor(x, y):
+    if use_overlay:
+        signals.move_cursor.emit(x, y)
 
-# Visual glide center
-pyautogui.moveTo(400, 300, duration=0.8)
-time.sleep(0.3)
+def hide_virtual_cursor():
+    if use_overlay:
+        signals.hide_cursor.emit()
+
+def finish_automation():
+    if use_overlay:
+        signals.finished.emit()
+
+def run_automation_steps():
+    try:
+        print("[OS GHOST] Started local virtual automation...")
 `;
 
     if (isScreenshotClean) {
       pythonCode += `
-# Locate Downloads folder
-downloads_path = os.path.expanduser("~/Downloads")
-print(f"[OS GHOST] Searching for screenshots in: {downloads_path}")
+        # Visual glide center
+        update_virtual_cursor(400, 300)
+        pyautogui.moveTo(400, 300, duration=0.8)
+        time.sleep(0.3)
 
-# Open downloads folder visually to show user
-try:
-    os.startfile(downloads_path)
-    time.sleep(1.5)
-except Exception as e:
-    print(f"Could not open downloads directory visually: {e}")
+        # Locate Downloads folder
+        downloads_path = os.path.expanduser("~/Downloads")
+        print(f"[OS GHOST] Searching for screenshots in: {downloads_path}")
 
-# Smoothly glide cursor to top-left area where files are shown
-pyautogui.moveTo(250, 200, duration=0.8)
-time.sleep(0.4)
+        # Open downloads folder visually to show user
+        try:
+            os.startfile(downloads_path)
+            time.sleep(1.5)
+        except Exception as e:
+            print(f"Could not open downloads directory visually: {e}")
 
-# Delete screenshot files
-deleted_files = []
-for f in os.listdir(downloads_path):
-    if "screenshot" in f.lower() or f == "6abf11d0-b7d8-4896-81f0-6c4af94a5bef.png":
-        file_path = os.path.join(downloads_path, f)
-        if os.path.isfile(file_path):
-            try:
-                os.remove(file_path)
-                deleted_files.append(f)
-                print(f"Deleted screenshot: {f}")
-            except Exception as ex:
-                print(f"Error deleting file {f}: {ex}")
+        # Smoothly glide cursor to top-left area where files are shown
+        update_virtual_cursor(250, 200)
+        pyautogui.moveTo(250, 200, duration=0.8)
+        time.sleep(0.4)
 
-# Visual feedback slide back
-pyautogui.moveTo(500, 500, duration=0.6)
-print(f"[OS GHOST] Completed clean-up. Deleted {len(deleted_files)} files: {deleted_files}")
+        # Delete screenshot files
+        deleted_files = []
+        for f in os.listdir(downloads_path):
+            if "screenshot" in f.lower() or f == "6abf11d0-b7d8-4896-81f0-6c4af94a5bef.png":
+                file_path = os.path.join(downloads_path, f)
+                if os.path.isfile(file_path):
+                    try:
+                        os.remove(file_path)
+                        deleted_files.append(f)
+                        print(f"Deleted screenshot: {f}")
+                    except Exception as ex:
+                        print(f"Error deleting file {f}: {ex}")
+
+        # Visual feedback slide back
+        update_virtual_cursor(500, 500)
+        pyautogui.moveTo(500, 500, duration=0.6)
+        print(f"[OS GHOST] Completed clean-up. Deleted {len(deleted_files)} files.")
 `;
     } else {
       pythonCode += `
-# Generic screen automation glide path
-screen_vectors = [(300, 200), (600, 400), (900, 200), (500, 600)]
-for x, y in screen_vectors:
-    pyautogui.moveTo(x, y, duration=0.6)
-    time.sleep(0.2)
-print("[OS GHOST] Completed generic visual mouse glide path.")
+        # Visual glide center
+        update_virtual_cursor(400, 300)
+        pyautogui.moveTo(400, 300, duration=0.8)
+        time.sleep(0.3)
+
+        # Generic screen automation glide path
+        screen_vectors = [(300, 200), (600, 400), (900, 200), (500, 600)]
+        for x, y in screen_vectors:
+            update_virtual_cursor(x, y)
+            pyautogui.moveTo(x, y, duration=0.6)
+            time.sleep(0.2)
+        print("[OS GHOST] Completed generic visual mouse glide path.")
 `;
     }
+
+    pythonCode += `
+    except Exception as e:
+        print(f"[OS GHOST ERROR] {e}")
+    finally:
+        hide_virtual_cursor()
+        finish_automation()
+
+if __name__ == "__main__":
+    if use_overlay:
+        app = QApplication(sys.argv)
+        overlay = VirtualCursorOverlay()
+        
+        signals.move_cursor.connect(overlay.update_position)
+        signals.hide_cursor.connect(overlay.hide)
+        signals.finished.connect(app.quit)
+        
+        threading.Thread(target=run_automation_steps, daemon=True).start()
+        sys.exit(app.exec())
+    else:
+        run_automation_steps()
+`;
 
     // Write the python script to disk
     fs.writeFileSync(scriptPath, pythonCode);
