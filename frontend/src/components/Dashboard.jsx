@@ -739,7 +739,7 @@ ${stepsMarkdown}
 
         saveChatsToLocal(finalChatList);
         setLoading(false);
-      }, 1500);
+      }, 150);
 
       return;
     }

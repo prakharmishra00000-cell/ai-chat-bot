@@ -1280,15 +1280,17 @@ app.post('/api/chat', async (req, res) => {
 
   // 0. LEAD EXTRACTOR INTENT DETECTION
   let isLeadGenRequest = false;
-  try {
-    const intentPrompt = `Analyze this user query: "${message}"\nIs the user primarily asking to extract, generate, or find "leads", contact info, or prospects? Return only valid JSON: {"isLeadGen": true/false}`;
-    const intentRes = await queryGeminiAPI(config.keys, [{ role: 'user', parts: [{ text: intentPrompt }] }], 'You are a JSON generator.');
-    const intentJson = JSON.parse(intentRes.replace(/```json\n?/gi, '').replace(/```\n?/g, '').trim());
-    if (intentJson && intentJson.isLeadGen) {
-      isLeadGenRequest = true;
+  if (/lead|prospect|contact info|contact details|find email|find phone|extract lead/i.test(message)) {
+    try {
+      const intentPrompt = `Analyze this user query: "${message}"\nIs the user primarily asking to extract, generate, or find "leads", contact info, or prospects? Return only valid JSON: {"isLeadGen": true/false}`;
+      const intentRes = await queryGeminiAPI(config.keys, [{ role: 'user', parts: [{ text: intentPrompt }] }], 'You are a JSON generator.');
+      const intentJson = JSON.parse(intentRes.replace(/```json\n?/gi, '').replace(/```\n?/g, '').trim());
+      if (intentJson && intentJson.isLeadGen) {
+        isLeadGenRequest = true;
+      }
+    } catch(e) {
+      console.error('[LEAD EXTRACTOR] Intent parse failed:', e.message);
     }
-  } catch(e) {
-    console.error('[LEAD EXTRACTOR] Intent parse failed:', e.message);
   }
 
   // Execute Lead Gen if detected
