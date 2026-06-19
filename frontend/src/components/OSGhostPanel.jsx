@@ -127,11 +127,27 @@ export default function OSGhostPanel({ onClose }) {
     setCurrentStep(3);
     if (chosenScenario === 'browser') {
       addLog('MAPPING', 'Scanning browser tabs, navigation bar, and document elements...');
-      await wait(800);
+      setCursorPos({ x: 100, y: 40 });
+      await wait(600);
+      setCursorPos({ x: 240, y: 40 });
+      await wait(600);
+      setCursorPos({ x: 620, y: 195 });
+      await wait(600);
+      setCursorPos({ x: 300, y: 200 });
+      await wait(400);
       addLog('MAPPING', 'Mapped 2 tabs [Tab 1: 100,40], [Tab 2: 240,40], and CRM buttons.');
     } else {
       addLog('MAPPING', 'Scanning icons, coordinate grids, and filesystem references...');
-      await wait(800);
+      setCursorPos({ x: 50, y: 70 });
+      await wait(500);
+      setCursorPos({ x: 180, y: 150 });
+      await wait(500);
+      setCursorPos({ x: 310, y: 230 });
+      await wait(500);
+      setCursorPos({ x: 750, y: 500 });
+      await wait(500);
+      setCursorPos({ x: 300, y: 200 });
+      await wait(400);
       addLog('MAPPING', 'Mapped 12 file bounding boxes, 1 recycle bin location [x: 750, y: 500].');
     }
     await wait(600);
@@ -990,7 +1006,7 @@ export default function OSGhostPanel({ onClose }) {
                 left: `${cursorPos.x}px`,
                 zIndex: 9999,
                 pointerEvents: 'none',
-                transition: 'top 0.8s cubic-bezier(0.25, 0.8, 0.25, 1), left 0.8s cubic-bezier(0.25, 0.8, 0.25, 1)'
+                transition: 'top 0.5s cubic-bezier(0.25, 0.8, 0.25, 1), left 0.5s cubic-bezier(0.25, 0.8, 0.25, 1)'
               }}
             >
               <MousePointer 
