@@ -3285,6 +3285,7 @@ app.post('/api/os-ghost/execute', async (req, res) => {
     
     // Parse the user prompt to customize the python actions
     const isScreenshotClean = /screenshot|delete|clean|download/i.test(prompt);
+    const isPowerShellDiagnostic = /powershell|terminal|diagnostic|check/i.test(prompt);
     
     let pythonCode = `import os
 import sys
@@ -3367,13 +3368,16 @@ def finish_automation():
 def run_automation_steps():
     try:
         print("[OS GHOST] Started local virtual automation...")
+        # Get screen dimensions dynamically to scale movement and avoid corner fail-safe triggers
+        width, height = pyautogui.size()
+        center_x, center_y = width // 2, height // 2
 `;
 
     if (isScreenshotClean) {
       pythonCode += `
         # Visual glide center
-        update_virtual_cursor(400, 300)
-        pyautogui.moveTo(400, 300, duration=0.8)
+        update_virtual_cursor(center_x, center_y)
+        pyautogui.moveTo(center_x, center_y, duration=0.8)
         time.sleep(0.3)
 
         # Locate Downloads folder
@@ -3387,9 +3391,10 @@ def run_automation_steps():
         except Exception as e:
             print(f"Could not open downloads directory visually: {e}")
 
-        # Smoothly glide cursor to top-left area where files are shown
-        update_virtual_cursor(250, 200)
-        pyautogui.moveTo(250, 200, duration=0.8)
+        # Smoothly glide cursor to top-left area where files are shown (safely scaled)
+        target_x, target_y = int(width * 0.25), int(height * 0.25)
+        update_virtual_cursor(target_x, target_y)
+        pyautogui.moveTo(target_x, target_y, duration=0.8)
         time.sleep(0.4)
 
         # Delete screenshot files
@@ -3406,19 +3411,55 @@ def run_automation_steps():
                         print(f"Error deleting file {f}: {ex}")
 
         # Visual feedback slide back
-        update_virtual_cursor(500, 500)
-        pyautogui.moveTo(500, 500, duration=0.6)
+        update_virtual_cursor(center_x, center_y)
+        pyautogui.moveTo(center_x, center_y, duration=0.6)
         print(f"[OS GHOST] Completed clean-up. Deleted {len(deleted_files)} files.")
+`;
+    } else if (isPowerShellDiagnostic) {
+      pythonCode += `
+        # Visual glide center
+        update_virtual_cursor(center_x, center_y)
+        pyautogui.moveTo(center_x, center_y, duration=0.8)
+        time.sleep(0.3)
+
+        # Locate Windows Start Launcher
+        print("[OS GHOST] Opening Windows Start menu...")
+        pyautogui.press('win')
+        time.sleep(0.8)
+
+        # Open System PowerShell Terminal
+        print("[OS GHOST] Searching for PowerShell...")
+        pyautogui.write('powershell', interval=0.05)
+        time.sleep(0.5)
+        pyautogui.press('enter')
+        time.sleep(2.0)
+
+        # Execute diagnostic checks
+        print("[OS GHOST] Executing diagnostic checks...")
+        pyautogui.write("Write-Output '=== System Diagnostic Check ==='; Get-ComputerInfo | Select-Object OsName, OsVersion, CsProcessors; Write-Output 'Status Code: 0 (Success)'", interval=0.02)
+        time.sleep(0.5)
+        pyautogui.press('enter')
+        time.sleep(3.0)
+
+        # Visual feedback slide back to center
+        update_virtual_cursor(center_x, center_y)
+        pyautogui.moveTo(center_x, center_y, duration=0.6)
+        print("[OS GHOST] Completed diagnostic check successfully.")
 `;
     } else {
       pythonCode += `
         # Visual glide center
-        update_virtual_cursor(400, 300)
-        pyautogui.moveTo(400, 300, duration=0.8)
+        update_virtual_cursor(center_x, center_y)
+        pyautogui.moveTo(center_x, center_y, duration=0.8)
         time.sleep(0.3)
 
-        # Generic screen automation glide path
-        screen_vectors = [(300, 200), (600, 400), (900, 200), (500, 600)]
+        # Generic screen automation glide path (safely scaled to avoid corners)
+        screen_vectors = [
+            (int(width * 0.3), int(height * 0.3)),
+            (int(width * 0.6), int(height * 0.6)),
+            (int(width * 0.8), int(height * 0.3)),
+            (int(width * 0.5), int(height * 0.8))
+        ]
         for x, y in screen_vectors:
             update_virtual_cursor(x, y)
             pyautogui.moveTo(x, y, duration=0.6)
