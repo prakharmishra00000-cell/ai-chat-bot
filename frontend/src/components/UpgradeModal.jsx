@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Check, Award, Flame, Zap, Copy, Loader, CheckCircle, AlertCircle } from 'lucide-react';
 
-function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess }) {
+function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess, preFetchedPlans, preFetchedFeatureNames }) {
   // NO hardcoded prices — all prices come from the server (admin-configured)
   const iconsMap = {
     standard: <Zap size={32} color="#4facfe" />,
@@ -28,6 +28,14 @@ function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess }) {
 
   // Fetch plans from DB — this is the ONLY source of truth for prices
   useEffect(() => {
+    if (preFetchedPlans && preFetchedPlans.length > 0) {
+      setDbPlans(preFetchedPlans);
+      if (preFetchedFeatureNames) {
+        setFeatureNames(preFetchedFeatureNames);
+      }
+      setPlansLoaded(true);
+      return;
+    }
     const fetchPlans = async () => {
       try {
         const res = await fetch('/api/plans');

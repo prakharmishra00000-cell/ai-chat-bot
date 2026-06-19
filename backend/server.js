@@ -602,7 +602,27 @@ app.use((req, res, next) => {
     const db = readDB();
     db.visits = db.visits || {};
     db.visits[today] = (db.visits[today] || 0) + 1;
-    writeDB(db);
+    
+    // Update global database instantly in memory
+    globalDB = db;
+
+    // Persist to disk and sync to cloud asynchronously to avoid blocking user response
+    setTimeout(() => {
+      try {
+        fs.writeFile(DB_PATH, JSON.stringify(db, null, 2), 'utf8', (err) => {
+          if (err) console.error('[VISITS] Async disk write error:', err.message);
+        });
+        
+        if (firebaseInitialized && firebaseFirstLoadComplete && !dbIsHardcodedSeed) {
+          const config = readConfig() || {};
+          getDatabase().ref('/').set({ ...db, _config: config }).catch(e => {
+            console.error('[VISITS] Async Firebase sync failed:', e.message);
+          });
+        }
+      } catch (e) {
+        console.error('[VISITS] Async persistence failure:', e.message);
+      }
+    }, 0);
   }
   next();
 });

@@ -35,12 +35,35 @@ function App() {
   // Performance mode state to toggle background complexity (default to true/2D BG for smooth load)
   const [perfMode, setPerfMode] = useState(() => localStorage.getItem('perf_mode_static_bg') !== 'false');
 
+  // Pre-fetched subscription plans (loaded on app startup for 0ms instant display)
+  const [preFetchedPlans, setPreFetchedPlans] = useState([]);
+  const [preFetchedFeatureNames, setPreFetchedFeatureNames] = useState({});
+
   const handleTogglePerfMode = () => {
     const newVal = !perfMode;
     setPerfMode(newVal);
     localStorage.setItem('perf_mode_static_bg', String(newVal));
     window.dispatchEvent(new Event('perfModeChanged'));
   };
+
+  useEffect(() => {
+    const preFetchPlans = async () => {
+      try {
+        const res = await fetch('/api/plans');
+        const data = await res.json();
+        if (data.plans) {
+          const arr = Object.values(data.plans);
+          if (arr.length > 0) setPreFetchedPlans(arr);
+        }
+        if (data.featureNames) {
+          setPreFetchedFeatureNames(data.featureNames);
+        }
+      } catch (err) {
+        console.error('Failed to pre-fetch plans', err);
+      }
+    };
+    preFetchPlans();
+  }, []);
 
   // Configuration settings (Gemini API key checks)
   const [appConfig, setAppConfig] = useState(null);
@@ -328,6 +351,8 @@ function App() {
             fetchUserStatus(currentUser.email);
             setShowUpgradeModal(false);
           }}
+          preFetchedPlans={preFetchedPlans}
+          preFetchedFeatureNames={preFetchedFeatureNames}
         />
       )}
     </div>
