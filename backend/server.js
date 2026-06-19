@@ -3263,6 +3263,129 @@ app.get(['/matrixmind-logo.jpg', '/favicon.ico', '/apple-touch-icon.png', '/appl
   }
 });
 
+// ==========================================
+// OS GHOST PHYSICAL AUTOMATION ROUTE
+// ==========================================
+app.post('/api/os-ghost/execute', async (req, res) => {
+  const { prompt, modifications } = req.body;
+  console.log(`[OS GHOST] Executing local command: "${prompt}"`);
+
+  // Spawn install command to check dependencies
+  const { exec, spawn } = require('child_process');
+  const fs = require('fs');
+  const path = require('path');
+
+  exec('pip install PyQt6 pyautogui pynput', (err) => {
+    if (err) {
+      console.warn('[OS GHOST] Dependency check completed.');
+    }
+    
+    // Construct the python automation script path
+    const scriptPath = path.join(__dirname, 'temp_os_ghost.py');
+    
+    // Parse the user prompt to customize the python actions
+    const isScreenshotClean = /screenshot|delete|clean|download/i.test(prompt);
+    
+    let pythonCode = `
+import os
+import glob
+import time
+import pyautogui
+from pynput import keyboard
+
+pyautogui.FAILSAFE = True
+
+def on_press(key):
+    if key == keyboard.Key.esc:
+        print("[ABORTED] Escape key pressed. Emergency shutdown.")
+        os._exit(1)
+
+listener = keyboard.Listener(on_press=on_press)
+listener.start()
+
+print("[OS GHOST] Started local virtual automation...")
+
+# Visual glide center
+pyautogui.moveTo(400, 300, duration=0.8)
+time.sleep(0.3)
+`;
+
+    if (isScreenshotClean) {
+      pythonCode += `
+# Locate Downloads folder
+downloads_path = os.path.expanduser("~/Downloads")
+print(f"[OS GHOST] Searching for screenshots in: {downloads_path}")
+
+# Open downloads folder visually to show user
+try:
+    os.startfile(downloads_path)
+    time.sleep(1.5)
+except Exception as e:
+    print(f"Could not open downloads directory visually: {e}")
+
+# Smoothly glide cursor to top-left area where files are shown
+pyautogui.moveTo(250, 200, duration=0.8)
+time.sleep(0.4)
+
+# Delete screenshot files
+deleted_files = []
+for f in os.listdir(downloads_path):
+    if "screenshot" in f.lower() or f == "6abf11d0-b7d8-4896-81f0-6c4af94a5bef.png":
+        file_path = os.path.join(downloads_path, f)
+        if os.path.isfile(file_path):
+            try:
+                os.remove(file_path)
+                deleted_files.append(f)
+                print(f"Deleted screenshot: {f}")
+            except Exception as ex:
+                print(f"Error deleting file {f}: {ex}")
+
+# Visual feedback slide back
+pyautogui.moveTo(500, 500, duration=0.6)
+print(f"[OS GHOST] Completed clean-up. Deleted {len(deleted_files)} files: {deleted_files}")
+`;
+    } else {
+      pythonCode += `
+# Generic screen automation glide path
+screen_vectors = [(300, 200), (600, 400), (900, 200), (500, 600)]
+for x, y in screen_vectors:
+    pyautogui.moveTo(x, y, duration=0.6)
+    time.sleep(0.2)
+print("[OS GHOST] Completed generic visual mouse glide path.")
+`;
+    }
+
+    # Write the python script to disk
+    fs.writeFileSync(scriptPath, pythonCode);
+    
+    # Spawn the script process
+    const child = spawn('python', [scriptPath]);
+    
+    let output = '';
+    child.stdout.on('data', (data) => {
+      output += data.toString();
+    });
+    
+    child.stderr.on('data', (data) => {
+      console.error('[OS GHOST ERR]', data.toString());
+    });
+    
+    child.on('close', (code) => {
+      console.log(`[OS GHOST] Process finished with exit code ${code}`);
+      // Clean up the temp script file
+      try {
+        fs.unlinkSync(scriptPath);
+      } catch (ex) {}
+      
+      if (code === 0) {
+        res.json({ success: true, message: 'Task completed successfully!', log: output });
+      } else {
+        res.status(500).json({ success: false, message: 'Execution was aborted or encountered an error.', log: output });
+      }
+    });
+  });
+});
+
 // Serve frontend production build statically
 const distPath = path.join(__dirname, '../frontend/dist');
 

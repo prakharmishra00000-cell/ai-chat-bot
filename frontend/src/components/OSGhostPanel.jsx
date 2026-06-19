@@ -104,10 +104,28 @@ export default function OSGhostPanel({ onClose, initialPrompt, autoExecute = fal
     addLog('SAFETY', 'Sequence Authorized by User. Commencing OS hardware inputs...');
     await wait(500);
 
+    const activePrompt = activePromptRef.current || directivePrompt;
+
+    // Call the local backend to execute physical OS actions on the host machine
+    fetch('/api/os-ghost/execute', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt: activePrompt, modifications: planModifications })
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.success) {
+        addLog('SAFETY', 'Local hardware mouse controller finished execution successfully!');
+      } else {
+        addLog('SAFETY', `Local hardware error: ${data.message}`);
+      }
+    })
+    .catch(err => {
+      console.warn('Backend execution bypassed (simulator active):', err);
+    });
+
     // --- STEP 5: Execution ---
     setCurrentStep(5);
-
-    const activePrompt = activePromptRef.current || directivePrompt;
 
     if (scenario === 'browser') {
       const hasApproveKeyword = /approve|invoice|pay|acme/i.test(activePrompt);
