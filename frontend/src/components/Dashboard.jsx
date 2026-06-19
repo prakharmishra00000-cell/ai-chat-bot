@@ -7,7 +7,7 @@ import {
 import mermaid from 'mermaid';
 import CouncilRoom from './CouncilRoom';
 import WorkflowPanel from './WorkflowPanel';
-import MultimodalPanel from './MultimodalPanel';
+import OSGhostPanel from './OSGhostPanel';
 import MindMap3D from './MindMap3D';
 
 // Initialize Mermaid.js configuration
@@ -147,7 +147,7 @@ function Dashboard({
   // Search bar for filtering chats
   const [chatSearchQuery, setChatSearchQuery] = useState('');
   const [themeDropdownOpen, setThemeDropdownOpen] = useState(false);
-  const [multimodalMode, setMultimodalMode] = useState(false);
+  const [osGhostMode, setOsGhostMode] = useState(false);
 
   // Prompt states
   const [promptInput, setPromptInput] = useState('');
@@ -1239,13 +1239,13 @@ function Dashboard({
 
               <div className="tooltip-container">
                 <button 
-                  className={`mode-toggle-btn ${multimodalMode ? 'active' : ''}`}
-                  style={multimodalMode ? { background: 'linear-gradient(90deg, #00f2fe, #7928ca)', color: '#fff', border: 'none' } : {}}
-                  onClick={() => setMultimodalMode(true)}
+                  className={`mode-toggle-btn ${osGhostMode ? 'active' : ''}`}
+                  style={osGhostMode ? { background: 'linear-gradient(90deg, #ff007f, #00f2fe)', color: '#fff', border: 'none' } : {}}
+                  onClick={() => setOsGhostMode(true)}
                 >
-                  Multimodal Action
+                  Take the Wheel
                 </button>
-                <div className="tooltip-text">Native Multimodal screen agent simulator for complex desktop automation.</div>
+                <div className="tooltip-text">Drive system mouse coordinates, folder allocations, and custom scripts under your supervision.</div>
               </div>
               
 
@@ -1591,10 +1591,10 @@ function Dashboard({
         />
       )}
 
-      {/* Multimodal Simulator overlay */}
-      {multimodalMode && (
-        <MultimodalPanel
-          onClose={() => setMultimodalMode(false)}
+      {/* OS Ghost Simulator overlay */}
+      {osGhostMode && (
+        <OSGhostPanel
+          onClose={() => setOsGhostMode(false)}
         />
       )}
 
