@@ -251,8 +251,13 @@ let dbInitData = {
   }
 };
 
+// Track whether db.json was just created from hardcoded defaults (cold start on ephemeral filesystem)
+let dbIsHardcodedSeed = false;
+
 if (!fs.existsSync(DB_PATH)) {
   fs.writeFileSync(DB_PATH, JSON.stringify(dbInitData, null, 2), 'utf8');
+  dbIsHardcodedSeed = true; // Mark: this is default seed, Firebase cloud data should override it
+  console.log('[DB] Created db.json from hardcoded defaults (cold start). Firebase cloud data will override.');
 } else {
   try {
     const currentDB = JSON.parse(fs.readFileSync(DB_PATH, 'utf8'));
@@ -429,6 +434,49 @@ function initFirebase() {
             }
             delete val._config; // Remove from DB object so it doesn't pollute globalDB
           }
+          
+          // CRITICAL: On cold start (Render ephemeral FS), local db.json is just hardcoded defaults.
+          // In that case, Firebase cloud data should COMPLETELY OVERRIDE the local defaults.
+          // Only deep-merge when local data is real admin-configured data.
+          if (dbIsHardcodedSeed) {
+            // Cold start: Cloud data is the truth, use it directly
+            console.log('[FIREBASE] Cold start detected. Using cloud data as source of truth (ignoring hardcoded defaults).');
+            // Ensure schema completeness - add any missing fields from defaults
+            if (!val.plans) val.plans = dbInitData.plans;
+            if (!val.featureNames) val.featureNames = dbInitData.featureNames;
+            if (!val.users) val.users = {};
+            if (!val.transactions) val.transactions = [];
+            if (!val.visits) val.visits = {};
+            if (!val.anonymousVisits) val.anonymousVisits = {};
+            if (!val.supportQueries) val.supportQueries = [];
+            if (!val.pendingApprovals) val.pendingApprovals = [];
+            dbIsHardcodedSeed = false; // Only do this once
+          } else {
+            // Normal operation: deep merge to preserve local admin settings
+            const localDB = globalDB || readLocalDB();
+            if (localDB.plans && val.plans) {
+              Object.keys(localDB.plans).forEach(planKey => {
+                if (val.plans[planKey]) {
+                  val.plans[planKey] = { ...val.plans[planKey], ...localDB.plans[planKey] };
+                } else {
+                  val.plans[planKey] = localDB.plans[planKey];
+                }
+              });
+            }
+            
+            if (localDB.users && val.users) {
+              Object.keys(localDB.users).forEach(userKey => {
+                if (!val.users[userKey]) {
+                  val.users[userKey] = localDB.users[userKey];
+                }
+              });
+            }
+            
+            if (localDB.featureNames && !val.featureNames) {
+              val.featureNames = localDB.featureNames;
+            }
+          }
+          
           globalDB = val;
           try {
             fs.writeFileSync(DB_PATH, JSON.stringify(val, null, 2), 'utf8');
@@ -2435,6 +2483,7 @@ app.post('/api/payment/razorpay/create-order', async (req, res) => {
       amount: parseInt(amountINR) * 100, // amount in smallest currency unit (paise)
       currency: "INR",
       receipt: `rcpt_${Date.now()}`,
+      payment_capture: 1, // AUTO-CAPTURE: immediately capture payment so money settles to admin's bank
       notes: {
         email: email,
         planId: planId,
@@ -2588,7 +2637,20 @@ app.post('/api/payment/razorpay/verify', async (req, res) => {
       key_secret: config.razorpayKeySecret,
     });
 
-    const payment = await rzp.payments.fetch(razorpay_payment_id);
+    let payment = await rzp.payments.fetch(razorpay_payment_id);
+    
+    // If payment is only authorized but not yet captured, capture it now so money settles
+    if (payment.status === 'authorized') {
+      try {
+        console.log(`[VERIFY] Payment ${razorpay_payment_id} is authorized but not captured. Capturing now...`);
+        payment = await rzp.payments.capture(razorpay_payment_id, payment.amount, payment.currency);
+        console.log(`[VERIFY] Payment ${razorpay_payment_id} captured successfully.`);
+      } catch (captureErr) {
+        console.error(`[VERIFY] Failed to capture payment ${razorpay_payment_id}:`, captureErr.message);
+        // Continue anyway — the payment might auto-capture via Razorpay settings
+      }
+    }
+    
     if (payment.status !== 'captured' && payment.status !== 'authorized') {
       console.warn(`[VERIFY] Payment ${razorpay_payment_id} status is '${payment.status}', not captured.`);
       return res.status(400).json({ error: `Payment status is '${payment.status}', not captured. Please wait or contact support.` });
