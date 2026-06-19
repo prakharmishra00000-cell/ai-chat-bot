@@ -44,10 +44,13 @@ export default function OSGhostPanel({ onClose }) {
   const wait = (ms) => new Promise((res) => setTimeout(res, ms));
 
   // Scenario state & user-editable prompt directive
-  const [scenario, setScenario] = useState('desktop'); // 'desktop' or 'browser'
+  const [scenario, setScenario] = useState('desktop'); // 'desktop', 'browser', or 'start_menu'
   const [directivePrompt, setDirectivePrompt] = useState("Clean up my machine. Sort all PDFs into folders by client name, move images to a 'Creative' folder, and delete any duplicate screenshots.");
   const [activeBrowserTab, setActiveBrowserTab] = useState(1);
   const [invoiceApproved, setInvoiceApproved] = useState(false);
+  const [showStartMenu, setShowStartMenu] = useState(false);
+  const [showTerminalWindow, setShowTerminalWindow] = useState(false);
+  const [terminalLines, setTerminalLines] = useState([]);
 
 
   const addLog = (tag, message) => {
@@ -81,8 +84,12 @@ export default function OSGhostPanel({ onClose }) {
   // Main execution timeline
   const startOSGhostWorkflow = async () => {
     // Detect scenario based on prompt content
-    const isBrowserTask = /tab|crm|browser|web|page|approve|invoice/i.test(directivePrompt);
-    const chosenScenario = isBrowserTask ? 'browser' : 'desktop';
+    let chosenScenario = 'desktop';
+    if (/tab|crm|browser|web|page|approve|invoice/i.test(directivePrompt)) {
+      chosenScenario = 'browser';
+    } else if (/start|menu|taskbar|launch|button/i.test(directivePrompt)) {
+      chosenScenario = 'start_menu';
+    }
     setScenario(chosenScenario);
 
     // Reset state
@@ -95,6 +102,9 @@ export default function OSGhostPanel({ onClose }) {
     setTrashCount(0);
     setActiveBrowserTab(1);
     setInvoiceApproved(false);
+    setShowStartMenu(false);
+    setShowTerminalWindow(false);
+    setTerminalLines([]);
     setDesktopFiles([
       { id: 1, name: 'invoice_acme_corp.pdf', type: 'pdf', size: '145 KB', x: 50, y: 70, status: 'visible' },
       { id: 2, name: 'invoice_stark_ind.pdf', type: 'pdf', size: '280 KB', x: 50, y: 150, status: 'visible' },
@@ -136,6 +146,15 @@ export default function OSGhostPanel({ onClose }) {
       setCursorPos({ x: 300, y: 200 });
       await wait(400);
       addLog('MAPPING', 'Mapped 2 tabs [Tab 1: 100,40], [Tab 2: 240,40], and CRM buttons.');
+    } else if (chosenScenario === 'start_menu') {
+      addLog('MAPPING', 'Scanning primary screen workspace and OS launcher bar...');
+      setCursorPos({ x: 28, y: 515 });
+      await wait(600);
+      setCursorPos({ x: 500, y: 300 });
+      await wait(600);
+      setCursorPos({ x: 300, y: 200 });
+      await wait(400);
+      addLog('MAPPING', 'Mapped Start Menu button [x: 28, y: 515] and desktop environment bounds.');
     } else {
       addLog('MAPPING', 'Scanning icons, coordinate grids, and filesystem references...');
       setCursorPos({ x: 50, y: 70 });
@@ -205,6 +224,80 @@ export default function OSGhostPanel({ onClose }) {
       addLog('VERIFICATION', 'Taking final screen snapshot...');
       await wait(800);
       addLog('VERIFICATION', 'Validating CRM portal state: Invoice #INV-2026-004 status is APPROVED.');
+      await wait(600);
+      addLog('VERIFICATION', 'Task Completed Successfully. Returning system controls.');
+
+      setStatus('completed');
+      setRunning(false);
+    } else if (scenario === 'start_menu') {
+      // Move to Start button [x: 28, y: 515]
+      addLog('ACTION', 'Moving cursor to Start Menu launcher button [x: 28, y: 515]...');
+      setCursorPos({ x: 28, y: 515 });
+      await wait(1000);
+
+      // Click Start Menu Button
+      setCursorClick(true);
+      await wait(100);
+      setCursorClick(false);
+      setShowStartMenu(true);
+      addLog('ACTION', 'click(left, single) -> Opened OS Start Menu Launcher.');
+      await wait(800);
+
+      // Ingest updated frame
+      addLog('VISION', 'Ingesting updated framebuffer of opened Start Menu launcher...');
+      await wait(600);
+      addLog('MAPPING', 'Mapped \'System Terminal\' shortcut item at [x: 100, y: 440]');
+      await wait(600);
+
+      // Move to System Terminal item
+      addLog('ACTION', 'Moving cursor to \'System Terminal\' program item [x: 100, y: 440]...');
+      setCursorPos({ x: 100, y: 440 });
+      await wait(1000);
+
+      // Click System Terminal
+      setCursorClick(true);
+      await wait(100);
+      setCursorClick(false);
+      setShowStartMenu(false);
+      setShowTerminalWindow(true);
+      setTerminalLines([
+        "Microsoft Windows [Version 10.0.22631.3527]",
+        "(c) Microsoft Corporation. All rights reserved.",
+        "",
+        "PS C:\\Users\\matrix_mind> "
+      ]);
+      addLog('ACTION', 'click(left, single) -> Executed command shell binary. Terminal window spawned.');
+      await wait(1000);
+
+      // Typing command
+      addLog('ACTION', 'Typing shell instructions: "echo \'MatrixMind OS Agent running...\'"');
+      setTerminalLines(prev => [
+        ...prev.slice(0, -1),
+        "PS C:\\Users\\matrix_mind> echo 'MatrixMind OS Agent running...'",
+        "'MatrixMind OS Agent running...'",
+        "",
+        "PS C:\\Users\\matrix_mind> "
+      ]);
+      await wait(1200);
+
+      // Running verification command
+      addLog('ACTION', 'Executing system diagnostics checklist command...');
+      setTerminalLines(prev => [
+        ...prev.slice(0, -1),
+        "PS C:\\Users\\matrix_mind> ./verify_system_modules.ps1",
+        "Checking integrity...",
+        "[SUCCESS] Host network adapter: OK",
+        "[SUCCESS] Subprocess orchestration: ACTIVE",
+        "",
+        "PS C:\\Users\\matrix_mind> "
+      ]);
+      await wait(1200);
+
+      // --- STEP 6: Verification ---
+      setCurrentStep(6);
+      addLog('VERIFICATION', 'Taking final screen snapshot to verify terminal window state...');
+      await wait(800);
+      addLog('VERIFICATION', 'Terminal subprocess confirmed running with PID 8942. Standard output verified.');
       await wait(600);
       addLog('VERIFICATION', 'Task Completed Successfully. Returning system controls.');
 
@@ -410,6 +503,22 @@ export default function OSGhostPanel({ onClose }) {
               >
                 🌐 Approve CRM Invoice
               </button>
+              <button
+                disabled={running || status === 'staging'}
+                onClick={() => setDirectivePrompt("Click on start menu on my screen, open System Terminal, and verify it works.")}
+                style={{
+                  background: 'rgba(255,255,255,0.05)',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  borderRadius: '12px',
+                  padding: '2px 8px',
+                  fontSize: '0.68rem',
+                  color: '#94a3b8',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+              >
+                🖥️ Start Menu & Terminal
+              </button>
             </div>
           </div>
           
@@ -533,6 +642,29 @@ export default function OSGhostPanel({ onClose }) {
                     <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
                       <span style={{ color: '#ef4444' }}>•</span>
                       <span>Permanently delete 2 duplicate screenshots</span>
+                    </div>
+                  </>
+                ) : scenario === 'start_menu' ? (
+                  <>
+                    <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
+                      <span style={{ color: '#ff9900' }}>•</span>
+                      <span>Locate Start Menu Launcher Button at bottom-left corner [x: 28, y: 515]</span>
+                    </div>
+                    <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
+                      <span style={{ color: '#ff9900' }}>•</span>
+                      <span>Click Start Menu Button to reveal launcher shortcuts</span>
+                    </div>
+                    <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
+                      <span style={{ color: '#ff9900' }}>•</span>
+                      <span>Identify 'System Terminal' list item at [x: 100, y: 440]</span>
+                    </div>
+                    <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
+                      <span style={{ color: '#ff9900' }}>•</span>
+                      <span>Click launcher item to spawn simulated Windows PowerShell / Terminal instance</span>
+                    </div>
+                    <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
+                      <span style={{ color: '#2dd4bf' }}>•</span>
+                      <span>Verify terminal standard output is responsive</span>
                     </div>
                   </>
                 ) : (
@@ -688,396 +820,534 @@ export default function OSGhostPanel({ onClose }) {
             </div>
           </div>
 
-          {/* DESKTOP CANVAS */}
-          <div 
-            style={{
-              flex: 1, background: '#08080f', position: 'relative', overflow: 'hidden',
-              backgroundImage: 'radial-gradient(circle at 50% 50%, rgba(30, 20, 60, 0.3) 0%, transparent 80%)'
-            }}
-          >
-            
-            {scenario === 'desktop' ? (
-              <>
-                {/* Folder targets rendering */}
-                {folders.map((f, idx) => (
-                  <div 
-                    key={idx}
-                    style={{
-                      position: 'absolute', left: `${f.x}px`, top: `${f.y}px`,
-                      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px',
-                      width: '90px', padding: '10px', borderRadius: '6px',
-                      border: '1px solid rgba(0, 242, 254, 0.2)', background: 'rgba(0, 242, 254, 0.05)',
-                      boxShadow: '0 0 10px rgba(0, 242, 254, 0.05)', animation: 'scaleIn 0.3s ease'
-                    }}
-                  >
-                    <Folder size={32} color="var(--accent-cyan)" />
-                    <span style={{ fontSize: '0.68rem', color: '#fff', fontWeight: 'bold', textAlign: 'center', wordBreak: 'break-all' }}>
-                      {f.name}
-                    </span>
-                    <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>
-                      ({f.count} items)
-                    </span>
-                  </div>
-                ))}
-
-                {/* Desktop files rendering */}
-                {desktopFiles.map((file) => {
-                  if (file.status !== 'visible') return null;
-                  
-                  let fileColor = '#38bdf8';
-                  if (file.type === 'image') fileColor = '#fb7185';
-                  if (file.type === 'code') fileColor = '#34d399';
-                  if (file.type === 'text') fileColor = '#fbbf24';
-
-                  return (
-                    <div 
-                      key={file.id}
-                      style={{
-                        position: 'absolute', left: `${file.x}px`, top: `${file.y}px`,
-                        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px',
-                        width: '90px', padding: '10px', borderRadius: '6px',
-                        border: '1px solid transparent', cursor: 'pointer',
-                        transition: 'all 0.3s ease'
-                      }}
-                    >
-                      <File size={28} color={fileColor} />
-                      <span style={{ fontSize: '0.65rem', color: '#cbd5e1', textAlign: 'center', wordBreak: 'break-all', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                        {file.name}
-                      </span>
-                      <span style={{ fontSize: '0.58rem', color: '#475569' }}>
-                        {file.size}
-                      </span>
-                    </div>
-                  );
-                })}
-
-                {/* Recycle Trash Bin */}
-                <div 
-                  style={{
-                    position: 'absolute', left: '740px', top: '480px',
-                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px',
-                    width: '90px', padding: '10px', opacity: 0.85
-                  }}
-                >
-                  <Trash2 size={34} color={trashCount > 0 ? '#ef4444' : '#64748b'} style={{ filter: trashCount > 0 ? 'drop-shadow(0 0 8px rgba(239, 68, 68, 0.4))' : 'none' }} />
-                  <span style={{ fontSize: '0.68rem', color: trashCount > 0 ? '#f87171' : '#94a3b8', fontWeight: 'bold' }}>
-                    Recycle Bin
-                  </span>
-                  <span style={{ fontSize: '0.6rem', color: '#475569' }}>
-                    ({trashCount} items)
-                  </span>
-                </div>
-              </>
-            ) : (
-              /* Simulated Web Browser UI */
-              <div style={{
-                position: 'absolute',
-                left: '20px', top: '20px', right: '20px', bottom: '20px',
-                background: '#0c0c16',
-                border: '1px solid rgba(0, 242, 254, 0.15)',
-                borderRadius: '10px',
-                display: 'flex',
-                flexDirection: 'column',
-                boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
-                overflow: 'hidden',
-                animation: 'scaleIn 0.3s ease'
-              }}>
-                {/* Browser Tabs Header */}
-                <div style={{
-                  background: '#121222',
-                  borderBottom: '1px solid rgba(255,255,255,0.08)',
-                  padding: '8px 12px 0 12px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px'
-                }}>
-                  {/* Red, Yellow, Green Window Dots */}
-                  <div style={{ display: 'flex', gap: '5px', marginRight: '12px', paddingBottom: '8px' }}>
-                    <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#ff5f56' }} />
-                    <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#ffbd2e' }} />
-                    <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#27c93f' }} />
-                  </div>
-
-                  {/* Tab 1 */}
-                  <div 
-                    style={{
-                      padding: '6px 16px',
-                      background: activeBrowserTab === 1 ? '#0c0c16' : 'rgba(255,255,255,0.02)',
-                      border: '1px solid rgba(255,255,255,0.08)',
-                      borderBottom: activeBrowserTab === 1 ? '1px solid #0c0c16' : '1px solid rgba(255,255,255,0.08)',
-                      borderTopLeftRadius: '6px',
-                      borderTopRightRadius: '6px',
-                      fontSize: '0.72rem',
-                      color: activeBrowserTab === 1 ? '#fff' : '#64748b',
-                      fontWeight: activeBrowserTab === 1 ? 'bold' : 'normal',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '6px'
-                    }}
-                    onClick={() => !running && setActiveBrowserTab(1)}
-                  >
-                    <LayoutGrid size={12} color={activeBrowserTab === 1 ? 'var(--accent-cyan)' : '#64748b'} />
-                    CRM Dashboard
-                  </div>
-
-                  {/* Tab 2 */}
-                  <div 
-                    style={{
-                      padding: '6px 16px',
-                      background: activeBrowserTab === 2 ? '#0c0c16' : 'rgba(255,255,255,0.02)',
-                      border: '1px solid rgba(255,255,255,0.08)',
-                      borderBottom: activeBrowserTab === 2 ? '1px solid #0c0c16' : '1px solid rgba(255,255,255,0.08)',
-                      borderTopLeftRadius: '6px',
-                      borderTopRightRadius: '6px',
-                      fontSize: '0.72rem',
-                      color: activeBrowserTab === 2 ? '#fff' : '#64748b',
-                      fontWeight: activeBrowserTab === 2 ? 'bold' : 'normal',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '6px'
-                    }}
-                    onClick={() => !running && setActiveBrowserTab(2)}
-                  >
-                    <FileText size={12} color={activeBrowserTab === 2 ? 'var(--accent-cyan)' : '#64748b'} />
-                    CRM Invoices
-                    <span style={{
-                      background: invoiceApproved ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)',
-                      color: invoiceApproved ? '#10b981' : '#f87171',
-                      fontSize: '0.55rem',
-                      padding: '1px 5px',
-                      borderRadius: '4px',
-                      marginLeft: '4px'
-                    }}>
-                      {invoiceApproved ? '0' : '1'} Pending
-                    </span>
-                  </div>
-                </div>
-
-                {/* URL bar */}
-                <div style={{
-                  background: '#0e0e1a',
-                  borderBottom: '1px solid rgba(255,255,255,0.05)',
-                  padding: '6px 12px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '10px'
-                }}>
-                  <div style={{ display: 'flex', gap: '8px', color: '#475569' }}>
-                    <RotateCcw size={12} />
-                  </div>
-                  <div style={{
-                    flex: 1,
-                    background: 'rgba(0,0,0,0.4)',
-                    border: '1px solid rgba(255,255,255,0.06)',
-                    borderRadius: '4px',
-                    padding: '3px 10px',
-                    fontSize: '0.7rem',
-                    color: '#94a3b8',
-                    fontFamily: 'monospace'
-                  }}>
-                    https://crm.matrixmind.io/{activeBrowserTab === 1 ? 'dashboard' : 'invoices'}
-                  </div>
-                </div>
-
-                {/* Browser Content */}
-                <div style={{ flex: 1, padding: '16px', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
-                  
-                  {/* Toast Alert Banner */}
-                  {invoiceApproved && (
-                    <div style={{
-                      background: 'rgba(16, 185, 129, 0.1)',
-                      border: '1px solid rgba(16, 185, 129, 0.3)',
-                      color: '#34d399',
-                      padding: '8px 12px',
-                      borderRadius: '6px',
-                      fontSize: '0.78rem',
-                      marginBottom: '12px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                      animation: 'scaleIn 0.3s ease'
-                    }}>
-                      <Check size={14} />
-                      <span><b>Success:</b> Invoice INV-2026-004 has been approved and dispatched to accounting!</span>
-                    </div>
-                  )}
-
-                  {activeBrowserTab === 1 ? (
-                    // Tab 1: Dashboard View
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
-                        <div style={{ background: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.04)' }}>
-                          <div style={{ fontSize: '0.65rem', color: '#64748b', textTransform: 'uppercase' }}>Monthly Revenue</div>
-                          <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#fff', marginTop: '4px' }}>$142,580</div>
-                          <div style={{ fontSize: '0.6rem', color: '#10b981', marginTop: '2px' }}>↑ 12.4% vs last month</div>
-                        </div>
-                        <div style={{ background: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.04)' }}>
-                          <div style={{ fontSize: '0.65rem', color: '#64748b', textTransform: 'uppercase' }}>Active Customers</div>
-                          <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#fff', marginTop: '4px' }}>1,842</div>
-                          <div style={{ fontSize: '0.6rem', color: '#10b981', marginTop: '2px' }}>↑ 3.2% growth</div>
-                        </div>
-                        <div style={{ background: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.04)' }}>
-                          <div style={{ fontSize: '0.65rem', color: '#64748b', textTransform: 'uppercase' }}>Pending Invoices</div>
-                          <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: invoiceApproved ? '#64748b' : '#ff9900', marginTop: '4px' }}>
-                            {invoiceApproved ? '0' : '1'}
-                          </div>
-                          <div style={{ fontSize: '0.6rem', color: invoiceApproved ? '#10b981' : '#f87171', marginTop: '2px' }}>
-                            {invoiceApproved ? 'All clear!' : 'Requires review'}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div style={{ background: 'rgba(255,255,255,0.01)', border: '1px solid rgba(255,255,255,0.04)', borderRadius: '8px', padding: '12px' }}>
-                        <h4 style={{ margin: '0 0 8px 0', fontSize: '0.78rem', color: '#fff' }}>Quick Analytics</h4>
-                        <div style={{ height: '80px', display: 'flex', alignItems: 'flex-end', gap: '8px', paddingBottom: '5px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-                          <div style={{ flex: 1, height: '40px', background: 'var(--accent-cyan)', opacity: 0.7, borderRadius: '2px' }} />
-                          <div style={{ flex: 1, height: '65px', background: 'var(--accent-cyan)', opacity: 0.7, borderRadius: '2px' }} />
-                          <div style={{ flex: 1, height: '50px', background: 'var(--accent-cyan)', opacity: 0.7, borderRadius: '2px' }} />
-                          <div style={{ flex: 1, height: '75px', background: 'var(--accent-cyan)', opacity: 0.7, borderRadius: '2px' }} />
-                          <div style={{ flex: 1, height: '90px', background: 'var(--accent-cyan)', borderRadius: '2px', boxShadow: '0 0 8px var(--accent-cyan)' }} />
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.55rem', color: '#475569', marginTop: '4px' }}>
-                          <span>Feb</span>
-                          <span>Mar</span>
-                          <span>Apr</span>
-                          <span>May</span>
-                          <span>Jun (Active)</span>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    // Tab 2: Invoices View
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                        <span style={{ fontSize: '0.78rem', color: '#cbd5e1', fontWeight: 'bold' }}>All Invoices</span>
-                        <span style={{ fontSize: '0.65rem', color: '#64748b' }}>Showing 3 invoices</span>
-                      </div>
-
-                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.72rem' }}>
-                        <thead>
-                          <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', color: '#64748b', textAlign: 'left' }}>
-                            <th style={{ padding: '6px 8px' }}>Client</th>
-                            <th style={{ padding: '6px 8px' }}>Invoice ID</th>
-                            <th style={{ padding: '6px 8px' }}>Amount</th>
-                            <th style={{ padding: '6px 8px' }}>Status</th>
-                            <th style={{ padding: '6px 8px' }}>Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', color: '#f1f5f9' }}>
-                            <td style={{ padding: '10px 8px', fontWeight: 'bold' }}>Acme Corp</td>
-                            <td style={{ padding: '10px 8px', fontFamily: 'monospace' }}>#INV-2026-004</td>
-                            <td style={{ padding: '10px 8px' }}>$12,500.00</td>
-                            <td style={{ padding: '10px 8px' }}>
-                              <span style={{
-                                background: invoiceApproved ? 'rgba(16,185,129,0.1)' : 'rgba(251,191,36,0.1)',
-                                color: invoiceApproved ? '#34d399' : '#fbbf24',
-                                padding: '2px 6px', borderRadius: '4px', fontSize: '0.6rem'
-                              }}>
-                                {invoiceApproved ? 'Paid / Approved' : 'Pending Review'}
-                              </span>
-                            </td>
-                            <td style={{ padding: '10px 8px' }}>
-                              {invoiceApproved ? (
-                                <span style={{ color: '#10b981', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                  <Check size={12} /> Approved
-                                </span>
-                              ) : (
-                                <button
-                                  onClick={() => !running && setInvoiceApproved(true)}
-                                  style={{
-                                    background: '#ff9900', color: '#000', border: 'none',
-                                    borderRadius: '4px', padding: '4px 8px', fontWeight: 'bold',
-                                    cursor: 'pointer', fontSize: '0.62rem'
-                                  }}
-                                >
-                                  Approve
-                                </button>
-                              )}
-                            </td>
-                          </tr>
-
-                          <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', color: '#f1f5f9' }}>
-                            <td style={{ padding: '10px 8px', fontWeight: 'bold' }}>Stark Industries</td>
-                            <td style={{ padding: '10px 8px', fontFamily: 'monospace' }}>#INV-2026-009</td>
-                            <td style={{ padding: '10px 8px' }}>$45,000.00</td>
-                            <td style={{ padding: '10px 8px' }}>
-                              <span style={{
-                                background: 'rgba(16,185,129,0.1)',
-                                color: '#34d399',
-                                padding: '2px 6px', borderRadius: '4px', fontSize: '0.6rem'
-                              }}>
-                                Paid / Approved
-                              </span>
-                            </td>
-                            <td style={{ padding: '10px 8px', color: '#64748b' }}>
-                              No actions
-                            </td>
-                          </tr>
-
-                          <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', color: '#f1f5f9' }}>
-                            <td style={{ padding: '10px 8px', fontWeight: 'bold' }}>Wayne Wayne.</td>
-                            <td style={{ padding: '10px 8px', fontFamily: 'monospace' }}>#INV-2026-012</td>
-                            <td style={{ padding: '10px 8px' }}>$8,200.00</td>
-                            <td style={{ padding: '10px 8px' }}>
-                              <span style={{
-                                background: 'rgba(16,185,129,0.1)',
-                                color: '#34d399',
-                                padding: '2px 6px', borderRadius: '4px', fontSize: '0.6rem'
-                              }}>
-                                Paid / Approved
-                              </span>
-                            </td>
-                            <td style={{ padding: '10px 8px', color: '#64748b' }}>
-                              No actions
-                            </td>
-                          </tr>
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* CURSOR MOUSE POINTER */}
+          {/* DESKTOP CANVAS CONTAINER */}
+          <div style={{
+            flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center',
+            overflow: 'auto', padding: '10px', background: '#040408'
+          }}>
+            {/* DESKTOP CANVAS */}
             <div 
               style={{
-                position: 'absolute',
-                top: `${cursorPos.y}px`,
-                left: `${cursorPos.x}px`,
-                zIndex: 9999,
-                pointerEvents: 'none',
-                transition: 'top 0.5s cubic-bezier(0.25, 0.8, 0.25, 1), left 0.5s cubic-bezier(0.25, 0.8, 0.25, 1)'
+                width: '840px', height: '540px', background: '#08080f', position: 'relative', overflow: 'hidden',
+                backgroundImage: 'radial-gradient(circle at 50% 50%, rgba(30, 20, 60, 0.3) 0%, transparent 80%)',
+                border: '1px solid rgba(255, 255, 255, 0.05)', borderRadius: '8px', boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+                flexShrink: 0
               }}
             >
-              <MousePointer 
-                size={22} 
-                style={{
-                  color: cursorClick ? 'var(--accent-cyan)' : '#ffffff',
-                  fill: cursorClick ? 'var(--accent-cyan)' : '#ffffff',
-                  filter: 'drop-shadow(0 2px 5px rgba(0,0,0,0.6))',
-                  transform: cursorClick ? 'scale(0.8) translate(-2px, -2px)' : 'scale(1)',
-                  transition: 'transform 0.15s ease, color 0.15s ease'
-                }} 
-              />
               
-              {/* Click pulse effect */}
-              {cursorClick && (
+              {(scenario === 'desktop' || scenario === 'start_menu') ? (
+                <>
+                  {/* Folder targets rendering */}
+                  {folders.map((f, idx) => (
+                    <div 
+                      key={idx}
+                      style={{
+                        position: 'absolute', left: `${f.x}px`, top: `${f.y}px`,
+                        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px',
+                        width: '90px', padding: '10px', borderRadius: '6px',
+                        border: '1px solid rgba(0, 242, 254, 0.2)', background: 'rgba(0, 242, 254, 0.05)',
+                        boxShadow: '0 0 10px rgba(0, 242, 254, 0.05)', animation: 'scaleIn 0.3s ease'
+                      }}
+                    >
+                      <Folder size={32} color="var(--accent-cyan)" />
+                      <span style={{ fontSize: '0.68rem', color: '#fff', fontWeight: 'bold', textAlign: 'center', wordBreak: 'break-all' }}>
+                        {f.name}
+                      </span>
+                      <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>
+                        ({f.count} items)
+                      </span>
+                    </div>
+                  ))}
+
+                  {/* Desktop files rendering */}
+                  {desktopFiles.map((file) => {
+                    if (file.status !== 'visible') return null;
+                    
+                    let fileColor = '#38bdf8';
+                    if (file.type === 'image') fileColor = '#fb7185';
+                    if (file.type === 'code') fileColor = '#34d399';
+                    if (file.type === 'text') fileColor = '#fbbf24';
+
+                    return (
+                      <div 
+                        key={file.id}
+                        style={{
+                          position: 'absolute', left: `${file.x}px`, top: `${file.y}px`,
+                          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px',
+                          width: '90px', padding: '10px', borderRadius: '6px',
+                          border: '1px solid transparent', cursor: 'pointer',
+                          transition: 'all 0.3s ease'
+                        }}
+                      >
+                        <File size={28} color={fileColor} />
+                        <span style={{ fontSize: '0.65rem', color: '#cbd5e1', textAlign: 'center', wordBreak: 'break-all', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                          {file.name}
+                        </span>
+                        <span style={{ fontSize: '0.58rem', color: '#475569' }}>
+                          {file.size}
+                        </span>
+                      </div>
+                    );
+                  })}
+
+                  {/* Recycle Trash Bin */}
+                  <div 
+                    style={{
+                      position: 'absolute', left: '740px', top: '480px',
+                      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px',
+                      width: '90px', padding: '10px', opacity: 0.85
+                    }}
+                  >
+                    <Trash2 size={34} color={trashCount > 0 ? '#ef4444' : '#64748b'} style={{ filter: trashCount > 0 ? 'drop-shadow(0 0 8px rgba(239, 68, 68, 0.4))' : 'none' }} />
+                    <span style={{ fontSize: '0.68rem', color: trashCount > 0 ? '#f87171' : '#94a3b8', fontWeight: 'bold' }}>
+                      Recycle Bin
+                    </span>
+                    <span style={{ fontSize: '0.6rem', color: '#475569' }}>
+                      ({trashCount} items)
+                    </span>
+                  </div>
+
+                  {/* Taskbar */}
+                  <div style={{
+                    position: 'absolute', bottom: 0, left: 0, right: 0, height: '40px',
+                    background: 'rgba(15, 15, 30, 0.95)', backdropFilter: 'blur(10px)',
+                    borderTop: '1px solid rgba(255, 255, 255, 0.1)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '0 12px', zIndex: 1000
+                  }}>
+                    {/* Start Button */}
+                    <button 
+                      onClick={() => setShowStartMenu(prev => !prev)}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: '6px',
+                        background: showStartMenu ? 'rgba(0, 242, 254, 0.2)' : 'rgba(255, 255, 255, 0.05)',
+                        border: `1px solid ${showStartMenu ? 'var(--accent-cyan)' : 'rgba(255, 255, 255, 0.1)'}`,
+                        borderRadius: '4px', color: '#fff', fontSize: '0.75rem', fontWeight: 'bold',
+                        height: '30px', padding: '0 10px', cursor: 'pointer', transition: 'all 0.2s'
+                      }}
+                    >
+                      <LayoutGrid size={14} color="var(--accent-cyan)" />
+                      <span>Start</span>
+                    </button>
+
+                    {/* Active apps or indicators */}
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      {showTerminalWindow && (
+                        <div style={{
+                          display: 'flex', alignItems: 'center', gap: '6px',
+                          background: 'rgba(0, 242, 254, 0.1)', border: '1px solid rgba(0, 242, 254, 0.3)',
+                          borderRadius: '4px', height: '30px', padding: '0 10px', fontSize: '0.7rem', color: '#fff'
+                        }}>
+                          <Terminal size={12} color="var(--accent-cyan)" />
+                          <span>Terminal</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* System Tray info */}
+                    <div style={{ fontSize: '0.7rem', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <span>ENG</span>
+                      <span>16:55 PM</span>
+                    </div>
+                  </div>
+
+                  {/* Start Menu Launcher Popup */}
+                  {showStartMenu && (
+                    <div style={{
+                      position: 'absolute', left: '10px', bottom: '45px', width: '220px', height: '180px',
+                      background: 'rgba(10, 10, 25, 0.98)', border: '1px solid rgba(0, 242, 254, 0.3)',
+                      borderRadius: '8px', padding: '12px', boxShadow: '0 10px 25px rgba(0,0,0,0.5)',
+                      zIndex: 1001, backdropFilter: 'blur(15px)', display: 'flex', flexDirection: 'column'
+                    }}>
+                      <div style={{ fontSize: '0.65rem', color: '#64748b', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '8px' }}>
+                        Recommended Apps
+                      </div>
+                      
+                      {/* System Terminal shortcut */}
+                      <div 
+                        onClick={() => {
+                          setShowStartMenu(false);
+                          setShowTerminalWindow(true);
+                          setTerminalLines([
+                            "Microsoft Windows [Version 10.0.22631.3527]",
+                            "(c) Microsoft Corporation. All rights reserved.",
+                            "",
+                            "PS C:\\Users\\matrix_mind> "
+                          ]);
+                        }}
+                        style={{
+                          position: 'absolute', left: '10px', top: '115px', width: '160px', height: '26px',
+                          display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 8px',
+                          borderRadius: '4px', background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.08)',
+                          cursor: 'pointer', fontSize: '0.72rem', color: '#fff', transition: 'all 0.2s',
+                          boxSizing: 'border-box'
+                        }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(0, 242, 254, 0.15)'; e.currentTarget.style.borderColor = 'var(--accent-cyan)'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)'; e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.08)'; }}
+                      >
+                        <Terminal size={12} color="var(--accent-cyan)" />
+                        <span>System Terminal</span>
+                      </div>
+
+                      <div style={{ fontSize: '0.7rem', color: '#475569', marginTop: '4px' }}>
+                        Select applications to launch.
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Floating Terminal Window */}
+                  {showTerminalWindow && (
+                    <div style={{
+                      position: 'absolute', left: '120px', top: '80px', width: '560px', height: '340px',
+                      background: 'rgba(5, 5, 15, 0.95)', border: '1px solid rgba(0, 242, 254, 0.25)',
+                      borderRadius: '8px', boxShadow: '0 12px 30px rgba(0,0,0,0.6)', display: 'flex',
+                      flexDirection: 'column', zIndex: 1002, overflow: 'hidden', backdropFilter: 'blur(20px)'
+                    }}>
+                      {/* Title Bar */}
+                      <div style={{
+                        background: 'rgba(12, 12, 24, 0.9)', borderBottom: '1px solid rgba(0, 242, 254, 0.1)',
+                        padding: '8px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.72rem', color: '#cbd5e1' }}>
+                          <Terminal size={12} color="var(--accent-cyan)" />
+                          <span>System Terminal - PowerShell</span>
+                        </div>
+                        <button 
+                          onClick={() => setShowTerminalWindow(false)}
+                          style={{
+                            background: 'transparent', border: 'none', color: '#64748b', cursor: 'pointer',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0
+                          }}
+                          onMouseEnter={(e) => e.currentTarget.style.color = '#ef4444'}
+                          onMouseLeave={(e) => e.currentTarget.style.color = '#64748b'}
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+
+                      {/* Output */}
+                      <div style={{
+                        flex: 1, padding: '12px', fontFamily: 'monospace', fontSize: '0.72rem',
+                        color: '#38bdf8', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '4px'
+                      }}>
+                        {terminalLines.map((line, idx) => (
+                          <div key={idx} style={{ minHeight: '14px', whiteSpace: 'pre-wrap' }}>{line}</div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : (
+                /* Simulated Web Browser UI */
                 <div style={{
                   position: 'absolute',
-                  top: '-12px', left: '-12px',
-                  width: '32px', height: '32px',
-                  borderRadius: '50%',
-                  border: '2px solid var(--accent-cyan)',
-                  animation: 'pulseCircle 0.4s ease-out',
-                  opacity: 0
-                }} />
-              )}
-            </div>
+                  left: '20px', top: '20px', right: '20px', bottom: '20px',
+                  background: '#0c0c16',
+                  border: '1px solid rgba(0, 242, 254, 0.15)',
+                  borderRadius: '10px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
+                  overflow: 'hidden',
+                  animation: 'scaleIn 0.3s ease'
+                }}>
+                  {/* Browser Tabs Header */}
+                  <div style={{
+                    background: '#121222',
+                    borderBottom: '1px solid rgba(255,255,255,0.08)',
+                    padding: '8px 12px 0 12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}>
+                    {/* Red, Yellow, Green Window Dots */}
+                    <div style={{ display: 'flex', gap: '5px', marginRight: '12px', paddingBottom: '8px' }}>
+                      <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#ff5f56' }} />
+                      <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#ffbd2e' }} />
+                      <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#27c93f' }} />
+                    </div>
 
+                    {/* Tab 1 */}
+                    <div 
+                      style={{
+                        padding: '6px 16px',
+                        background: activeBrowserTab === 1 ? '#0c0c16' : 'rgba(255,255,255,0.02)',
+                        border: '1px solid rgba(255,255,255,0.08)',
+                        borderBottom: activeBrowserTab === 1 ? '1px solid #0c0c16' : '1px solid rgba(255,255,255,0.08)',
+                        borderTopLeftRadius: '6px',
+                        borderTopRightRadius: '6px',
+                        fontSize: '0.72rem',
+                        color: activeBrowserTab === 1 ? '#fff' : '#64748b',
+                        fontWeight: activeBrowserTab === 1 ? 'bold' : 'normal',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                      }}
+                      onClick={() => !running && setActiveBrowserTab(1)}
+                    >
+                      <LayoutGrid size={12} color={activeBrowserTab === 1 ? 'var(--accent-cyan)' : '#64748b'} />
+                      CRM Dashboard
+                    </div>
+
+                    {/* Tab 2 */}
+                    <div 
+                      style={{
+                        padding: '6px 16px',
+                        background: activeBrowserTab === 2 ? '#0c0c16' : 'rgba(255,255,255,0.02)',
+                        border: '1px solid rgba(255,255,255,0.08)',
+                        borderBottom: activeBrowserTab === 2 ? '1px solid #0c0c16' : '1px solid rgba(255,255,255,0.08)',
+                        borderTopLeftRadius: '6px',
+                        borderTopRightRadius: '6px',
+                        fontSize: '0.72rem',
+                        color: activeBrowserTab === 2 ? '#fff' : '#64748b',
+                        fontWeight: activeBrowserTab === 2 ? 'bold' : 'normal',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                      }}
+                      onClick={() => !running && setActiveBrowserTab(2)}
+                    >
+                      <FileText size={12} color={activeBrowserTab === 2 ? 'var(--accent-cyan)' : '#64748b'} />
+                      CRM Invoices
+                      <span style={{
+                        background: invoiceApproved ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)',
+                        color: invoiceApproved ? '#10b981' : '#f87171',
+                        fontSize: '0.55rem',
+                        padding: '1px 5px',
+                        borderRadius: '4px',
+                        marginLeft: '4px'
+                      }}>
+                        {invoiceApproved ? '0' : '1'} Pending
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* URL bar */}
+                  <div style={{
+                    background: '#0e0e1a',
+                    borderBottom: '1px solid rgba(255,255,255,0.05)',
+                    padding: '6px 12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px'
+                  }}>
+                    <div style={{ display: 'flex', gap: '8px', color: '#475569' }}>
+                      <RotateCcw size={12} />
+                    </div>
+                    <div style={{
+                      flex: 1,
+                      background: 'rgba(0,0,0,0.4)',
+                      border: '1px solid rgba(255,255,255,0.06)',
+                      borderRadius: '4px',
+                      padding: '3px 10px',
+                      fontSize: '0.7rem',
+                      color: '#94a3b8',
+                      fontFamily: 'monospace'
+                    }}>
+                      https://crm.matrixmind.io/{activeBrowserTab === 1 ? 'dashboard' : 'invoices'}
+                    </div>
+                  </div>
+
+                  {/* Browser Content */}
+                  <div style={{ flex: 1, padding: '16px', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+                    
+                    {/* Toast Alert Banner */}
+                    {invoiceApproved && (
+                      <div style={{
+                        background: 'rgba(16, 185, 129, 0.1)',
+                        border: '1px solid rgba(16, 185, 129, 0.3)',
+                        color: '#34d399',
+                        padding: '8px 12px',
+                        borderRadius: '6px',
+                        fontSize: '0.78rem',
+                        marginBottom: '12px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        animation: 'scaleIn 0.3s ease'
+                      }}>
+                        <Check size={14} />
+                        <span><b>Success:</b> Invoice INV-2026-004 has been approved and dispatched to accounting!</span>
+                      </div>
+                    )}
+
+                    {activeBrowserTab === 1 ? (
+                      // Tab 1: Dashboard View
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
+                          <div style={{ background: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.04)' }}>
+                            <div style={{ fontSize: '0.65rem', color: '#64748b', textTransform: 'uppercase' }}>Monthly Revenue</div>
+                            <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#fff', marginTop: '4px' }}>$142,580</div>
+                            <div style={{ fontSize: '0.6rem', color: '#10b981', marginTop: '2px' }}>↑ 12.4% vs last month</div>
+                          </div>
+                          <div style={{ background: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.04)' }}>
+                            <div style={{ fontSize: '0.65rem', color: '#64748b', textTransform: 'uppercase' }}>Active Customers</div>
+                            <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#fff', marginTop: '4px' }}>1,842</div>
+                            <div style={{ fontSize: '0.6rem', color: '#10b981', marginTop: '2px' }}>↑ 3.2% growth</div>
+                          </div>
+                          <div style={{ background: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.04)' }}>
+                            <div style={{ fontSize: '0.65rem', color: '#64748b', textTransform: 'uppercase' }}>Pending Invoices</div>
+                            <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: invoiceApproved ? '#64748b' : '#ff9900', marginTop: '4px' }}>
+                              {invoiceApproved ? '0' : '1'}
+                            </div>
+                            <div style={{ fontSize: '0.6rem', color: invoiceApproved ? '#10b981' : '#f87171', marginTop: '2px' }}>
+                              {invoiceApproved ? 'All clear!' : 'Requires review'}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div style={{ background: 'rgba(255,255,255,0.01)', border: '1px solid rgba(255,255,255,0.04)', borderRadius: '8px', padding: '12px' }}>
+                          <h4 style={{ margin: '0 0 8px 0', fontSize: '0.78rem', color: '#fff' }}>Quick Analytics</h4>
+                          <div style={{ height: '80px', display: 'flex', alignItems: 'flex-end', gap: '8px', paddingBottom: '5px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                            <div style={{ flex: 1, height: '40px', background: 'var(--accent-cyan)', opacity: 0.7, borderRadius: '2px' }} />
+                            <div style={{ flex: 1, height: '65px', background: 'var(--accent-cyan)', opacity: 0.7, borderRadius: '2px' }} />
+                            <div style={{ flex: 1, height: '50px', background: 'var(--accent-cyan)', opacity: 0.7, borderRadius: '2px' }} />
+                            <div style={{ flex: 1, height: '75px', background: 'var(--accent-cyan)', opacity: 0.7, borderRadius: '2px' }} />
+                            <div style={{ flex: 1, height: '90px', background: 'var(--accent-cyan)', borderRadius: '2px', boxShadow: '0 0 8px var(--accent-cyan)' }} />
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.55rem', color: '#475569', marginTop: '4px' }}>
+                            <span>Feb</span>
+                            <span>Mar</span>
+                            <span>Apr</span>
+                            <span>May</span>
+                            <span>Jun (Active)</span>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      // Tab 2: Invoices View
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                          <span style={{ fontSize: '0.78rem', color: '#cbd5e1', fontWeight: 'bold' }}>All Invoices</span>
+                          <span style={{ fontSize: '0.65rem', color: '#64748b' }}>Showing 3 invoices</span>
+                        </div>
+
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.72rem' }}>
+                          <thead>
+                            <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', color: '#64748b', textAlign: 'left' }}>
+                              <th style={{ padding: '6px 8px' }}>Client</th>
+                              <th style={{ padding: '6px 8px' }}>Invoice ID</th>
+                              <th style={{ padding: '6px 8px' }}>Amount</th>
+                              <th style={{ padding: '6px 8px' }}>Status</th>
+                              <th style={{ padding: '6px 8px' }}>Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', color: '#f1f5f9' }}>
+                              <td style={{ padding: '10px 8px', fontWeight: 'bold' }}>Acme Corp</td>
+                              <td style={{ padding: '10px 8px', fontFamily: 'monospace' }}>#INV-2026-004</td>
+                              <td style={{ padding: '10px 8px' }}>$12,500.00</td>
+                              <td style={{ padding: '10px 8px' }}>
+                                <span style={{
+                                  background: invoiceApproved ? 'rgba(16,185,129,0.1)' : 'rgba(251,191,36,0.1)',
+                                  color: invoiceApproved ? '#34d399' : '#fbbf24',
+                                  padding: '2px 6px', borderRadius: '4px', fontSize: '0.6rem'
+                                }}>
+                                  {invoiceApproved ? 'Paid / Approved' : 'Pending Review'}
+                                </span>
+                              </td>
+                              <td style={{ padding: '10px 8px' }}>
+                                {invoiceApproved ? (
+                                  <span style={{ color: '#10b981', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                    <Check size={12} /> Approved
+                                  </span>
+                                ) : (
+                                  <button
+                                    onClick={() => !running && setInvoiceApproved(true)}
+                                    style={{
+                                      background: '#ff9900', color: '#000', border: 'none',
+                                      borderRadius: '4px', padding: '4px 8px', fontWeight: 'bold',
+                                      cursor: 'pointer', fontSize: '0.62rem'
+                                    }}
+                                  >
+                                    Approve
+                                  </button>
+                                )}
+                              </td>
+                            </tr>
+
+                            <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', color: '#f1f5f9' }}>
+                              <td style={{ padding: '10px 8px', fontWeight: 'bold' }}>Stark Industries</td>
+                              <td style={{ padding: '10px 8px', fontFamily: 'monospace' }}>#INV-2026-009</td>
+                              <td style={{ padding: '10px 8px' }}>$45,000.00</td>
+                              <td style={{ padding: '10px 8px' }}>
+                                <span style={{
+                                  background: 'rgba(16,185,129,0.1)',
+                                  color: '#34d399',
+                                  padding: '2px 6px', borderRadius: '4px', fontSize: '0.6rem'
+                                }}>
+                                  Paid / Approved
+                                </span>
+                              </td>
+                              <td style={{ padding: '10px 8px', color: '#64748b' }}>
+                                No actions
+                              </td>
+                            </tr>
+
+                            <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', color: '#f1f5f9' }}>
+                              <td style={{ padding: '10px 8px', fontWeight: 'bold' }}>Wayne Wayne.</td>
+                              <td style={{ padding: '10px 8px', fontFamily: 'monospace' }}>#INV-2026-012</td>
+                              <td style={{ padding: '10px 8px' }}>$8,200.00</td>
+                              <td style={{ padding: '10px 8px' }}>
+                                <span style={{
+                                  background: 'rgba(16,185,129,0.1)',
+                                  color: '#34d399',
+                                  padding: '2px 6px', borderRadius: '4px', fontSize: '0.6rem'
+                                }}>
+                                  Paid / Approved
+                                </span>
+                              </td>
+                              <td style={{ padding: '10px 8px', color: '#64748b' }}>
+                                No actions
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* CURSOR MOUSE POINTER */}
+              <div 
+                style={{
+                  position: 'absolute',
+                  top: `${cursorPos.y}px`,
+                  left: `${cursorPos.x}px`,
+                  zIndex: 9999,
+                  pointerEvents: 'none',
+                  transition: 'top 0.5s cubic-bezier(0.25, 0.8, 0.25, 1), left 0.5s cubic-bezier(0.25, 0.8, 0.25, 1)'
+                }}
+              >
+                <MousePointer 
+                  size={22} 
+                  style={{
+                    color: cursorClick ? 'var(--accent-cyan)' : '#ffffff',
+                    fill: cursorClick ? 'var(--accent-cyan)' : '#ffffff',
+                    filter: 'drop-shadow(0 2px 5px rgba(0,0,0,0.6))',
+                    transform: cursorClick ? 'scale(0.8) translate(-2px, -2px)' : 'scale(1)',
+                    transition: 'transform 0.15s ease, color 0.15s ease'
+                  }} 
+                />
+                
+                {/* Click pulse effect */}
+                {cursorClick && (
+                  <div style={{
+                    position: 'absolute',
+                    top: '-12px', left: '-12px',
+                    width: '32px', height: '32px',
+                    borderRadius: '50%',
+                    border: '2px solid var(--accent-cyan)',
+                    animation: 'pulseCircle 0.4s ease-out',
+                    opacity: 0
+                  }} />
+                )}
+              </div>
+
+            </div>
           </div>
 
         </div>
