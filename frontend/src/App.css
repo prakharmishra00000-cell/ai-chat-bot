@@ -2053,3 +2053,69 @@ body {
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   }
 }
+
+/* ============================================================
+   MATRIXMIND CIRCULAR LOGO BADGE — Fixed top-left on every page
+   ============================================================ */
+.matrixmind-logo-badge {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  overflow: hidden;
+  z-index: 9999;
+  cursor: pointer;
+  background: linear-gradient(135deg, #0a1628, #0d2137);
+  border: 2px solid rgba(0, 242, 254, 0.5);
+  box-shadow:
+    0 0 12px rgba(0, 242, 254, 0.3),
+    0 0 24px rgba(0, 242, 254, 0.1),
+    inset 0 0 8px rgba(0, 242, 254, 0.1);
+  animation: logoBadgePulse 3s ease-in-out infinite;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.matrixmind-logo-badge:hover {
+  transform: scale(1.15);
+  border-color: rgba(0, 242, 254, 0.9);
+  box-shadow:
+    0 0 20px rgba(0, 242, 254, 0.5),
+    0 0 40px rgba(0, 242, 254, 0.2),
+    inset 0 0 12px rgba(0, 242, 254, 0.15);
+}
+
+.matrixmind-logo-badge img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 35%; /* Center on the MA logo emblem */
+  border-radius: 50%;
+  display: block;
+}
+
+@keyframes logoBadgePulse {
+  0%, 100% {
+    box-shadow:
+      0 0 12px rgba(0, 242, 254, 0.3),
+      0 0 24px rgba(0, 242, 254, 0.1);
+    border-color: rgba(0, 242, 254, 0.5);
+  }
+  50% {
+    box-shadow:
+      0 0 18px rgba(0, 242, 254, 0.5),
+      0 0 36px rgba(0, 242, 254, 0.2);
+    border-color: rgba(0, 242, 254, 0.8);
+  }
+}
+
+/* Mobile: smaller badge */
+@media (max-width: 768px) {
+  .matrixmind-logo-badge {
+    width: 40px;
+    height: 40px;
+    top: 8px;
+    left: 8px;
+  }
+}

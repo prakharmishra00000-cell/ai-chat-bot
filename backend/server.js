@@ -3087,6 +3087,22 @@ app.post('/api/admin/self-code', async (req, res) => {
   });
 });
 
+// Serve MatrixMind logo for social media previews (OG image)
+app.get('/matrixmind-logo.jpg', (req, res) => {
+  const logoPath = path.join(__dirname, 'matrixmind-logo.jpg');
+  if (fs.existsSync(logoPath)) {
+    res.sendFile(logoPath);
+  } else {
+    // Fallback to frontend dist
+    const distLogo = path.join(__dirname, '../frontend/dist/matrixmind-logo.jpg');
+    if (fs.existsSync(distLogo)) {
+      res.sendFile(distLogo);
+    } else {
+      res.status(404).send('Logo not found');
+    }
+  }
+});
+
 // Serve frontend production build statically
 const distPath = path.join(__dirname, '../frontend/dist');
 app.use(express.static(distPath));

@@ -191,6 +191,11 @@ function App() {
       {/* GLOBAL 3D BACKGROUND (Visible on Login, Dashboard, Subscription, etc.) */}
       <SpaceBackground theme={theme} />
 
+      {/* GLOBAL FLOATING CIRCULAR LOGO — visible on every page */}
+      <div className="matrixmind-logo-badge" title="MatrixMind AI">
+        <img src="/matrixmind-logo.jpg" alt="MatrixMind AI" />
+      </div>
+
       {view === 'setup' && (
         <Setup 
           onComplete={handleSetupComplete} 
