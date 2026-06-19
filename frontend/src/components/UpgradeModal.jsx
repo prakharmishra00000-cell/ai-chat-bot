@@ -331,13 +331,23 @@ function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess }) {
     }
   };
 
-  const manualUpiId = 'prakharmishra555782.rzp@rxairtel';
+  const manualUpiId = receiverUpiId || '6372843175@kotakbank';
+  const manualUpiName = receiverName || 'Prakhar Mishra';
   const activePlanObj = dbPlans.find(p => p.id === selectedManualPlan) || { price: 99, name: 'Basic' };
   const manualAmount = activePlanObj.price;
   const manualName = activePlanObj.name;
 
-  // Razorpay-compatible dynamic merchant UPI payee link
-  const manualUpiLink = `upi://pay?cu=INR&mc=5817&mode=19&pa=${manualUpiId}&tn=PaymentToPrakharMishra&tr=T3XH5bgAIiHCyQqrv2&am=${manualAmount}`;
+  // Dynamically generate UPI link based on whether it is a Razorpay merchant VPA or personal VPA
+  let manualUpiLink = '';
+  if (manualUpiId.includes('.rzp@')) {
+    // Razorpay merchant VPA: use merchant parameters
+    manualUpiLink = `upi://pay?cu=INR&mc=5817&mode=19&pa=${manualUpiId}&tn=PaymentToPrakharMishra&tr=T3XH5bgAIiHCyQqrv2&am=${manualAmount}`;
+  } else {
+    // Personal UPI VPA: use clean standard NPCI P2P parameters to prevent "cannot pay by this method" errors
+    const payeeName = encodeURIComponent(manualUpiName);
+    const note = encodeURIComponent(`Payment for ${manualName} Plan`);
+    manualUpiLink = `upi://pay?pa=${manualUpiId}&pn=${payeeName}&am=${manualAmount}&cu=INR&tn=${note}`;
+  }
   const manualQrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&margin=10&data=${encodeURIComponent(manualUpiLink)}`;
   const upiIntentUrl = manualUpiLink;
 
@@ -573,7 +583,7 @@ function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess }) {
                 </button>
               </div>
               <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                Receiver: Prakhar Mishra (MatrixMind AI)
+                Receiver: {manualUpiName}
               </p>
             </div>
 
