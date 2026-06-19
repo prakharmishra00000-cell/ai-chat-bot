@@ -28,11 +28,15 @@ try {
 }
 
 // Mermaid Chart Renderer Component
-function MermaidChart({ chartCode }) {
+function MermaidChart({ chartCode, defaultTo3D = false }) {
   const [svg, setSvg] = useState('');
   const [error, setError] = useState(false);
-  const [viewMode, setViewMode] = useState('2d'); // '2d' or '3d'
+  const [viewMode, setViewMode] = useState(defaultTo3D ? '3d' : '2d'); // '2d' or '3d'
   const elementId = `mermaid-${Math.random().toString(36).substr(2, 9)}`;
+
+  useEffect(() => {
+    setViewMode(defaultTo3D ? '3d' : '2d');
+  }, [chartCode, defaultTo3D]);
 
   useEffect(() => {
     const renderChart = async () => {
@@ -863,6 +867,7 @@ function Dashboard({
   // Helper to render Markdown snippets
   const renderMessageContent = (text) => {
     if (!text) return null;
+    const is3DDefault = /3d|3-d/i.test(text);
     
     // Pattern to catch both mermaid and html blocks
     const blockRegex = /```(mermaid|html)\s*\n([\s\S]*?)```/g;
@@ -886,7 +891,7 @@ function Dashboard({
 
     return parts.map((part, i) => {
       if (part.type === 'mermaid') {
-        return <MermaidChart key={i} chartCode={part.content} />;
+        return <MermaidChart key={i} chartCode={part.content} defaultTo3D={is3DDefault} />;
       }
       
       if (part.type === 'html') {
