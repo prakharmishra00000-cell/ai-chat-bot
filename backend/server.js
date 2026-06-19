@@ -3355,10 +3355,10 @@ print("[OS GHOST] Completed generic visual mouse glide path.")
 `;
     }
 
-    # Write the python script to disk
+    // Write the python script to disk
     fs.writeFileSync(scriptPath, pythonCode);
     
-    # Spawn the script process
+    // Spawn the script process
     const child = spawn('python', [scriptPath]);
     
     let output = '';
