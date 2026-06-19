@@ -121,6 +121,22 @@ function App() {
     localStorage.setItem('theme', theme);
   }, [theme]);
 
+  // 15-second Automatic Cosmic Theme Cycling
+  useEffect(() => {
+    const validThemes = [
+      'cosmic-web', 'deep-field', 'calm-nebula', 'milky-way', 'hyperspace',
+      'space-aurora', 'event-horizon', 'binary-stars', 'planetary-rings', 'deep-space'
+    ];
+    const timer = setInterval(() => {
+      setTheme((prevTheme) => {
+        const currentIndex = validThemes.indexOf(prevTheme);
+        const nextIndex = (currentIndex + 1) % validThemes.length;
+        return validThemes[nextIndex];
+      });
+    }, 15000); // 15 seconds
+    return () => clearInterval(timer);
+  }, []);
+
   // 4. Periodic User Status Sync — keeps plan/prompts/expiry synced across devices
   useEffect(() => {
     if (!currentUser?.email) return;

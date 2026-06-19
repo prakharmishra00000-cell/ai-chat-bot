@@ -7,6 +7,7 @@ import {
 import mermaid from 'mermaid';
 import CouncilRoom from './CouncilRoom';
 import WorkflowPanel from './WorkflowPanel';
+import MultimodalPanel from './MultimodalPanel';
 
 // Initialize Mermaid.js configuration
 try {
@@ -97,6 +98,7 @@ function Dashboard({
   // Search bar for filtering chats
   const [chatSearchQuery, setChatSearchQuery] = useState('');
   const [themeDropdownOpen, setThemeDropdownOpen] = useState(false);
+  const [multimodalMode, setMultimodalMode] = useState(false);
 
   // Prompt states
   const [promptInput, setPromptInput] = useState('');
@@ -1185,6 +1187,17 @@ function Dashboard({
                 </button>
                 <div className="tooltip-text">Multi-dimensional reasoning for complex edge-cases.</div>
               </div>
+
+              <div className="tooltip-container">
+                <button 
+                  className={`mode-toggle-btn ${multimodalMode ? 'active' : ''}`}
+                  style={multimodalMode ? { background: 'linear-gradient(90deg, #00f2fe, #7928ca)', color: '#fff', border: 'none' } : {}}
+                  onClick={() => setMultimodalMode(true)}
+                >
+                  Multimodal Action
+                </button>
+                <div className="tooltip-text">Native Multimodal screen agent simulator for complex desktop automation.</div>
+              </div>
               
 
             </div>
@@ -1526,6 +1539,13 @@ function Dashboard({
           email={currentUser.email}
           onClose={() => setWorkflowMode(false)}
           onWorkflowComplete={handleWorkflowComplete}
+        />
+      )}
+
+      {/* Multimodal Simulator overlay */}
+      {multimodalMode && (
+        <MultimodalPanel
+          onClose={() => setMultimodalMode(false)}
         />
       )}
 
