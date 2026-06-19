@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   Play, Check, X, Terminal, Loader2, Sparkles, Cpu, Layers, 
   MousePointer, Monitor, RotateCcw, ShieldAlert, Folder, File, 
-  Trash2, ArrowRight, Zap, HelpCircle, AlertCircle
+  Trash2, ArrowRight, Zap, HelpCircle, AlertCircle, LayoutGrid, FileText
 } from 'lucide-react';
 
 const steps = [
@@ -43,6 +43,12 @@ export default function OSGhostPanel({ onClose }) {
   const logsEndRef = useRef(null);
   const wait = (ms) => new Promise((res) => setTimeout(res, ms));
 
+  // Scenario state & user-editable prompt directive
+  const [scenario, setScenario] = useState('desktop'); // 'desktop' or 'browser'
+  const [directivePrompt, setDirectivePrompt] = useState("Clean up my machine. Sort all PDFs into folders by client name, move images to a 'Creative' folder, and delete any duplicate screenshots.");
+  const [activeBrowserTab, setActiveBrowserTab] = useState(1);
+  const [invoiceApproved, setInvoiceApproved] = useState(false);
+
 
   const addLog = (tag, message) => {
     setLogs((prev) => [...prev, { time: new Date().toLocaleTimeString(), tag, message }]);
@@ -74,6 +80,11 @@ export default function OSGhostPanel({ onClose }) {
 
   // Main execution timeline
   const startOSGhostWorkflow = async () => {
+    // Detect scenario based on prompt content
+    const isBrowserTask = /tab|crm|browser|web|page|approve|invoice/i.test(directivePrompt);
+    const chosenScenario = isBrowserTask ? 'browser' : 'desktop';
+    setScenario(chosenScenario);
+
     // Reset state
     setRunning(true);
     setCurrentStep(1);
@@ -82,6 +93,8 @@ export default function OSGhostPanel({ onClose }) {
     setCursorPos({ x: 300, y: 200 });
     setFolders([]);
     setTrashCount(0);
+    setActiveBrowserTab(1);
+    setInvoiceApproved(false);
     setDesktopFiles([
       { id: 1, name: 'invoice_acme_corp.pdf', type: 'pdf', size: '145 KB', x: 50, y: 70, status: 'visible' },
       { id: 2, name: 'invoice_stark_ind.pdf', type: 'pdf', size: '280 KB', x: 50, y: 150, status: 'visible' },
@@ -112,9 +125,15 @@ export default function OSGhostPanel({ onClose }) {
 
     // --- STEP 3: Mapping ---
     setCurrentStep(3);
-    addLog('MAPPING', 'Scanning icons, coordinate grids, and filesystem references...');
-    await wait(800);
-    addLog('MAPPING', 'Mapped 12 file bounding boxes, 1 recycle bin location [x: 750, y: 500].');
+    if (chosenScenario === 'browser') {
+      addLog('MAPPING', 'Scanning browser tabs, navigation bar, and document elements...');
+      await wait(800);
+      addLog('MAPPING', 'Mapped 2 tabs [Tab 1: 100,40], [Tab 2: 240,40], and CRM buttons.');
+    } else {
+      addLog('MAPPING', 'Scanning icons, coordinate grids, and filesystem references...');
+      await wait(800);
+      addLog('MAPPING', 'Mapped 12 file bounding boxes, 1 recycle bin location [x: 750, y: 500].');
+    }
     await wait(600);
 
     // --- STEP 4: Staging Interceptor ( सेफ्टी गेट ) ---
@@ -294,12 +313,66 @@ export default function OSGhostPanel({ onClose }) {
         display: 'flex', gap: '20px', alignItems: 'center', justifyContent: 'space-between'
       }}>
         <div style={{ flex: 1 }}>
-          <span style={{ color: 'var(--accent-cyan)', fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>
-            Action Directive
-          </span>
-          <div style={{ background: 'rgba(0,0,0,0.4)', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border-glass)', fontSize: '0.9rem', color: '#e2e8f0', fontFamily: 'monospace' }}>
-            "Clean up my machine. Sort all PDFs into folders by client name, move images to a 'Creative' folder, and delete any duplicate screenshots."
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+            <span style={{ color: 'var(--accent-cyan)', fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase' }}>
+              Action Directive (Editable Prompt)
+            </span>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                disabled={running || status === 'staging'}
+                onClick={() => setDirectivePrompt("Clean up my machine. Sort all PDFs into folders by client name, move images to a 'Creative' folder, and delete any duplicate screenshots.")}
+                style={{
+                  background: 'rgba(255,255,255,0.05)',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  borderRadius: '12px',
+                  padding: '2px 8px',
+                  fontSize: '0.68rem',
+                  color: '#94a3b8',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+              >
+                💻 Clean Desktop
+              </button>
+              <button
+                disabled={running || status === 'staging'}
+                onClick={() => setDirectivePrompt("Open Chrome, switch to the CRM Invoices tab, and approve the pending invoice for Acme Corp.")}
+                style={{
+                  background: 'rgba(255,255,255,0.05)',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  borderRadius: '12px',
+                  padding: '2px 8px',
+                  fontSize: '0.68rem',
+                  color: '#94a3b8',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+              >
+                🌐 Approve CRM Invoice
+              </button>
+            </div>
           </div>
+          
+          <textarea
+            value={directivePrompt}
+            onChange={(e) => setDirectivePrompt(e.target.value)}
+            disabled={running || status === 'staging'}
+            style={{
+              width: '100%',
+              background: 'rgba(0,0,0,0.6)',
+              padding: '10px 14px',
+              borderRadius: '8px',
+              border: '1px solid rgba(0, 242, 254, 0.2)',
+              fontSize: '0.9rem',
+              color: '#e2e8f0',
+              fontFamily: 'monospace',
+              resize: 'none',
+              height: '52px',
+              outline: 'none',
+              transition: 'border 0.3s ease'
+            }}
+            placeholder="Type your system directive here... (e.g. Open browser, clean folder, delete duplicates, etc.)"
+          />
         </div>
         
         <div style={{ display: 'flex', gap: '10px' }}>
@@ -371,34 +444,57 @@ export default function OSGhostPanel({ onClose }) {
                 background: 'rgba(0,0,0,0.3)', padding: '10px', borderRadius: '6px',
                 fontSize: '0.75rem', display: 'flex', flexDirection: 'column', gap: '6px', fontFamily: 'monospace'
               }}>
-                <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
-                  <span style={{ color: '#ff9900' }}>•</span>
-                  <span>Create directory <b>/Documents/Acme_Corp</b></span>
-                </div>
-                <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
-                  <span style={{ color: '#ff9900' }}>•</span>
-                  <span>Create directory <b>/Documents/Stark_Ind</b></span>
-                </div>
-                <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
-                  <span style={{ color: '#ff9900' }}>•</span>
-                  <span>Create directory <b>/Documents/Creative</b></span>
-                </div>
-                <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
-                  <span style={{ color: '#ff9900' }}>•</span>
-                  <span>Move 2 matching Acme Corp PDFs</span>
-                </div>
-                <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
-                  <span style={{ color: '#ff9900' }}>•</span>
-                  <span>Move 1 matching Stark Industries PDF</span>
-                </div>
-                <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
-                  <span style={{ color: '#ff9900' }}>•</span>
-                  <span>Move 2 matching design images</span>
-                </div>
-                <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
-                  <span style={{ color: '#ef4444' }}>•</span>
-                  <span>Permanently delete 2 duplicate screenshots</span>
-                </div>
+                {scenario === 'desktop' ? (
+                  <>
+                    <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
+                      <span style={{ color: '#ff9900' }}>•</span>
+                      <span>Create directory <b>/Documents/Acme_Corp</b></span>
+                    </div>
+                    <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
+                      <span style={{ color: '#ff9900' }}>•</span>
+                      <span>Create directory <b>/Documents/Stark_Ind</b></span>
+                    </div>
+                    <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
+                      <span style={{ color: '#ff9900' }}>•</span>
+                      <span>Create directory <b>/Documents/Creative</b></span>
+                    </div>
+                    <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
+                      <span style={{ color: '#ff9900' }}>•</span>
+                      <span>Move 2 matching Acme Corp PDFs</span>
+                    </div>
+                    <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
+                      <span style={{ color: '#ff9900' }}>•</span>
+                      <span>Move 1 matching Stark Industries PDF</span>
+                    </div>
+                    <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
+                      <span style={{ color: '#ff9900' }}>•</span>
+                      <span>Move 2 matching design images</span>
+                    </div>
+                    <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
+                      <span style={{ color: '#ef4444' }}>•</span>
+                      <span>Permanently delete 2 duplicate screenshots</span>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
+                      <span style={{ color: '#ff9900' }}>•</span>
+                      <span>Launch browser and load <b>crm.matrixmind.io</b></span>
+                    </div>
+                    <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
+                      <span style={{ color: '#ff9900' }}>•</span>
+                      <span>Navigate browser tab: click Tab 2 <b>'CRM Invoices'</b> [x: 240, y: 40]</span>
+                    </div>
+                    <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
+                      <span style={{ color: '#ff9900' }}>•</span>
+                      <span>Approve pending invoice for client <b>Acme Corp</b> [x: 620, y: 195]</span>
+                    </div>
+                    <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
+                      <span style={{ color: '#2dd4bf' }}>•</span>
+                      <span>Verify invoice approval status badge & success banner</span>
+                    </div>
+                  </>
+                )}
               </div>
 
               <button
@@ -540,75 +636,351 @@ export default function OSGhostPanel({ onClose }) {
             }}
           >
             
-            {/* Folder targets rendering */}
-            {folders.map((f, idx) => (
-              <div 
-                key={idx}
-                style={{
-                  position: 'absolute', left: `${f.x}px`, top: `${f.y}px`,
-                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px',
-                  width: '90px', padding: '10px', borderRadius: '6px',
-                  border: '1px solid rgba(0, 242, 254, 0.2)', background: 'rgba(0, 242, 254, 0.05)',
-                  boxShadow: '0 0 10px rgba(0, 242, 254, 0.05)', animation: 'scaleIn 0.3s ease'
-                }}
-              >
-                <Folder size={32} color="var(--accent-cyan)" />
-                <span style={{ fontSize: '0.68rem', color: '#fff', fontWeight: 'bold', textAlign: 'center', wordBreak: 'break-all' }}>
-                  {f.name}
-                </span>
-                <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>
-                  ({f.count} items)
-                </span>
-              </div>
-            ))}
+            {scenario === 'desktop' ? (
+              <>
+                {/* Folder targets rendering */}
+                {folders.map((f, idx) => (
+                  <div 
+                    key={idx}
+                    style={{
+                      position: 'absolute', left: `${f.x}px`, top: `${f.y}px`,
+                      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px',
+                      width: '90px', padding: '10px', borderRadius: '6px',
+                      border: '1px solid rgba(0, 242, 254, 0.2)', background: 'rgba(0, 242, 254, 0.05)',
+                      boxShadow: '0 0 10px rgba(0, 242, 254, 0.05)', animation: 'scaleIn 0.3s ease'
+                    }}
+                  >
+                    <Folder size={32} color="var(--accent-cyan)" />
+                    <span style={{ fontSize: '0.68rem', color: '#fff', fontWeight: 'bold', textAlign: 'center', wordBreak: 'break-all' }}>
+                      {f.name}
+                    </span>
+                    <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>
+                      ({f.count} items)
+                    </span>
+                  </div>
+                ))}
 
-            {/* Desktop files rendering */}
-            {desktopFiles.map((file) => {
-              if (file.status !== 'visible') return null;
-              
-              let fileColor = '#38bdf8';
-              if (file.type === 'image') fileColor = '#fb7185';
-              if (file.type === 'code') fileColor = '#34d399';
-              if (file.type === 'text') fileColor = '#fbbf24';
+                {/* Desktop files rendering */}
+                {desktopFiles.map((file) => {
+                  if (file.status !== 'visible') return null;
+                  
+                  let fileColor = '#38bdf8';
+                  if (file.type === 'image') fileColor = '#fb7185';
+                  if (file.type === 'code') fileColor = '#34d399';
+                  if (file.type === 'text') fileColor = '#fbbf24';
 
-              return (
+                  return (
+                    <div 
+                      key={file.id}
+                      style={{
+                        position: 'absolute', left: `${file.x}px`, top: `${file.y}px`,
+                        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px',
+                        width: '90px', padding: '10px', borderRadius: '6px',
+                        border: '1px solid transparent', cursor: 'pointer',
+                        transition: 'all 0.3s ease'
+                      }}
+                    >
+                      <File size={28} color={fileColor} />
+                      <span style={{ fontSize: '0.65rem', color: '#cbd5e1', textAlign: 'center', wordBreak: 'break-all', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                        {file.name}
+                      </span>
+                      <span style={{ fontSize: '0.58rem', color: '#475569' }}>
+                        {file.size}
+                      </span>
+                    </div>
+                  );
+                })}
+
+                {/* Recycle Trash Bin */}
                 <div 
-                  key={file.id}
                   style={{
-                    position: 'absolute', left: `${file.x}px`, top: `${file.y}px`,
+                    position: 'absolute', left: '740px', top: '480px',
                     display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px',
-                    width: '90px', padding: '10px', borderRadius: '6px',
-                    border: '1px solid transparent', cursor: 'pointer',
-                    transition: 'all 0.3s ease'
+                    width: '90px', padding: '10px', opacity: 0.85
                   }}
                 >
-                  <File size={28} color={fileColor} />
-                  <span style={{ fontSize: '0.65rem', color: '#cbd5e1', textAlign: 'center', wordBreak: 'break-all', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                    {file.name}
+                  <Trash2 size={34} color={trashCount > 0 ? '#ef4444' : '#64748b'} style={{ filter: trashCount > 0 ? 'drop-shadow(0 0 8px rgba(239, 68, 68, 0.4))' : 'none' }} />
+                  <span style={{ fontSize: '0.68rem', color: trashCount > 0 ? '#f87171' : '#94a3b8', fontWeight: 'bold' }}>
+                    Recycle Bin
                   </span>
-                  <span style={{ fontSize: '0.58rem', color: '#475569' }}>
-                    {file.size}
+                  <span style={{ fontSize: '0.6rem', color: '#475569' }}>
+                    ({trashCount} items)
                   </span>
                 </div>
-              );
-            })}
+              </>
+            ) : (
+              /* Simulated Web Browser UI */
+              <div style={{
+                position: 'absolute',
+                left: '20px', top: '20px', right: '20px', bottom: '20px',
+                background: '#0c0c16',
+                border: '1px solid rgba(0, 242, 254, 0.15)',
+                borderRadius: '10px',
+                display: 'flex',
+                flexDirection: 'column',
+                boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
+                overflow: 'hidden',
+                animation: 'scaleIn 0.3s ease'
+              }}>
+                {/* Browser Tabs Header */}
+                <div style={{
+                  background: '#121222',
+                  borderBottom: '1px solid rgba(255,255,255,0.08)',
+                  padding: '8px 12px 0 12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}>
+                  {/* Red, Yellow, Green Window Dots */}
+                  <div style={{ display: 'flex', gap: '5px', marginRight: '12px', paddingBottom: '8px' }}>
+                    <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#ff5f56' }} />
+                    <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#ffbd2e' }} />
+                    <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#27c93f' }} />
+                  </div>
 
-            {/* Recycle Trash Bin */}
-            <div 
-              style={{
-                position: 'absolute', left: '740px', top: '480px',
-                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px',
-                width: '90px', padding: '10px', opacity: 0.85
-              }}
-            >
-              <Trash2 size={34} color={trashCount > 0 ? '#ef4444' : '#64748b'} style={{ filter: trashCount > 0 ? 'drop-shadow(0 0 8px rgba(239, 68, 68, 0.4))' : 'none' }} />
-              <span style={{ fontSize: '0.68rem', color: trashCount > 0 ? '#f87171' : '#94a3b8', fontWeight: 'bold' }}>
-                Recycle Bin
-              </span>
-              <span style={{ fontSize: '0.6rem', color: '#475569' }}>
-                ({trashCount} items)
-              </span>
-            </div>
+                  {/* Tab 1 */}
+                  <div 
+                    style={{
+                      padding: '6px 16px',
+                      background: activeBrowserTab === 1 ? '#0c0c16' : 'rgba(255,255,255,0.02)',
+                      border: '1px solid rgba(255,255,255,0.08)',
+                      borderBottom: activeBrowserTab === 1 ? '1px solid #0c0c16' : '1px solid rgba(255,255,255,0.08)',
+                      borderTopLeftRadius: '6px',
+                      borderTopRightRadius: '6px',
+                      fontSize: '0.72rem',
+                      color: activeBrowserTab === 1 ? '#fff' : '#64748b',
+                      fontWeight: activeBrowserTab === 1 ? 'bold' : 'normal',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}
+                    onClick={() => !running && setActiveBrowserTab(1)}
+                  >
+                    <LayoutGrid size={12} color={activeBrowserTab === 1 ? 'var(--accent-cyan)' : '#64748b'} />
+                    CRM Dashboard
+                  </div>
+
+                  {/* Tab 2 */}
+                  <div 
+                    style={{
+                      padding: '6px 16px',
+                      background: activeBrowserTab === 2 ? '#0c0c16' : 'rgba(255,255,255,0.02)',
+                      border: '1px solid rgba(255,255,255,0.08)',
+                      borderBottom: activeBrowserTab === 2 ? '1px solid #0c0c16' : '1px solid rgba(255,255,255,0.08)',
+                      borderTopLeftRadius: '6px',
+                      borderTopRightRadius: '6px',
+                      fontSize: '0.72rem',
+                      color: activeBrowserTab === 2 ? '#fff' : '#64748b',
+                      fontWeight: activeBrowserTab === 2 ? 'bold' : 'normal',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}
+                    onClick={() => !running && setActiveBrowserTab(2)}
+                  >
+                    <FileText size={12} color={activeBrowserTab === 2 ? 'var(--accent-cyan)' : '#64748b'} />
+                    CRM Invoices
+                    <span style={{
+                      background: invoiceApproved ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)',
+                      color: invoiceApproved ? '#10b981' : '#f87171',
+                      fontSize: '0.55rem',
+                      padding: '1px 5px',
+                      borderRadius: '4px',
+                      marginLeft: '4px'
+                    }}>
+                      {invoiceApproved ? '0' : '1'} Pending
+                    </span>
+                  </div>
+                </div>
+
+                {/* URL bar */}
+                <div style={{
+                  background: '#0e0e1a',
+                  borderBottom: '1px solid rgba(255,255,255,0.05)',
+                  padding: '6px 12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px'
+                }}>
+                  <div style={{ display: 'flex', gap: '8px', color: '#475569' }}>
+                    <RotateCcw size={12} />
+                  </div>
+                  <div style={{
+                    flex: 1,
+                    background: 'rgba(0,0,0,0.4)',
+                    border: '1px solid rgba(255,255,255,0.06)',
+                    borderRadius: '4px',
+                    padding: '3px 10px',
+                    fontSize: '0.7rem',
+                    color: '#94a3b8',
+                    fontFamily: 'monospace'
+                  }}>
+                    https://crm.matrixmind.io/{activeBrowserTab === 1 ? 'dashboard' : 'invoices'}
+                  </div>
+                </div>
+
+                {/* Browser Content */}
+                <div style={{ flex: 1, padding: '16px', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+                  
+                  {/* Toast Alert Banner */}
+                  {invoiceApproved && (
+                    <div style={{
+                      background: 'rgba(16, 185, 129, 0.1)',
+                      border: '1px solid rgba(16, 185, 129, 0.3)',
+                      color: '#34d399',
+                      padding: '8px 12px',
+                      borderRadius: '6px',
+                      fontSize: '0.78rem',
+                      marginBottom: '12px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      animation: 'scaleIn 0.3s ease'
+                    }}>
+                      <Check size={14} />
+                      <span><b>Success:</b> Invoice INV-2026-004 has been approved and dispatched to accounting!</span>
+                    </div>
+                  )}
+
+                  {activeBrowserTab === 1 ? (
+                    // Tab 1: Dashboard View
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
+                        <div style={{ background: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.04)' }}>
+                          <div style={{ fontSize: '0.65rem', color: '#64748b', textTransform: 'uppercase' }}>Monthly Revenue</div>
+                          <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#fff', marginTop: '4px' }}>$142,580</div>
+                          <div style={{ fontSize: '0.6rem', color: '#10b981', marginTop: '2px' }}>↑ 12.4% vs last month</div>
+                        </div>
+                        <div style={{ background: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.04)' }}>
+                          <div style={{ fontSize: '0.65rem', color: '#64748b', textTransform: 'uppercase' }}>Active Customers</div>
+                          <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#fff', marginTop: '4px' }}>1,842</div>
+                          <div style={{ fontSize: '0.6rem', color: '#10b981', marginTop: '2px' }}>↑ 3.2% growth</div>
+                        </div>
+                        <div style={{ background: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.04)' }}>
+                          <div style={{ fontSize: '0.65rem', color: '#64748b', textTransform: 'uppercase' }}>Pending Invoices</div>
+                          <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: invoiceApproved ? '#64748b' : '#ff9900', marginTop: '4px' }}>
+                            {invoiceApproved ? '0' : '1'}
+                          </div>
+                          <div style={{ fontSize: '0.6rem', color: invoiceApproved ? '#10b981' : '#f87171', marginTop: '2px' }}>
+                            {invoiceApproved ? 'All clear!' : 'Requires review'}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div style={{ background: 'rgba(255,255,255,0.01)', border: '1px solid rgba(255,255,255,0.04)', borderRadius: '8px', padding: '12px' }}>
+                        <h4 style={{ margin: '0 0 8px 0', fontSize: '0.78rem', color: '#fff' }}>Quick Analytics</h4>
+                        <div style={{ height: '80px', display: 'flex', alignItems: 'flex-end', gap: '8px', paddingBottom: '5px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                          <div style={{ flex: 1, height: '40px', background: 'var(--accent-cyan)', opacity: 0.7, borderRadius: '2px' }} />
+                          <div style={{ flex: 1, height: '65px', background: 'var(--accent-cyan)', opacity: 0.7, borderRadius: '2px' }} />
+                          <div style={{ flex: 1, height: '50px', background: 'var(--accent-cyan)', opacity: 0.7, borderRadius: '2px' }} />
+                          <div style={{ flex: 1, height: '75px', background: 'var(--accent-cyan)', opacity: 0.7, borderRadius: '2px' }} />
+                          <div style={{ flex: 1, height: '90px', background: 'var(--accent-cyan)', borderRadius: '2px', boxShadow: '0 0 8px var(--accent-cyan)' }} />
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.55rem', color: '#475569', marginTop: '4px' }}>
+                          <span>Feb</span>
+                          <span>Mar</span>
+                          <span>Apr</span>
+                          <span>May</span>
+                          <span>Jun (Active)</span>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    // Tab 2: Invoices View
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                        <span style={{ fontSize: '0.78rem', color: '#cbd5e1', fontWeight: 'bold' }}>All Invoices</span>
+                        <span style={{ fontSize: '0.65rem', color: '#64748b' }}>Showing 3 invoices</span>
+                      </div>
+
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.72rem' }}>
+                        <thead>
+                          <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', color: '#64748b', textAlign: 'left' }}>
+                            <th style={{ padding: '6px 8px' }}>Client</th>
+                            <th style={{ padding: '6px 8px' }}>Invoice ID</th>
+                            <th style={{ padding: '6px 8px' }}>Amount</th>
+                            <th style={{ padding: '6px 8px' }}>Status</th>
+                            <th style={{ padding: '6px 8px' }}>Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', color: '#f1f5f9' }}>
+                            <td style={{ padding: '10px 8px', fontWeight: 'bold' }}>Acme Corp</td>
+                            <td style={{ padding: '10px 8px', fontFamily: 'monospace' }}>#INV-2026-004</td>
+                            <td style={{ padding: '10px 8px' }}>$12,500.00</td>
+                            <td style={{ padding: '10px 8px' }}>
+                              <span style={{
+                                background: invoiceApproved ? 'rgba(16,185,129,0.1)' : 'rgba(251,191,36,0.1)',
+                                color: invoiceApproved ? '#34d399' : '#fbbf24',
+                                padding: '2px 6px', borderRadius: '4px', fontSize: '0.6rem'
+                              }}>
+                                {invoiceApproved ? 'Paid / Approved' : 'Pending Review'}
+                              </span>
+                            </td>
+                            <td style={{ padding: '10px 8px' }}>
+                              {invoiceApproved ? (
+                                <span style={{ color: '#10b981', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                  <Check size={12} /> Approved
+                                </span>
+                              ) : (
+                                <button
+                                  onClick={() => !running && setInvoiceApproved(true)}
+                                  style={{
+                                    background: '#ff9900', color: '#000', border: 'none',
+                                    borderRadius: '4px', padding: '4px 8px', fontWeight: 'bold',
+                                    cursor: 'pointer', fontSize: '0.62rem'
+                                  }}
+                                >
+                                  Approve
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+
+                          <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', color: '#f1f5f9' }}>
+                            <td style={{ padding: '10px 8px', fontWeight: 'bold' }}>Stark Industries</td>
+                            <td style={{ padding: '10px 8px', fontFamily: 'monospace' }}>#INV-2026-009</td>
+                            <td style={{ padding: '10px 8px' }}>$45,000.00</td>
+                            <td style={{ padding: '10px 8px' }}>
+                              <span style={{
+                                background: 'rgba(16,185,129,0.1)',
+                                color: '#34d399',
+                                padding: '2px 6px', borderRadius: '4px', fontSize: '0.6rem'
+                              }}>
+                                Paid / Approved
+                              </span>
+                            </td>
+                            <td style={{ padding: '10px 8px', color: '#64748b' }}>
+                              No actions
+                            </td>
+                          </tr>
+
+                          <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', color: '#f1f5f9' }}>
+                            <td style={{ padding: '10px 8px', fontWeight: 'bold' }}>Wayne Wayne.</td>
+                            <td style={{ padding: '10px 8px', fontFamily: 'monospace' }}>#INV-2026-012</td>
+                            <td style={{ padding: '10px 8px' }}>$8,200.00</td>
+                            <td style={{ padding: '10px 8px' }}>
+                              <span style={{
+                                background: 'rgba(16,185,129,0.1)',
+                                color: '#34d399',
+                                padding: '2px 6px', borderRadius: '4px', fontSize: '0.6rem'
+                              }}>
+                                Paid / Approved
+                              </span>
+                            </td>
+                            <td style={{ padding: '10px 8px', color: '#64748b' }}>
+                              No actions
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* CURSOR MOUSE POINTER */}
             <div 
