@@ -247,7 +247,7 @@ export default function MultimodalPanel({ onClose }) {
           style={{
             background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)',
             color: '#94a3b8', borderRadius: '50%', width: '36px', height: '36px',
-            display: 'flex', alignItems: 'center', justifyValue: 'center', justifyContent: 'center', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
             transition: 'all 0.3s ease'
           }}
           onMouseEnter={(e) => { e.currentTarget.style.color = '#fff'; e.currentTarget.style.background = 'rgba(255,51,102,0.1)'; }}
