@@ -7,6 +7,7 @@ import {
 import mermaid from 'mermaid';
 import CouncilRoom from './CouncilRoom';
 import WorkflowPanel from './WorkflowPanel';
+import OSGhostPanel from './OSGhostPanel';
 
 const MindMap3D = React.lazy(() => import('./MindMap3D'));
 const Interactive3DObject = React.lazy(() => import('./Interactive3DObject'));
@@ -156,11 +157,16 @@ function Dashboard({
   const [chatSearchQuery, setChatSearchQuery] = useState('');
   const [themeDropdownOpen, setThemeDropdownOpen] = useState(false);
 
+  const [takeTheWheelActive, setTakeTheWheelActive] = useState(false);
+  const [currentOsPlan, setCurrentOsPlan] = useState(null);
+  const [planModifications, setPlanModifications] = useState([]);
+  const [osGhostAutoExecute, setOsGhostAutoExecute] = useState(false);
+  const [osGhostPrompt, setOsGhostPrompt] = useState('');
 
   // Prompt states
   const [promptInput, setPromptInput] = useState('');
   const [personality, setPersonality] = useState('standard'); // 'standard', 'architect', 'analyst'
-  const [mode, setMode] = useState('normal'); // 'normal', 'matrix_simulation', 'optimize', 'generate'
+  const [mode, setMode] = useState('normal'); // 'normal', 'matrix_simulation', 'optimize', 'generate', 'os_ghost'
   const [loading, setLoading] = useState(false);
   const [livePreviewApp, setLivePreviewApp] = useState(null);
 
@@ -593,6 +599,14 @@ function Dashboard({
     const textToSend = textOverride || promptInput;
     if (!textToSend.trim() && !attachment) return;
     if (loading) return;
+
+    if (mode === 'os_ghost') {
+      setOsGhostPrompt(textToSend);
+      setTakeTheWheelActive(true);
+      setOsGhostAutoExecute(false);
+      setPromptInput('');
+      return;
+    }
 
 
 
@@ -1288,6 +1302,17 @@ function Dashboard({
                 <div className="tooltip-text">Multi-dimensional reasoning for complex edge-cases.</div>
               </div>
 
+              <div className="tooltip-container">
+                <button 
+                  className={`mode-toggle-btn ghost ${mode === 'os_ghost' ? 'active' : ''}`}
+                  style={mode === 'os_ghost' ? { background: 'linear-gradient(90deg, #ff9900, #ff5f56)', color: '#000', border: 'none' } : {}}
+                  onClick={() => setMode(prev => prev === 'os_ghost' ? 'normal' : 'os_ghost')}
+                >
+                  OS Ghost
+                </button>
+                <div className="tooltip-text">Take control of the desktop with virtual cursor automation.</div>
+              </div>
+
 
               
 
@@ -1630,6 +1655,19 @@ function Dashboard({
           email={currentUser.email}
           onClose={() => setWorkflowMode(false)}
           onWorkflowComplete={handleWorkflowComplete}
+        />
+      )}
+
+      {/* OS Ghost overlay */}
+      {takeTheWheelActive && (
+        <OSGhostPanel
+          onClose={() => {
+            setTakeTheWheelActive(false);
+            setOsGhostPrompt('');
+          }}
+          initialPrompt={osGhostPrompt}
+          autoExecute={osGhostAutoExecute}
+          initialModifications={planModifications}
         />
       )}
 
