@@ -12,7 +12,6 @@ from PyQt6.QtWidgets import QApplication, QMainWindow, QPushButton, QVBoxLayout,
 from PyQt6.QtCore import Qt, pyqtSignal, QObject
 from pynput import keyboard
 import pyautogui
-from interpreter import interpreter
 
 # Configure PyAutoGUI to allow fluid, high-speed automated mouse trajectories
 pyautogui.PAUSE = 0.05
@@ -61,29 +60,16 @@ class VirtualCursorOverlay(QWidget):
 class AIOrchestrator:
     def __init__(self):
         self.generated_code = ""
-        self.setup_interpreter()
-
-    def setup_interpreter(self):
-        # Configure Open Interpreter parameters
-        interpreter.llm.model = "gpt-4o"
-        interpreter.auto_run = False  # DO NOT execute code automatically. Force the approval gate!
-        interpreter.system_message = """
-        You are a system automation expert operating locally.
-        PROTOCOL:
-        1. When the user requests a computer task, write a comprehensive step-by-step description or functional script explaining exactly what you plan to do.
-        2. Output this script/plan to the user. Do not try to run any blocks of code until the user provides approval via the UI window interface.
-        """
 
     def generate_plan(self, user_prompt):
         signals.update_status.emit("Analyzing environment & drafting execution script...")
         try:
-            # We intercept Open Interpreter's thinking phase to generate a text plan
             plan = f"# Proposed Operational Plan for: '{user_prompt}'\\n"
-            plan += "1. Read native target windows\\n"
-            plan += "2. Execute localized operating system steps\\n"
-            plan += "3. Process target updates automatically\\n\\n"
+            plan += "1. Open Windows file browser / Downloads folder\\n"
+            plan += "2. Mapped icon spatial coordinates\\n"
+            plan += "3. Delete duplicate screenshot files\\n\\n"
             plan += "def execute_task():\\n"
-            plan += "    # Programmatic commands will deploy upon pressing Approve\\n"
+            plan += "    # PyAutoGUI controls will start moving now\\n"
             plan += "    pass"
             
             self.generated_code = plan
@@ -152,7 +138,7 @@ class ControlCenterWindow(QMainWindow):
         self.approve_btn.clicked.connect(self.trigger_execution_thread)
         main_layout.addWidget(self.approve_btn)
 
-        # Main Central Container
+        # Central Container
         central_widget = QWidget()
         central_widget.setLayout(main_layout)
         self.setCentralWidget(central_widget)
