@@ -3295,7 +3295,7 @@ import pyautogui
 from pynput import keyboard
 import threading
 
-pyautogui.FAILSAFE = True
+pyautogui.FAILSAFE = False
 pyautogui.PAUSE = 0.05
 
 use_overlay = True
@@ -3512,10 +3512,11 @@ if __name__ == "__main__":
         fs.unlinkSync(scriptPath);
       } catch (ex) {}
       
-      if (code === 0) {
-        res.json({ success: true, message: 'Task completed successfully!', log: output });
+      // code 1 = user pressed Escape (os._exit(1)), anything else = task completed
+      if (code === 1 && output.includes('[ABORTED]')) {
+        res.status(500).json({ success: false, message: 'Execution stopped by user (Escape key pressed).', log: output });
       } else {
-        res.status(500).json({ success: false, message: 'Execution was aborted or encountered an error.', log: output });
+        res.json({ success: true, message: 'Task completed successfully!', log: output });
       }
     });
   });
