@@ -1483,7 +1483,14 @@ User's original raw query: ${message}`;
       }
 
       // Mind map / Visual diagram instructions
-      const wantsDiagram = /mind\s*map|diagram|flow\s*chart|block\s*diagram|tree|chart|graph|map/i.test(message);
+      const wantsDiagram = /m[ieo]nd\s*ma?[sp]/i.test(message) || 
+                           /flow\s*ch/i.test(message) || 
+                           /diagram/i.test(message) || 
+                           /chart/i.test(message) || 
+                           /graph/i.test(message) || 
+                           /tree/i.test(message) ||
+                           /visual/i.test(message) ||
+                           /\b3d\b/i.test(message);
       if (wantsDiagram) {
         if (detectedLang === 'hindi') {
           systemInstruction += "VISUAL DIAGRAMS RULE: You MUST generate a Mermaid.js diagram (such as mindmap, graph TD, flowchart LR, etc.) inside a ```mermaid code block. You MUST write all diagram node labels specifically in the Hindi language using Hindi Devanagari letters (e.g., root((\"विषय\")) or A[\"सौर मंडल\"]). Do NOT write node labels in English. ";
@@ -1563,7 +1570,9 @@ User's original raw query: ${message}`;
     if (mode === 'optimize') incrementFeatureUsage(email, 'optimize');
 
     // Mindmap: detect if response contains mermaid diagram
-    if (/mindmap|flowchart|graph|diagram/i.test(message)) incrementFeatureUsage(email, 'mindmap');
+    if (/m[ieo]nd\s*ma?[sp]/i.test(message) || /flow\s*ch/i.test(message) || /diagram/i.test(message) || /chart/i.test(message) || /graph/i.test(message) || /tree/i.test(message) || /visual/i.test(message) || /\b3d\b/i.test(message)) {
+      incrementFeatureUsage(email, 'mindmap');
+    }
 
     res.json({
       response: finalResponse,
