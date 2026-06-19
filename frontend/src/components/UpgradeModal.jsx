@@ -2,78 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Check, Award, Flame, Zap, Copy, Loader, CheckCircle, AlertCircle } from 'lucide-react';
 
 function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess }) {
-  const fallbackPlans = [
-    {
-      id: 'free',
-      name: 'Free',
-      price: 0,
-      duration: 'Forever',
-      prompts: 30,
-      efficiency: 'Standard Response Rate',
-      features: [
-        '30 daily prompts limit',
-        'Standard processing priority',
-        'Data Masking (5/day)',
-        'Interview Mode (3/day)'
-      ]
-    },
-    {
-      id: 'standard',
-      name: 'Basic',
-      price: 99,
-      duration: '1 Month',
-      prompts: 100,
-      efficiency: 'Standard Response Rate',
-      features: [
-        '100 daily prompts limit',
-        'Standard processing priority',
-        'Data Masking (20/day)',
-        'Interview Mode (10/day)',
-        'Includes Web Grounding Search',
-        'Standard AI rotation support',
-        'Valid for 30 Days'
-      ]
-    },
-    {
-      id: 'better',
-      name: 'Pro',
-      price: 199,
-      duration: '3 Months',
-      prompts: 150,
-      efficiency: 'High Response Rate',
-      popular: true,
-      features: [
-        '150 daily prompts limit',
-        'Better response processing priority',
-        'Data Masking (50/day)',
-        'Interview Mode (30/day)',
-        'Workflow Sequencer (10/day)',
-        'Web Search & Matrix groundings',
-        'Priority AI rotation support',
-        'Valid for 90 Days'
-      ]
-    },
-    {
-      id: 'premium',
-      name: 'Ultimate',
-      price: 999,
-      duration: '1 Year',
-      prompts: 200,
-      efficiency: 'Maximum Response Rate',
-      features: [
-        '200 daily prompts limit',
-        'Maximum processing priority',
-        'Data Masking (Unlimited)',
-        'Interview Mode (Unlimited)',
-        'Workflow Sequencer (Unlimited)',
-        'Council Room (Unlimited)',
-        'Live Diagrams & Mind maps',
-        'Ultimate key-rotation priority',
-        'Valid for 365 Days'
-      ]
-    }
-  ];
-
+  // NO hardcoded prices — all prices come from the server (admin-configured)
   const iconsMap = {
     standard: <Zap size={32} color="#4facfe" />,
     better: <Award size={32} color="#ffe259" />,
@@ -81,7 +10,8 @@ function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess }) {
     free: <Zap size={32} color="#94a3b8" />
   };
 
-  const [dbPlans, setDbPlans] = useState(fallbackPlans);
+  const [dbPlans, setDbPlans] = useState([]);
+  const [plansLoaded, setPlansLoaded] = useState(false);
   const [featureNames, setFeatureNames] = useState({});
   const [utrInput, setUtrInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -96,7 +26,7 @@ function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess }) {
   // Detect mobile
   const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
-  // Fetch plans from DB
+  // Fetch plans from DB — this is the ONLY source of truth for prices
   useEffect(() => {
     const fetchPlans = async () => {
       try {
@@ -113,6 +43,8 @@ function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess }) {
         if (data.receiverName) setReceiverName(data.receiverName);
       } catch (err) {
         console.error('Failed to fetch plans', err);
+      } finally {
+        setPlansLoaded(true);
       }
     };
     fetchPlans();
@@ -351,7 +283,7 @@ function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess }) {
 
   const manualUpiId = receiverUpiId || '6372843175@kotakbank';
   const manualUpiName = receiverName || 'Prakhar Mishra';
-  const activePlanObj = dbPlans.find(p => p.id === selectedManualPlan) || { price: 99, name: 'Basic' };
+  const activePlanObj = dbPlans.find(p => p.id === selectedManualPlan) || dbPlans.find(p => p.id !== 'free') || { price: 0, name: 'Loading...' };
   const manualAmount = activePlanObj.price;
   const manualName = activePlanObj.name;
 
@@ -395,6 +327,13 @@ function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess }) {
         )}
 
         {/* ===== PLAN CARDS (View Only) ===== */}
+        {!plansLoaded ? (
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '40px', gap: '12px', color: '#94a3b8' }}>
+            <Loader size={24} className="spin" /> Loading plans...
+          </div>
+        ) : dbPlans.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '40px', color: '#94a3b8' }}>No plans available. Please contact admin.</div>
+        ) : (
         <div className="plans-grid">
           {dbPlans.map((plan) => {
             const isActive = currentPlan === plan.id;
@@ -503,6 +442,7 @@ function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess }) {
             );
           })}
         </div>
+        )}
 
         {/* ===== PAYMENT SECTION (MANUAL FALLBACK) ===== */}
         {!success && (
