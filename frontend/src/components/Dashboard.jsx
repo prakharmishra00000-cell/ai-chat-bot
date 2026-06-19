@@ -8,6 +8,7 @@ import mermaid from 'mermaid';
 import CouncilRoom from './CouncilRoom';
 import WorkflowPanel from './WorkflowPanel';
 import MultimodalPanel from './MultimodalPanel';
+import MindMap3D from './MindMap3D';
 
 // Initialize Mermaid.js configuration
 try {
@@ -30,6 +31,7 @@ try {
 function MermaidChart({ chartCode }) {
   const [svg, setSvg] = useState('');
   const [error, setError] = useState(false);
+  const [viewMode, setViewMode] = useState('2d'); // '2d' or '3d'
   const elementId = `mermaid-${Math.random().toString(36).substr(2, 9)}`;
 
   useEffect(() => {
@@ -59,11 +61,58 @@ function MermaidChart({ chartCode }) {
   }
 
   return (
-    <div 
-      className="mermaid-graph-container" 
-      style={{ background: 'rgba(0,0,0,0.2)', padding: '20px', borderRadius: '8px', margin: '15px 0', overflowX: 'auto', display: 'flex', justifyContent: 'center' }}
-      dangerouslySetInnerHTML={{ __html: svg }} 
-    />
+    <div className="mermaid-chart-card glass-panel" style={{ margin: '15px 0', padding: '15px', borderRadius: '12px', background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(255,255,255,0.08)', width: '100%' }}>
+      {/* Toggle headers */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '8px' }}>
+        <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--accent-cyan)', fontFamily: 'var(--font-heading)' }}>
+          📊 Interactive Visualization
+        </span>
+        <div style={{ display: 'flex', gap: '5px', background: 'rgba(0,0,0,0.3)', padding: '2px', borderRadius: '6px' }}>
+          <button 
+            onClick={() => setViewMode('2d')}
+            style={{
+              background: viewMode === '2d' ? 'var(--bg-glass-active)' : 'transparent',
+              color: viewMode === '2d' ? 'var(--text-main)' : 'var(--text-muted)',
+              border: 'none',
+              padding: '4px 10px',
+              fontSize: '0.75rem',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontWeight: 600,
+              transition: 'var(--transition-smooth)'
+            }}
+          >
+            2D View
+          </button>
+          <button 
+            onClick={() => setViewMode('3d')}
+            style={{
+              background: viewMode === '3d' ? 'var(--bg-glass-active)' : 'transparent',
+              color: viewMode === '3d' ? 'var(--text-main)' : 'var(--text-muted)',
+              border: 'none',
+              padding: '4px 10px',
+              fontSize: '0.75rem',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontWeight: 600,
+              transition: 'var(--transition-smooth)'
+            }}
+          >
+            3D Mind Map
+          </button>
+        </div>
+      </div>
+
+      {viewMode === '2d' ? (
+        <div 
+          className="mermaid-graph-container" 
+          style={{ padding: '10px', overflowX: 'auto', display: 'flex', justifyContent: 'center' }}
+          dangerouslySetInnerHTML={{ __html: svg }} 
+        />
+      ) : (
+        <MindMap3D chartCode={chartCode} />
+      )}
+    </div>
   );
 }
 
