@@ -250,7 +250,8 @@ function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess }) {
   // Polling loop to check if plan is unlocked in background via webhook or manual UTR approval
   useEffect(() => {
     let interval;
-    if (currentPlan === 'free' && email) {
+    if (email) {
+      const initialPlan = currentPlan || 'free';
       interval = setInterval(async () => {
         try {
           const res = await fetch('/api/user/status', {
@@ -260,7 +261,7 @@ function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess }) {
           });
           if (res.ok) {
             const data = await res.json();
-            if (data && data.plan && data.plan !== 'free') {
+            if (data && data.plan && data.plan !== initialPlan) {
               setSuccess(`🎉 Thank you for choosing our ${data.plan.toUpperCase()} plan! Hope you will enjoy your new features!`);
               clearInterval(interval);
               setTimeout(() => {
