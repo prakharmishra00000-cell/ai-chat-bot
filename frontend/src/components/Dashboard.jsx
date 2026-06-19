@@ -145,7 +145,8 @@ function Dashboard({
   setTheme, 
   onTriggerUpgrade,
   onShowAdmin,
-  onShowHelp
+  onShowHelp,
+  onShowLocalDeploy
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth > 768);
   const [conversations, setConversations] = useState([]);
@@ -1184,6 +1185,11 @@ function Dashboard({
           {/* Help & Support button */}
           <button className="btn btn-secondary" onClick={onShowHelp} style={{ width: '100%', padding: '8px 12px', fontSize: '0.85rem', marginBottom: '8px' }}>
             <HelpCircle size={14} /> Help & Support
+          </button>
+
+          {/* Local Agent Deploy button */}
+          <button className="btn btn-secondary" onClick={onShowLocalDeploy} style={{ width: '100%', padding: '8px 12px', fontSize: '0.85rem', marginBottom: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+            <Cpu size={14} /> Local Agent Deploy
           </button>
 
 
