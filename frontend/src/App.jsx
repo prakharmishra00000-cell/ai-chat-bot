@@ -19,10 +19,10 @@ function App() {
   const [theme, setTheme] = useState(() => {
     const saved = localStorage.getItem('theme');
     const validThemes = [
-      'cosmic-web', 'deep-field', 'calm-nebula', 'milky-way', 'hyperspace',
-      'space-aurora', 'event-horizon', 'binary-stars', 'planetary-rings', 'deep-space'
+      'supernova-blast', 'solar-eruption', 'quasar-jet', 'nebula-tempest', 'hyperdrive-warp',
+      'meteor-shower', 'blackhole-vortex', 'gammaray-burst', 'asteroid-storm', 'cosmic-collision'
     ];
-    return validThemes.includes(saved) ? saved : 'cosmic-web';
+    return validThemes.includes(saved) ? saved : 'supernova-blast';
   });
   const [isOwnerSecured, setIsOwnerSecured] = useState(false);
   const [nextViewAfterOwnerSecured, setNextViewAfterOwnerSecured] = useState('');
@@ -124,8 +124,8 @@ function App() {
   // 15-second Automatic Cosmic Theme Cycling
   useEffect(() => {
     const validThemes = [
-      'cosmic-web', 'deep-field', 'calm-nebula', 'milky-way', 'hyperspace',
-      'space-aurora', 'event-horizon', 'binary-stars', 'planetary-rings', 'deep-space'
+      'supernova-blast', 'solar-eruption', 'quasar-jet', 'nebula-tempest', 'hyperdrive-warp',
+      'meteor-shower', 'blackhole-vortex', 'gammaray-burst', 'asteroid-storm', 'cosmic-collision'
     ];
     const timer = setInterval(() => {
       setTheme((prevTheme) => {

@@ -65,167 +65,177 @@ body {
 
 
 /* =========================================
-   COSMIC & UNIVERSE THEMES
+   COSMIC EXPLOSION & HIGH-ENERGY THEMES
    ========================================= */
 
-/* 1. Cosmic Web (Deep violet-indigo with cyber-cyan accents) */
-[data-theme="cosmic-web"], .theme-cosmic-web {
-  --bg-primary: #05050e;
-  --bg-secondary: #09091a;
-  --bg-glass: rgba(10, 10, 26, 0.65);
-  --bg-glass-active: rgba(20, 20, 50, 0.85);
-  --border-glass: rgba(0, 242, 254, 0.15);
-  --border-glass-glow: rgba(0, 242, 254, 0.5);
+/* 1. Supernova Blast (Hot pink/magenta theme, glow effects) */
+[data-theme="supernova-blast"], .theme-supernova-blast {
+  --bg-primary: #050207;
+  --bg-secondary: #0f0515;
+  --bg-glass: rgba(15, 5, 21, 0.7);
+  --bg-glass-active: rgba(35, 10, 50, 0.85);
+  --border-glass: rgba(255, 0, 127, 0.15);
+  --border-glass-glow: rgba(255, 0, 127, 0.5);
+  --accent-cyan: #ff007f;
+  --accent-purple: #7928ca;
+  --gradient-primary: linear-gradient(135deg, #ff007f 0%, #7928ca 100%);
+  --text-main: #fff5fc;
+  --text-muted: #bca5c3;
+  --shadow-glow: 0 0 30px rgba(255, 0, 127, 0.45);
+  --shadow-glow-purple: 0 0 20px rgba(121, 40, 202, 0.4);
+}
+
+/* 2. Solar Eruption (Solar flare orange/gold theme) */
+[data-theme="solar-eruption"], .theme-solar-eruption {
+  --bg-primary: #070200;
+  --bg-secondary: #160600;
+  --bg-glass: rgba(22, 6, 0, 0.75);
+  --bg-glass-active: rgba(45, 12, 0, 0.9);
+  --border-glass: rgba(255, 78, 80, 0.2);
+  --border-glass-glow: rgba(255, 78, 80, 0.65);
+  --accent-cyan: #ff4e50;
+  --accent-purple: #f9d423;
+  --gradient-primary: linear-gradient(135deg, #ff4e50 0%, #f9d423 100%);
+  --text-main: #fffbf5;
+  --text-muted: #cbd5e1;
+  --shadow-glow: 0 0 30px rgba(255, 78, 80, 0.45);
+  --shadow-glow-purple: 0 0 20px rgba(249, 212, 35, 0.4);
+}
+
+/* 3. Quasar Jet (Electric indigo/cyan theme) */
+[data-theme="quasar-jet"], .theme-quasar-jet {
+  --bg-primary: #02040c;
+  --bg-secondary: #060b1e;
+  --bg-glass: rgba(6, 11, 30, 0.7);
+  --bg-glass-active: rgba(12, 22, 60, 0.85);
+  --border-glass: rgba(0, 242, 254, 0.2);
+  --border-glass-glow: rgba(0, 242, 254, 0.6);
   --accent-cyan: #00f2fe;
-  --accent-purple: #7f00ff;
-  --gradient-primary: linear-gradient(135deg, #00f2fe 0%, #7f00ff 100%);
-  --text-main: #f8fafc;
-  --text-muted: #94a3b8;
-  --shadow-glow: 0 0 30px rgba(0, 242, 254, 0.25);
-}
-
-/* 2. Deep Field (Dark slate with warm amber accents) */
-[data-theme="deep-field"], .theme-deep-field {
-  --bg-primary: #07080a;
-  --bg-secondary: #0f1115;
-  --bg-glass: rgba(15, 17, 21, 0.7);
-  --bg-glass-active: rgba(30, 34, 42, 0.85);
-  --border-glass: rgba(255, 204, 170, 0.15);
-  --border-glass-glow: rgba(255, 170, 85, 0.5);
-  --accent-cyan: #ffaa55;
-  --accent-purple: #ffeedd;
-  --gradient-primary: linear-gradient(135deg, #ffccaa 0%, #ffaa55 100%);
-  --text-main: #fdfbf7;
-  --text-muted: #a8a29e;
-  --shadow-glow: 0 0 30px rgba(255, 170, 85, 0.25);
-}
-
-/* 3. Calm Nebula (Deep violet with magenta accents) */
-[data-theme="calm-nebula"], .theme-calm-nebula {
-  --bg-primary: #09040e;
-  --bg-secondary: #160822;
-  --bg-glass: rgba(22, 8, 34, 0.65);
-  --bg-glass-active: rgba(45, 16, 68, 0.85);
-  --border-glass: rgba(0, 255, 255, 0.15);
-  --border-glass-glow: rgba(255, 0, 255, 0.5);
-  --accent-cyan: #00ffff;
-  --accent-purple: #ff00ff;
-  --gradient-primary: linear-gradient(135deg, #00ffff 0%, #ff00ff 100%);
-  --text-main: #faecfa;
-  --text-muted: #c0a9cb;
-  --shadow-glow: 0 0 30px rgba(255, 0, 255, 0.25);
-}
-
-/* 4. Milky Way (Deep bronze with stellar gold accents) */
-[data-theme="milky-way"], .theme-milky-way {
-  --bg-primary: #0a0806;
-  --bg-secondary: #1a140f;
-  --bg-glass: rgba(26, 20, 15, 0.7);
-  --bg-glass-active: rgba(50, 40, 30, 0.85);
-  --border-glass: rgba(255, 221, 170, 0.15);
-  --border-glass-glow: rgba(255, 170, 85, 0.5);
-  --accent-cyan: #ffbb66;
-  --accent-purple: #88ccff;
-  --gradient-primary: linear-gradient(135deg, #ffddaa 0%, #ffaa55 100%);
-  --text-main: #fffaf5;
-  --text-muted: #d4c5b9;
-  --shadow-glow: 0 0 30px rgba(255, 170, 85, 0.25);
-}
-
-/* 5. Hyperspace (Obsidian black with electric blue accents) */
-[data-theme="hyperspace"], .theme-hyperspace {
-  --bg-primary: #020204;
-  --bg-secondary: #07070b;
-  --bg-glass: rgba(7, 7, 11, 0.8);
-  --bg-glass-active: rgba(15, 15, 25, 0.9);
-  --border-glass: rgba(255, 255, 255, 0.1);
-  --border-glass-glow: rgba(136, 204, 255, 0.6);
-  --accent-cyan: #88ccff;
-  --accent-purple: #ffffff;
-  --gradient-primary: linear-gradient(135deg, #ffffff 0%, #88ccff 100%);
-  --text-main: #f1f7fd;
+  --accent-purple: #4facfe;
+  --gradient-primary: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%);
+  --text-main: #f1f9ff;
   --text-muted: #9ab4cb;
-  --shadow-glow: 0 0 30px rgba(136, 204, 255, 0.3);
+  --shadow-glow: 0 0 30px rgba(0, 242, 254, 0.45);
+  --shadow-glow-purple: 0 0 20px rgba(79, 172, 254, 0.4);
 }
 
-/* 6. Space Aurora (Teal & neon green accents) */
-[data-theme="space-aurora"], .theme-space-aurora {
-  --bg-primary: #020806;
-  --bg-secondary: #051410;
-  --bg-glass: rgba(5, 20, 16, 0.7);
-  --bg-glass-active: rgba(10, 40, 32, 0.85);
-  --border-glass: rgba(0, 255, 136, 0.15);
-  --border-glass-glow: rgba(0, 255, 136, 0.5);
-  --accent-cyan: #00ff88;
-  --accent-purple: #0088ff;
-  --gradient-primary: linear-gradient(135deg, #00ff88 0%, #0088ff 100%);
-  --text-main: #edfcf6;
-  --text-muted: #a2c5b9;
-  --shadow-glow: 0 0 30px rgba(0, 255, 136, 0.25);
+/* 4. Nebula Tempest (Swirling orchid purple/pink theme) */
+[data-theme="nebula-tempest"], .theme-nebula-tempest {
+  --bg-primary: #07020a;
+  --bg-secondary: #12041b;
+  --bg-glass: rgba(18, 4, 27, 0.7);
+  --bg-glass-active: rgba(36, 8, 54, 0.85);
+  --border-glass: rgba(218, 34, 255, 0.2);
+  --border-glass-glow: rgba(218, 34, 255, 0.6);
+  --accent-cyan: #da22ff;
+  --accent-purple: #9114ff;
+  --gradient-primary: linear-gradient(135deg, #da22ff 0%, #9114ff 100%);
+  --text-main: #faf5ff;
+  --text-muted: #cda9e0;
+  --shadow-glow: 0 0 30px rgba(218, 34, 255, 0.45);
+  --shadow-glow-purple: 0 0 20px rgba(145, 20, 255, 0.4);
 }
 
-/* 7. Event Horizon (Charcoal black with intense solar orange/red accents) */
-[data-theme="event-horizon"], .theme-event-horizon {
-  --bg-primary: #060505;
-  --bg-secondary: #120d0d;
-  --bg-glass: rgba(18, 13, 13, 0.75);
-  --bg-glass-active: rgba(36, 26, 26, 0.9);
-  --border-glass: rgba(255, 85, 0, 0.15);
-  --border-glass-glow: rgba(255, 170, 85, 0.55);
-  --accent-cyan: #ff5500;
-  --accent-purple: #ffaa55;
-  --gradient-primary: linear-gradient(135deg, #ffaa55 0%, #ff5500 100%);
-  --text-main: #fff5f0;
-  --text-muted: #d5c0b5;
-  --shadow-glow: 0 0 30px rgba(255, 85, 0, 0.3);
+/* 5. Hyperdrive Warp (Star blue/white warp theme) */
+[data-theme="hyperdrive-warp"], .theme-hyperdrive-warp {
+  --bg-primary: #010206;
+  --bg-secondary: #020512;
+  --bg-glass: rgba(2, 5, 18, 0.75);
+  --bg-glass-active: rgba(5, 10, 36, 0.9);
+  --border-glass: rgba(0, 198, 255, 0.2);
+  --border-glass-glow: rgba(0, 198, 255, 0.65);
+  --accent-cyan: #00c6ff;
+  --accent-purple: #0072ff;
+  --gradient-primary: linear-gradient(135deg, #00c6ff 0%, #0072ff 100%);
+  --text-main: #f5faff;
+  --text-muted: #a2bdcb;
+  --shadow-glow: 0 0 30px rgba(0, 198, 255, 0.45);
+  --shadow-glow-purple: 0 0 20px rgba(0, 114, 255, 0.4);
 }
 
-/* 8. Binary Stars (Deep navy-indigo with dual orange/blue accents) */
-[data-theme="binary-stars"], .theme-binary-stars {
-  --bg-primary: #04060c;
-  --bg-secondary: #0a0e1a;
-  --bg-glass: rgba(10, 14, 26, 0.7);
-  --bg-glass-active: rgba(20, 28, 50, 0.85);
-  --border-glass: rgba(170, 204, 255, 0.15);
-  --border-glass-glow: rgba(255, 204, 170, 0.5);
-  --accent-cyan: #aaccff;
-  --accent-purple: #ffccaa;
-  --gradient-primary: linear-gradient(135deg, #aaccff 0%, #ffccaa 100%);
-  --text-main: #f5f8ff;
-  --text-muted: #aebbd4;
-  --shadow-glow: 0 0 30px rgba(170, 204, 255, 0.25);
+/* 6. Meteor Shower (Lime green/emerald speed theme) */
+[data-theme="meteor-shower"], .theme-meteor-shower {
+  --bg-primary: #010403;
+  --bg-secondary: #020d09;
+  --bg-glass: rgba(2, 13, 9, 0.75);
+  --bg-glass-active: rgba(4, 26, 18, 0.9);
+  --border-glass: rgba(56, 239, 125, 0.2);
+  --border-glass-glow: rgba(56, 239, 125, 0.6);
+  --accent-cyan: #38ef7d;
+  --accent-purple: #11998e;
+  --gradient-primary: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+  --text-main: #f5fdf7;
+  --text-muted: #a2cbb2;
+  --shadow-glow: 0 0 30px rgba(56, 239, 125, 0.45);
+  --shadow-glow-purple: 0 0 20px rgba(17, 153, 142, 0.4);
 }
 
-/* 9. Planetary Rings (Sleek grey-bronze with metallic accents) */
-[data-theme="planetary-rings"], .theme-planetary-rings {
-  --bg-primary: #080808;
-  --bg-secondary: #141416;
-  --bg-glass: rgba(20, 20, 22, 0.75);
-  --bg-glass-active: rgba(40, 40, 44, 0.9);
-  --border-glass: rgba(136, 153, 170, 0.2);
-  --border-glass-glow: rgba(255, 255, 255, 0.3);
-  --accent-cyan: #8899aa;
-  --accent-purple: #ccddee;
-  --gradient-primary: linear-gradient(135deg, #ccddee 0%, #8899aa 100%);
-  --text-main: #f3f4f6;
-  --text-muted: #9ca3af;
-  --shadow-glow: 0 0 30px rgba(136, 153, 170, 0.2);
+/* 7. Black Hole Vortex (Swirling fire red/yellow theme) */
+[data-theme="blackhole-vortex"], .theme-blackhole-vortex {
+  --bg-primary: #050101;
+  --bg-secondary: #120303;
+  --bg-glass: rgba(18, 3, 3, 0.75);
+  --bg-glass-active: rgba(36, 6, 6, 0.9);
+  --border-glass: rgba(241, 39, 17, 0.2);
+  --border-glass-glow: rgba(241, 39, 17, 0.65);
+  --accent-cyan: #f12711;
+  --accent-purple: #f5af19;
+  --gradient-primary: linear-gradient(135deg, #f12711 0%, #f5af19 100%);
+  --text-main: #fff5f5;
+  --text-muted: #dca5a5;
+  --shadow-glow: 0 0 30px rgba(241, 39, 17, 0.45);
+  --shadow-glow-purple: 0 0 20px rgba(245, 175, 25, 0.4);
 }
 
-/* 10. Deep Space (True obsidian black with minimal silver accents) */
-[data-theme="deep-space"], .theme-deep-space {
-  --bg-primary: #030303;
-  --bg-secondary: #080808;
-  --bg-glass: rgba(8, 8, 8, 0.85);
-  --bg-glass-active: rgba(18, 18, 18, 0.95);
-  --border-glass: rgba(255, 255, 255, 0.05);
-  --border-glass-glow: rgba(255, 255, 255, 0.2);
-  --accent-cyan: #ffffff;
-  --accent-purple: #888888;
-  --gradient-primary: linear-gradient(135deg, #ffffff 0%, #888888 100%);
-  --text-main: #f3f4f6;
-  --text-muted: #9ca3af;
-  --shadow-glow: 0 0 30px rgba(255, 255, 255, 0.15);
+/* 8. Gamma Ray Burst (Vibrant violet/indigo theme) */
+[data-theme="gammaray-burst"], .theme-gammaray-burst {
+  --bg-primary: #030208;
+  --bg-secondary: #090518;
+  --bg-glass: rgba(9, 5, 24, 0.7);
+  --bg-glass-active: rgba(18, 10, 48, 0.85);
+  --border-glass: rgba(168, 192, 255, 0.2);
+  --border-glass-glow: rgba(168, 192, 255, 0.6);
+  --accent-cyan: #a8c0ff;
+  --accent-purple: #3f2b96;
+  --gradient-primary: linear-gradient(135deg, #a8c0ff 0%, #3f2b96 100%);
+  --text-main: #faf9ff;
+  --text-muted: #cbd5e1;
+  --shadow-glow: 0 0 30px rgba(168, 192, 255, 0.45);
+  --shadow-glow-purple: 0 0 20px rgba(63, 43, 150, 0.4);
+}
+
+/* 9. Asteroid Storm (Warm amber gold/sand theme) */
+[data-theme="asteroid-storm"], .theme-asteroid-storm {
+  --bg-primary: #050402;
+  --bg-secondary: #120e06;
+  --bg-glass: rgba(18, 14, 6, 0.75);
+  --bg-glass-active: rgba(36, 28, 12, 0.9);
+  --border-glass: rgba(246, 211, 101, 0.2);
+  --border-glass-glow: rgba(246, 211, 101, 0.65);
+  --accent-cyan: #f6d365;
+  --accent-purple: #fda085;
+  --gradient-primary: linear-gradient(135deg, #f6d365 0%, #fda085 100%);
+  --text-main: #fffdf5;
+  --text-muted: #cbbeb0;
+  --shadow-glow: 0 0 30px rgba(246, 211, 101, 0.45);
+  --shadow-glow-purple: 0 0 20px rgba(253, 160, 133, 0.4);
+}
+
+/* 10. Cosmic Collision (Brilliant silver/neon cyan theme) */
+[data-theme="cosmic-collision"], .theme-cosmic-collision {
+  --bg-primary: #010305;
+  --bg-secondary: #040b12;
+  --bg-glass: rgba(4, 11, 18, 0.75);
+  --bg-glass-active: rgba(8, 22, 36, 0.9);
+  --border-glass: rgba(224, 224, 224, 0.2);
+  --border-glass-glow: rgba(0, 242, 254, 0.65);
+  --accent-cyan: #e0e0e0;
+  --accent-purple: #00f2fe;
+  --gradient-primary: linear-gradient(135deg, #e0e0e0 0%, #00f2fe 100%);
+  --text-main: #f5fcff;
+  --text-muted: #a2bdcb;
+  --shadow-glow: 0 0 30px rgba(224, 224, 224, 0.45);
+  --shadow-glow-purple: 0 0 20px rgba(0, 242, 254, 0.4);
 }
 
 /* Global Reset */
@@ -389,15 +399,17 @@ body {
 }
 
 .btn-secondary {
-  background: var(--bg-glass-active);
-  color: var(--text-main);
-  border: 1px solid var(--border-glass);
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--accent-cyan);
+  border: 1px solid var(--border-glass-glow);
+  box-shadow: inset 0 0 10px rgba(255, 255, 255, 0.02);
 }
 
 .btn-secondary:hover {
-  background: rgba(255, 255, 255, 0.15);
-  box-shadow: none;
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: var(--shadow-glow);
   border-color: var(--accent-cyan);
+  color: var(--text-main);
 }
 
 .btn-danger {
@@ -816,13 +828,13 @@ body {
 .mode-toggle-btn.active {
   border-color: var(--accent-cyan);
   box-shadow: var(--shadow-glow);
-  background: rgba(0, 242, 254, 0.1);
+  background: var(--bg-glass-active);
 }
 
 .mode-toggle-btn.matrix.active {
-  border-color: #b224ef;
+  border-color: var(--accent-purple);
   box-shadow: var(--shadow-glow-purple);
-  background: rgba(178, 36, 239, 0.1);
+  background: var(--bg-glass-active);
 }
 
 /* MESSAGES CONTAINER */

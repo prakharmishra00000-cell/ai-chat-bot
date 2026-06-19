@@ -68,16 +68,16 @@ function MermaidChart({ chartCode }) {
 }
 
 const themeOptions = [
-  { value: 'cosmic-web', label: 'Cosmic Web', color: '#00f2fe', bg: '#05050e' },
-  { value: 'deep-field', label: 'Deep Field', color: '#ffaa55', bg: '#07080a' },
-  { value: 'calm-nebula', label: 'Calm Nebula', color: '#ff00ff', bg: '#09040e' },
-  { value: 'milky-way', label: 'Milky Way', color: '#ffddaa', bg: '#0a0806' },
-  { value: 'hyperspace', label: 'Hyperspace', color: '#88ccff', bg: '#020204' },
-  { value: 'space-aurora', label: 'Space Aurora', color: '#00ff88', bg: '#020806' },
-  { value: 'event-horizon', label: 'Event Horizon', color: '#ff5500', bg: '#060505' },
-  { value: 'binary-stars', label: 'Binary Stars', color: '#aaccff', bg: '#04060c' },
-  { value: 'planetary-rings', label: 'Planetary Rings', color: '#8899aa', bg: '#080808' },
-  { value: 'deep-space', label: 'Deep Space', color: '#ffffff', bg: '#030303' }
+  { value: 'supernova-blast', label: 'Supernova Blast', color: '#ff007f', bg: '#050207' },
+  { value: 'solar-eruption', label: 'Solar Eruption', color: '#ff4e50', bg: '#070200' },
+  { value: 'quasar-jet', label: 'Quasar Jet', color: '#00f2fe', bg: '#02040c' },
+  { value: 'nebula-tempest', label: 'Nebula Tempest', color: '#da22ff', bg: '#07020a' },
+  { value: 'hyperdrive-warp', label: 'Hyperdrive Warp', color: '#00c6ff', bg: '#010206' },
+  { value: 'meteor-shower', label: 'Meteor Shower', color: '#38ef7d', bg: '#010403' },
+  { value: 'blackhole-vortex', label: 'Black Hole Vortex', color: '#f12711', bg: '#050101' },
+  { value: 'gammaray-burst', label: 'Gamma Ray Burst', color: '#a8c0ff', bg: '#030208' },
+  { value: 'asteroid-storm', label: 'Asteroid Storm', color: '#f6d365', bg: '#050402' },
+  { value: 'cosmic-collision', label: 'Cosmic Collision', color: '#e0e0e0', bg: '#010305' }
 ];
 
 function Dashboard({ 
@@ -1005,8 +1005,8 @@ function Dashboard({
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Orbit size={16} color={themeOptions.find(o => o.value === theme)?.color || '#00f2fe'} />
-                <span>{themeOptions.find(o => o.value === theme)?.label || 'Cosmic Web'}</span>
+                <Orbit size={16} color={themeOptions.find(o => o.value === theme)?.color || '#ff007f'} />
+                <span>{themeOptions.find(o => o.value === theme)?.label || 'Supernova Blast'}</span>
               </div>
               <span style={{ fontSize: '0.7rem', opacity: 0.6 }}>▼</span>
             </button>
