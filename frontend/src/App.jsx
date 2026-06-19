@@ -32,8 +32,8 @@ function App() {
   const [userPlanDetails, setUserPlanDetails] = useState(null);
   const [showExpiryReminder, setShowExpiryReminder] = useState(false);
 
-  // Performance mode state to toggle background complexity
-  const [perfMode, setPerfMode] = useState(() => localStorage.getItem('perf_mode_static_bg') === 'true');
+  // Performance mode state to toggle background complexity (default to true/2D BG for smooth load)
+  const [perfMode, setPerfMode] = useState(() => localStorage.getItem('perf_mode_static_bg') !== 'false');
 
   const handleTogglePerfMode = () => {
     const newVal = !perfMode;

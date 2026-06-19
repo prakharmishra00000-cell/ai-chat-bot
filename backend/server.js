@@ -3118,9 +3118,9 @@ app.get(['/', '/index.html'], (req, res) => {
       
       // Inject absolute paths for social sharing cards & browser icons
       html = html.replace(/content="\/matrixmind-logo\.jpg"/g, `content="${absoluteLogoUrl}"`);
-      html = html.replace(/href="\/matrixmind-logo\.jpg"/g, `href="${absoluteLogoUrl}"`);
-      html = html.replace(/href="\/favicon\.ico"/g, `href="${protocol}://${host}/favicon.ico"`);
-      html = html.replace(/href="\/apple-touch-icon\.png"/g, `href="${protocol}://${host}/apple-touch-icon.png"`);
+      html = html.replace(/href="\/matrixmind-logo\.jpg\?v=3"/g, `href="${absoluteLogoUrl}?v=3"`);
+      html = html.replace(/href="\/favicon\.ico\?v=3"/g, `href="${protocol}://${host}/favicon.ico?v=3"`);
+      html = html.replace(/href="\/apple-touch-icon\.png\?v=3"/g, `href="${protocol}://${host}/apple-touch-icon.png?v=3"`);
       
       res.send(html);
     } catch (err) {
@@ -3146,9 +3146,9 @@ app.get('*', (req, res) => {
       
       // Inject absolute paths for social sharing cards & browser icons
       html = html.replace(/content="\/matrixmind-logo\.jpg"/g, `content="${absoluteLogoUrl}"`);
-      html = html.replace(/href="\/matrixmind-logo\.jpg"/g, `href="${absoluteLogoUrl}"`);
-      html = html.replace(/href="\/favicon\.ico"/g, `href="${protocol}://${host}/favicon.ico"`);
-      html = html.replace(/href="\/apple-touch-icon\.png"/g, `href="${protocol}://${host}/apple-touch-icon.png"`);
+      html = html.replace(/href="\/matrixmind-logo\.jpg\?v=3"/g, `href="${absoluteLogoUrl}?v=3"`);
+      html = html.replace(/href="\/favicon\.ico\?v=3"/g, `href="${protocol}://${host}/favicon.ico?v=3"`);
+      html = html.replace(/href="\/apple-touch-icon\.png\?v=3"/g, `href="${protocol}://${host}/apple-touch-icon.png?v=3"`);
       
       res.send(html);
     } catch (err) {
