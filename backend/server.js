@@ -529,6 +529,14 @@ function writeDB(data) {
     console.error('Error writing local DB:', e.message);
   }
   
+  // CRITICAL: NEVER push hardcoded seed data to Firebase.
+  // On cold start (Render ephemeral FS), db.json is created from hardcoded defaults.
+  // If we push those defaults to Firebase, it OVERWRITES all admin settings and user plans.
+  if (dbIsHardcodedSeed) {
+    console.warn('[FIREBASE] BLOCKED: Refusing to sync hardcoded seed data to Firebase (would overwrite cloud data).');
+    return true;
+  }
+  
   if (firebaseInitialized) {
     if (!firebaseFirstLoadComplete) {
       console.warn('[FIREBASE] Skipped sync: initial cloud load not yet complete (preventing overwrite).');
@@ -554,17 +562,39 @@ function writeDB(data) {
 initFirebase();
 
 // Helper to prevent race conditions on cold start
+// This BLOCKS until Firebase cloud data has been loaded into globalDB
 async function waitForFirebase() {
+  // If Firebase hasn't initialized yet, try now
+  if (!firebaseInitialized) {
+    initFirebase();
+  }
+  // Wait for the first cloud data load (up to 10 seconds)
   if (firebaseInitialized && !firebaseFirstLoadComplete) {
     let attempts = 0;
-    while (!firebaseFirstLoadComplete && attempts < 50) { // wait up to 5s
+    while (!firebaseFirstLoadComplete && attempts < 100) { // wait up to 10s
       await new Promise(r => setTimeout(r, 100));
       attempts++;
+    }
+    if (!firebaseFirstLoadComplete) {
+      console.warn('[FIREBASE] Timed out waiting for initial cloud load. Using local data.');
     }
   }
 }
 
-// Track visits (middleware)
+// ============================================================
+// GLOBAL API MIDDLEWARE: Block ALL API requests until Firebase cloud data is loaded
+// This prevents hardcoded defaults from being used to create users with "free" plan
+// when they actually have a paid plan stored in Firebase cloud.
+// ============================================================
+app.use(async (req, res, next) => {
+  // Only block API routes, not static files
+  if (req.path.startsWith('/api/')) {
+    await waitForFirebase();
+  }
+  next();
+});
+
+// Track visits (middleware) — safe because API middleware above ensures Firebase is loaded
 app.use((req, res, next) => {
   // Simple session tracker for unique pageviews
   if (req.path === '/' || req.path === '/index.html') {
@@ -643,6 +673,12 @@ function getOrCreateUser(email) {
   
   let user = db.users[cleanEmail];
   if (!user) {
+    // SAFETY: If we're still on hardcoded seed data, this user might actually exist
+    // in Firebase cloud with a paid plan. The global middleware should prevent this,
+    // but log a warning just in case.
+    if (dbIsHardcodedSeed) {
+      console.warn(`[SAFETY] Creating new user ${cleanEmail} while Firebase cloud data hasn't loaded yet! This user may have a paid plan in the cloud.`);
+    }
     user = {
       email: cleanEmail,
       plan: 'free',
@@ -659,10 +695,12 @@ function getOrCreateUser(email) {
       user.featureUsage = { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, workflow: 0, council: 0, leads: 0 };
     }
 
-    // Check Plan Expiry
+    // Check Plan Expiry — ONLY downgrade if plan has ACTUALLY expired
     if (user.plan !== 'free' && user.planExpiry) {
       const expiry = new Date(user.planExpiry);
-      if (new Date() > expiry) {
+      const now = new Date();
+      if (now > expiry) {
+        console.log(`[EXPIRY] Plan expired for ${cleanEmail}: ${user.plan} expired on ${user.planExpiry}. Downgrading to free.`);
         user.plan = 'free';
         user.planExpiry = null;
         db.users[cleanEmail] = user;
