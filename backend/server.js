@@ -3105,6 +3105,33 @@ app.get(['/matrixmind-logo.jpg', '/favicon.ico', '/apple-touch-icon.png', '/appl
 
 // Serve frontend production build statically
 const distPath = path.join(__dirname, '../frontend/dist');
+
+// Serve root path dynamically to inject crawler metadata (must be BEFORE express.static)
+app.get(['/', '/index.html'], (req, res) => {
+  const indexPath = path.join(distPath, 'index.html');
+  if (fs.existsSync(indexPath)) {
+    try {
+      let html = fs.readFileSync(indexPath, 'utf8');
+      const protocol = 'https';
+      const host = req.get('host') || 'ai-chat-bot-gykb.onrender.com';
+      const absoluteLogoUrl = `${protocol}://${host}/matrixmind-logo.jpg`;
+      
+      // Inject absolute paths for social sharing cards & browser icons
+      html = html.replace(/content="\/matrixmind-logo\.jpg"/g, `content="${absoluteLogoUrl}"`);
+      html = html.replace(/href="\/matrixmind-logo\.jpg"/g, `href="${absoluteLogoUrl}"`);
+      html = html.replace(/href="\/favicon\.ico"/g, `href="${protocol}://${host}/favicon.ico"`);
+      html = html.replace(/href="\/apple-touch-icon\.png"/g, `href="${protocol}://${host}/apple-touch-icon.png"`);
+      
+      res.send(html);
+    } catch (err) {
+      console.error('Error reading index.html:', err);
+      res.sendFile(indexPath);
+    }
+  } else {
+    res.send('Server is active. Frontend is not built yet. Please run npm run build inside the frontend directory.');
+  }
+});
+
 app.use(express.static(distPath));
 
 // Fallback index.html for React SPA Routing
