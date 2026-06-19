@@ -421,9 +421,9 @@ function initFirebase() {
       firebaseInitialized = true;
       console.log('[FIREBASE] Successfully connected to Realtime Database.');
 
-      // Listen for global changes to sync to local memory
+      // Load once from Firebase on startup to sync to local memory
       const dbRef = getDatabase().ref('/');
-      dbRef.on('value', (snapshot) => {
+      dbRef.once('value', (snapshot) => {
         const val = snapshot.val();
         if (val) {
           if (val._config) {
@@ -518,9 +518,25 @@ function initFirebase() {
 
 function readLocalDB() {
   try {
-    return JSON.parse(fs.readFileSync(DB_PATH, 'utf8'));
+    const data = JSON.parse(fs.readFileSync(DB_PATH, 'utf8'));
+    if (!data.plans || Object.keys(data.plans).length === 0) {
+      data.plans = dbInitData.plans;
+    }
+    if (!data.featureNames || Object.keys(data.featureNames).length === 0) {
+      data.featureNames = dbInitData.featureNames;
+    }
+    return data;
   } catch (e) {
-    return { users: {}, transactions: [], visits: {}, anonymousVisits: {}, supportQueries: [], pendingApprovals: [], plans: {} };
+    return { 
+      users: {}, 
+      transactions: [], 
+      visits: {}, 
+      anonymousVisits: {}, 
+      supportQueries: [], 
+      pendingApprovals: [], 
+      plans: dbInitData.plans,
+      featureNames: dbInitData.featureNames
+    };
   }
 }
 
@@ -535,7 +551,12 @@ function readDB() {
   if (!globalDB.anonymousVisits) globalDB.anonymousVisits = {};
   if (!globalDB.supportQueries) globalDB.supportQueries = [];
   if (!globalDB.pendingApprovals) globalDB.pendingApprovals = [];
-  if (!globalDB.plans) globalDB.plans = {};
+  if (!globalDB.plans || Object.keys(globalDB.plans).length === 0) {
+    globalDB.plans = dbInitData.plans;
+  }
+  if (!globalDB.featureNames || Object.keys(globalDB.featureNames).length === 0) {
+    globalDB.featureNames = dbInitData.featureNames;
+  }
   
   return globalDB;
 }
@@ -3279,7 +3300,7 @@ app.get('*', (req, res) => {
   if (fs.existsSync(indexPath)) {
     try {
       let html = fs.readFileSync(indexPath, 'utf8');
-      const protocol = req.secure || req.headers['x-forwarded-proto'] === 'https' ? 'https' : 'http';
+      const protocol = 'https';
       const host = req.get('host') || 'ai-chat-bot-gykb.onrender.com';
       const absoluteLogoUrl = `${protocol}://${host}/matrixmind-logo.jpg`;
       
