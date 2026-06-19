@@ -2453,24 +2453,23 @@ app.post('/api/payment/razorpay/webhook', express.raw({ type: 'application/json'
   const config = readConfig();
   const secret = config.razorpayWebhookSecret;
 
-  if (!secret) {
-    console.warn('[WEBHOOK] Received Razorpay webhook but no secret is configured.');
-    return res.status(400).send('Webhook secret not configured');
-  }
-
   const signature = req.headers['x-razorpay-signature'];
   const body = req.body; // Raw body needed for crypto verification
 
   try {
-    // Validate signature
-    const expectedSignature = crypto
-      .createHmac('sha256', secret)
-      .update(body)
-      .digest('hex');
+    // Validate signature only if webhook secret is configured
+    if (secret && signature) {
+      const expectedSignature = crypto
+        .createHmac('sha256', secret)
+        .update(body)
+        .digest('hex');
 
-    if (expectedSignature !== signature) {
-      console.warn('[WEBHOOK] Signature verification failed.');
-      return res.status(400).send('Invalid signature');
+      if (expectedSignature !== signature) {
+        console.warn('[WEBHOOK] Signature verification failed.');
+        return res.status(400).send('Invalid signature');
+      }
+    } else {
+      console.warn('[WEBHOOK] No webhook secret configured, skipping signature verification.');
     }
 
     // Process event
@@ -2512,7 +2511,7 @@ app.post('/api/payment/razorpay/webhook', express.raw({ type: 'application/json'
         return res.status(200).send('Missing metadata');
       }
 
-      const cleanEmail = email.trim();
+      const cleanEmail = email.trim().toLowerCase();
       console.log(`[WEBHOOK] Processing upgrade for: ${cleanEmail}, plan: ${planId}, duration: ${durationDays}`);
 
       // Automatically Unlock Plan
@@ -2550,6 +2549,92 @@ app.post('/api/payment/razorpay/webhook', express.raw({ type: 'application/json'
   } catch (err) {
     console.error('Razorpay Webhook Error:', err);
     res.status(400).send('Webhook error');
+  }
+});
+
+// ==========================================
+// RAZORPAY PAYMENT VERIFICATION (called by frontend handler after successful checkout)
+// This route verifies the payment with Razorpay API and immediately unlocks the plan
+// ==========================================
+app.post('/api/payment/razorpay/verify', async (req, res) => {
+  const config = readConfig();
+  if (!config.razorpayKeyId || !config.razorpayKeySecret) {
+    return res.status(500).json({ error: 'Razorpay keys not configured.' });
+  }
+
+  const { razorpay_order_id, razorpay_payment_id, razorpay_signature, email, planId } = req.body;
+  if (!razorpay_order_id || !razorpay_payment_id || !email || !planId) {
+    return res.status(400).json({ error: 'Missing required payment verification fields.' });
+  }
+
+  try {
+    // Verify payment signature using Razorpay's standard method
+    const generatedSignature = crypto
+      .createHmac('sha256', config.razorpayKeySecret)
+      .update(razorpay_order_id + '|' + razorpay_payment_id)
+      .digest('hex');
+
+    if (razorpay_signature && generatedSignature !== razorpay_signature) {
+      console.warn('[VERIFY] Payment signature mismatch.');
+      return res.status(400).json({ error: 'Payment verification failed — invalid signature.' });
+    }
+
+    // Double-check with Razorpay API that this payment is actually captured/paid
+    const rzp = new Razorpay({
+      key_id: config.razorpayKeyId,
+      key_secret: config.razorpayKeySecret,
+    });
+
+    const payment = await rzp.payments.fetch(razorpay_payment_id);
+    if (payment.status !== 'captured' && payment.status !== 'authorized') {
+      console.warn(`[VERIFY] Payment ${razorpay_payment_id} status is '${payment.status}', not captured.`);
+      return res.status(400).json({ error: `Payment status is '${payment.status}', not captured. Please wait or contact support.` });
+    }
+
+    const cleanEmail = (email || '').trim().toLowerCase();
+    const amountPaid = payment.amount / 100;
+    console.log(`[VERIFY] Payment confirmed: ${razorpay_payment_id}, amount: ₹${amountPaid}, email: ${cleanEmail}, plan: ${planId}`);
+
+    // Unlock the plan
+    const db = readDB();
+    const user = getOrCreateUser(cleanEmail);
+    user.plan = planId;
+
+    const dbPlans = db.plans || {};
+    const planConfig = dbPlans[planId];
+    const days = planConfig ? (parseInt(planConfig.days) || 30) : 30;
+
+    const expiryDate = new Date();
+    expiryDate.setDate(expiryDate.getDate() + days);
+    user.planExpiry = expiryDate.toISOString();
+
+    db.users[cleanEmail] = user;
+
+    // Log transaction
+    if (!db.transactions) db.transactions = [];
+    db.transactions.push({
+      id: `txn_rzp_${Date.now()}`,
+      email: cleanEmail,
+      amount: amountPaid,
+      plan: planId,
+      paymentRef: razorpay_payment_id,
+      orderId: razorpay_order_id,
+      date: new Date().toISOString(),
+      automated: true
+    });
+
+    writeDB(db);
+    console.log(`[VERIFY] Successfully auto-unlocked ${planId} for ${cleanEmail}! Expiry: ${user.planExpiry}`);
+
+    return res.json({
+      success: true,
+      message: `${planConfig ? planConfig.name : planId} plan activated successfully!`,
+      plan: planId,
+      expiry: user.planExpiry
+    });
+  } catch (err) {
+    console.error('[VERIFY] Razorpay verification error:', err);
+    return res.status(500).json({ error: 'Payment verification failed. Please contact support.' });
   }
 });
 

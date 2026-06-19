@@ -163,22 +163,49 @@ function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess }) {
         return;
       }
 
+      // Fetch the Razorpay public key
+      const configRes = await fetch('/api/config/public');
+      const configData = await configRes.json();
+      if (!configData.razorpayKeyId) {
+        throw new Error('Missing Razorpay public key');
+      }
+
       // Initialize Razorpay Options
       const options = {
-        key: "", // The backend doesn't send the key ID for security, Razorpay will fetch from order if omitted, wait, usually frontend needs the key. 
-        // Actually, frontend DOES need the key. We must fetch the public key.
-        // If we don't have it, we'll fetch it from the new config route.
-        // Let's rely on the order_id.
+        key: configData.razorpayKeyId,
         order_id: orderData.order.id,
         name: "MatrixMind Advanced AI",
         description: `Upgrade to ${plan.name} Plan`,
-        image: "https://cdn-icons-png.flaticon.com/512/2111/2111432.png", // Generic AI icon
-        handler: function (response) {
-          // Webhook handles the actual backend upgrade! We just show success here.
-          setSuccess(`Payment Successful! Your ${plan.name} plan is unlocking automatically...`);
-          setTimeout(() => {
-            if(onPaymentSuccess) onPaymentSuccess();
-          }, 3000);
+        image: "https://cdn-icons-png.flaticon.com/512/2111/2111432.png",
+        handler: async function (response) {
+          // Payment successful on Razorpay's end — now verify server-side and auto-unlock
+          setSuccess(`Payment received! Verifying and unlocking your ${plan.name} plan...`);
+          try {
+            const verifyRes = await fetch('/api/payment/razorpay/verify', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                email: email,
+                planId: plan.id
+              })
+            });
+            const verifyData = await verifyRes.json();
+            if (verifyRes.ok && verifyData.success) {
+              setSuccess(`🎉 Thank you for choosing our ${plan.name.toUpperCase()} plan! Your plan is now active. Enjoy your new features!`);
+              setTimeout(() => {
+                if (onPaymentSuccess) onPaymentSuccess();
+              }, 3000);
+            } else {
+              setSuccess(`Payment received! Your plan will be activated shortly. If not activated within 5 minutes, please contact support.`);
+              // The polling loop will still catch it if webhook fires later
+            }
+          } catch (verifyErr) {
+            console.error('Verification call failed:', verifyErr);
+            setSuccess(`Payment received! Your plan will be activated automatically within a few minutes.`);
+          }
         },
         prefill: {
           email: email || "",
@@ -192,15 +219,6 @@ function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess }) {
           color: "#00f2fe"
         }
       };
-
-      // We must inject the razorpay public key into options
-      const configRes = await fetch('/api/config/public');
-      const configData = await configRes.json();
-      if(configData.razorpayKeyId) {
-        options.key = configData.razorpayKeyId;
-      } else {
-        throw new Error('Missing public key');
-      }
 
       const rzp = new window.Razorpay(options);
       rzp.on('payment.failed', function (response){
