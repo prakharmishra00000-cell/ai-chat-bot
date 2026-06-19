@@ -131,18 +131,18 @@ function Login({ onLogin, onShowLegal, onShowSetup }) {
             );
             const profile = JSON.parse(jsonPayload);
             if (profile && profile.email) {
+              // OPTIMISTIC UPDATE:
+              onLogin(profile.email);
+              
               // Always use 'login' — backend auto-registers if user doesn't exist (seamless cross-device)
               fetch('/api/user/auth', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email: profile.email, action: 'login' })
-              }).then(res => res.json()).then(data => {
-                if (data.success) {
-                  onLogin(profile.email);
-                } else {
-                  setError(data.message || data.error);
-                }
-              }).catch(err => setError('Google auth network error.'));
+              }).catch(err => {
+                console.error(err);
+                setError('Connection error with Google Login.');
+              });
             }
           } catch (err) {
             console.error('Error decoding JWT token from Google:', err);
