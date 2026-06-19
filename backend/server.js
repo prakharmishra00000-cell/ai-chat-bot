@@ -452,12 +452,13 @@ function initFirebase() {
             if (!val.pendingApprovals) val.pendingApprovals = [];
             dbIsHardcodedSeed = false; // Only do this once
           } else {
-            // Normal operation: deep merge to preserve local admin settings
+            // Normal operation: deep merge to preserve local admin settings with Firebase as source of truth
             const localDB = globalDB || readLocalDB();
             if (localDB.plans && val.plans) {
               Object.keys(localDB.plans).forEach(planKey => {
                 if (val.plans[planKey]) {
-                  val.plans[planKey] = { ...val.plans[planKey], ...localDB.plans[planKey] };
+                  // Firebase (val) takes precedence over local defaults (localDB)
+                  val.plans[planKey] = { ...localDB.plans[planKey], ...val.plans[planKey] };
                 } else {
                   val.plans[planKey] = localDB.plans[planKey];
                 }
@@ -472,8 +473,12 @@ function initFirebase() {
               });
             }
             
-            if (localDB.featureNames && !val.featureNames) {
-              val.featureNames = localDB.featureNames;
+            if (localDB.featureNames) {
+              if (val.featureNames) {
+                val.featureNames = { ...localDB.featureNames, ...val.featureNames };
+              } else {
+                val.featureNames = localDB.featureNames;
+              }
             }
           }
           
