@@ -14,7 +14,7 @@ const steps = [
   { id: 6, label: 'Continuous Verification Loop', desc: 'Capturing new states, confirming layout, & finalizing task' }
 ];
 
-export default function OSGhostPanel({ onClose, initialPrompt }) {
+export default function OSGhostPanel({ onClose, initialPrompt, autoExecute = false, initialModifications = [] }) {
   const [running, setRunning] = useState(false);
   const [currentStep, setCurrentStep] = useState(0); 
   const [status, setStatus] = useState('idle'); // 'idle', 'staging', 'running', 'emergency_override', 'completed'
@@ -52,7 +52,7 @@ export default function OSGhostPanel({ onClose, initialPrompt }) {
   const [showTerminalWindow, setShowTerminalWindow] = useState(false);
   const [terminalLines, setTerminalLines] = useState([]);
   const [filesToDelete, setFilesToDelete] = useState([3, 11]);
-  const [planModifications, setPlanModifications] = useState([]);
+  const [planModifications, setPlanModifications] = useState(initialModifications || []);
   const [modificationInput, setModificationInput] = useState('');
 
   // Auto-run if initialPrompt is passed from Dashboard
@@ -96,110 +96,6 @@ export default function OSGhostPanel({ onClose, initialPrompt }) {
     setRunning(false);
     addLog('OVERRIDE', '🚨 EMERGENCY OVERRIDE TRIGGERED BY USER (Escape Key tapped). AI Control terminated immediately.');
     addLog('OVERRIDE', 'Permissions locked down. Hardware mouse & keyboard drivers returned to manual operation.');
-  };
-
-  // Main execution timeline
-  const startOSGhostWorkflow = async (promptOverride = null) => {
-    const activePrompt = promptOverride !== null ? promptOverride : directivePrompt;
-    if (promptOverride !== null) {
-      setDirectivePrompt(promptOverride);
-    }
-
-    // Detect scenario based on prompt content
-    let chosenScenario = 'desktop';
-    if (/tab|crm|browser|web|page|approve|invoice/i.test(activePrompt)) {
-      chosenScenario = 'browser';
-    } else if (/start|menu|taskbar|launch|button/i.test(activePrompt)) {
-      chosenScenario = 'start_menu';
-    }
-    setScenario(chosenScenario);
-
-    // Reset state
-    setRunning(true);
-    setCurrentStep(1);
-    setStatus('running');
-    setLogs([]);
-    setCursorPos({ x: 300, y: 200 });
-    setFolders([]);
-    setTrashCount(0);
-    setActiveBrowserTab(1);
-    setInvoiceApproved(false);
-    setShowStartMenu(false);
-    setShowTerminalWindow(false);
-    setTerminalLines([]);
-    setFilesToDelete([3, 11]);
-    setPlanModifications([]);
-    setDesktopFiles([
-      { id: 1, name: 'invoice_acme_corp.pdf', type: 'pdf', size: '145 KB', x: 50, y: 70, status: 'visible' },
-      { id: 2, name: 'invoice_stark_ind.pdf', type: 'pdf', size: '280 KB', x: 50, y: 150, status: 'visible' },
-      { id: 3, name: 'screenshot_1_dup.png', type: 'image', size: '1.2 MB', x: 50, y: 230, status: 'visible' },
-      { id: 4, name: 'screenshot_1.png', type: 'image', size: '1.2 MB', x: 50, y: 310, status: 'visible' },
-      { id: 5, name: 'banner_design.jpg', type: 'image', size: '4.5 MB', x: 180, y: 70, status: 'visible' },
-      { id: 6, name: 'code_snippet.js', type: 'code', size: '4 KB', x: 180, y: 150, status: 'visible' },
-      { id: 7, name: 'logo_new.png', type: 'image', size: '350 KB', x: 180, y: 230, status: 'visible' },
-      { id: 8, name: 'tax_statement_2025.pdf', type: 'pdf', size: '920 KB', x: 180, y: 310, status: 'visible' },
-      { id: 9, name: 'invoice_acme_copy.pdf', type: 'pdf', size: '145 KB', x: 310, y: 70, status: 'visible' },
-      { id: 10, name: 'screenshot_2.png', type: 'image', size: '890 KB', x: 310, y: 150, status: 'visible' },
-      { id: 11, name: 'screenshot_2_dup.png', type: 'image', size: '890 KB', x: 310, y: 230, status: 'visible' },
-      { id: 12, name: 'notes.txt', type: 'text', size: '1.2 KB', x: 310, y: 310, status: 'visible' }
-    ]);
-
-    // --- STEP 1: Layer Shift ---
-    addLog('SYSTEM', 'Initiating OS Ghost layer shift...');
-    await wait(800);
-    addLog('SYSTEM', 'Fading text chat viewport to translucent dock. Attaching to right screen margin.');
-    await wait(600);
-
-    // --- STEP 2: Ingest Screen ---
-    setCurrentStep(2);
-    addLog('VISION', 'Grabbing active display framebuffer (1024x768 optimized pixels)...');
-    await wait(800);
-    addLog('VISION', 'Screen captured successfully. Formulating structural scene graph...');
-    await wait(600);
-
-    // --- STEP 3: Mapping ---
-    setCurrentStep(3);
-    if (chosenScenario === 'browser') {
-      addLog('MAPPING', 'Scanning browser tabs, navigation bar, and document elements...');
-      setCursorPos({ x: 100, y: 40 });
-      await wait(600);
-      setCursorPos({ x: 240, y: 40 });
-      await wait(600);
-      setCursorPos({ x: 620, y: 195 });
-      await wait(600);
-      setCursorPos({ x: 300, y: 200 });
-      await wait(400);
-      addLog('MAPPING', 'Mapped 2 tabs [Tab 1: 100,40], [Tab 2: 240,40], and CRM buttons.');
-    } else if (chosenScenario === 'start_menu') {
-      addLog('MAPPING', 'Scanning primary screen workspace and OS launcher bar...');
-      setCursorPos({ x: 28, y: 515 });
-      await wait(600);
-      setCursorPos({ x: 500, y: 300 });
-      await wait(600);
-      setCursorPos({ x: 300, y: 200 });
-      await wait(400);
-      addLog('MAPPING', 'Mapped Start Menu button [x: 28, y: 515] and desktop environment bounds.');
-    } else {
-      addLog('MAPPING', 'Scanning icons, coordinate grids, and filesystem references...');
-      setCursorPos({ x: 50, y: 70 });
-      await wait(500);
-      setCursorPos({ x: 180, y: 150 });
-      await wait(500);
-      setCursorPos({ x: 310, y: 230 });
-      await wait(500);
-      setCursorPos({ x: 750, y: 500 });
-      await wait(500);
-      setCursorPos({ x: 300, y: 200 });
-      await wait(400);
-      addLog('MAPPING', 'Mapped 12 file bounding boxes, 1 recycle bin location [x: 750, y: 500].');
-    }
-    await wait(600);
-
-    // --- STEP 4: Staging Interceptor ( सेफ्टी गेट ) ---
-    setCurrentStep(4);
-    setStatus('staging');
-    addLog('SAFETY', 'STAGING INTERCEPTOR ACTIVE. Awaiting Human Authorization to proceed.');
-    addLog('SAFETY', 'Pre-flight proposed actions list loaded in right control dock.');
   };
 
   const approveStagingSequence = async () => {
@@ -506,6 +402,116 @@ export default function OSGhostPanel({ onClose, initialPrompt }) {
 
     setStatus('completed');
     setRunning(false);
+  };
+
+  // Main execution timeline
+  const startOSGhostWorkflow = async (promptOverride = null) => {
+    const activePrompt = promptOverride !== null ? promptOverride : directivePrompt;
+    if (promptOverride !== null) {
+      setDirectivePrompt(promptOverride);
+    }
+
+    // Detect scenario based on prompt content
+    let chosenScenario = 'desktop';
+    if (/tab|crm|browser|web|page|approve|invoice/i.test(activePrompt)) {
+      chosenScenario = 'browser';
+    } else if (/start|menu|taskbar|launch|button/i.test(activePrompt)) {
+      chosenScenario = 'start_menu';
+    }
+    setScenario(chosenScenario);
+
+    // Reset state
+    setRunning(true);
+    setCurrentStep(1);
+    setStatus('running');
+    setLogs([]);
+    setCursorPos({ x: 300, y: 200 });
+    setFolders([]);
+    setTrashCount(0);
+    setActiveBrowserTab(1);
+    setInvoiceApproved(false);
+    setShowStartMenu(false);
+    setShowTerminalWindow(false);
+    setTerminalLines([]);
+    setFilesToDelete([3, 11]);
+    setPlanModifications(initialModifications || []);
+    setDesktopFiles([
+      { id: 1, name: 'invoice_acme_corp.pdf', type: 'pdf', size: '145 KB', x: 50, y: 70, status: 'visible' },
+      { id: 2, name: 'invoice_stark_ind.pdf', type: 'pdf', size: '280 KB', x: 50, y: 150, status: 'visible' },
+      { id: 3, name: 'screenshot_1_dup.png', type: 'image', size: '1.2 MB', x: 50, y: 230, status: 'visible' },
+      { id: 4, name: 'screenshot_1.png', type: 'image', size: '1.2 MB', x: 50, y: 310, status: 'visible' },
+      { id: 5, name: 'banner_design.jpg', type: 'image', size: '4.5 MB', x: 180, y: 70, status: 'visible' },
+      { id: 6, name: 'code_snippet.js', type: 'code', size: '4 KB', x: 180, y: 150, status: 'visible' },
+      { id: 7, name: 'logo_new.png', type: 'image', size: '350 KB', x: 180, y: 230, status: 'visible' },
+      { id: 8, name: 'tax_statement_2025.pdf', type: 'pdf', size: '920 KB', x: 180, y: 310, status: 'visible' },
+      { id: 9, name: 'invoice_acme_copy.pdf', type: 'pdf', size: '145 KB', x: 310, y: 70, status: 'visible' },
+      { id: 10, name: 'screenshot_2.png', type: 'image', size: '890 KB', x: 310, y: 150, status: 'visible' },
+      { id: 11, name: 'screenshot_2_dup.png', type: 'image', size: '890 KB', x: 310, y: 230, status: 'visible' },
+      { id: 12, name: 'notes.txt', type: 'text', size: '1.2 KB', x: 310, y: 310, status: 'visible' }
+    ]);
+
+    // --- STEP 1: Layer Shift ---
+    addLog('SYSTEM', 'Initiating OS Ghost layer shift...');
+    await wait(800);
+    addLog('SYSTEM', 'Fading text chat viewport to translucent dock. Attaching to right screen margin.');
+    await wait(600);
+
+    // --- STEP 2: Ingest Screen ---
+    setCurrentStep(2);
+    addLog('VISION', 'Grabbing active display framebuffer (1024x768 optimized pixels)...');
+    await wait(800);
+    addLog('VISION', 'Screen captured successfully. Formulating structural scene graph...');
+    await wait(600);
+
+    // --- STEP 3: Mapping ---
+    setCurrentStep(3);
+    if (chosenScenario === 'browser') {
+      addLog('MAPPING', 'Scanning browser tabs, navigation bar, and document elements...');
+      setCursorPos({ x: 100, y: 40 });
+      await wait(600);
+      setCursorPos({ x: 240, y: 40 });
+      await wait(600);
+      setCursorPos({ x: 620, y: 195 });
+      await wait(600);
+      setCursorPos({ x: 300, y: 200 });
+      await wait(400);
+      addLog('MAPPING', 'Mapped 2 tabs [Tab 1: 100,40], [Tab 2: 240,40], and CRM buttons.');
+    } else if (chosenScenario === 'start_menu') {
+      addLog('MAPPING', 'Scanning primary screen workspace and OS launcher bar...');
+      setCursorPos({ x: 28, y: 515 });
+      await wait(600);
+      setCursorPos({ x: 500, y: 300 });
+      await wait(600);
+      setCursorPos({ x: 300, y: 200 });
+      await wait(400);
+      addLog('MAPPING', 'Mapped Start Menu button [x: 28, y: 515] and desktop environment bounds.');
+    } else {
+      addLog('MAPPING', 'Scanning icons, coordinate grids, and filesystem references...');
+      setCursorPos({ x: 50, y: 70 });
+      await wait(500);
+      setCursorPos({ x: 180, y: 150 });
+      await wait(500);
+      setCursorPos({ x: 310, y: 230 });
+      await wait(500);
+      setCursorPos({ x: 750, y: 500 });
+      await wait(500);
+      setCursorPos({ x: 300, y: 200 });
+      await wait(400);
+      addLog('MAPPING', 'Mapped 12 file bounding boxes, 1 recycle bin location [x: 750, y: 500].');
+    }
+    await wait(600);
+
+    // --- STEP 4: Staging Interceptor ( सेफ्टी गेट ) ---
+    setCurrentStep(4);
+    if (autoExecute) {
+      addLog('SAFETY', 'Pre-authorized by User via Chat. Commencing execution automatically...');
+      await wait(1000);
+      await approveStagingSequence();
+    } else {
+      setStatus('staging');
+      addLog('SAFETY', 'STAGING INTERCEPTOR ACTIVE. Awaiting Human Authorization to proceed.');
+      addLog('SAFETY', 'Pre-flight proposed actions list loaded in right control dock.');
+    }
   };
 
   return (
