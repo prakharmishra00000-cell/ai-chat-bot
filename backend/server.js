@@ -145,7 +145,7 @@ let dbInitData = {
       name: "Free",
       price: 0,
       prompts: 30,
-      featureLimits: { ppt: 3, mindmap: 5, matrix: 3, optimize: 3, masking: 5, workflow: 1, council: 1, leads: -1, graph: 5 },
+      featureLimits: { ppt: 3, mindmap: 5, matrix: 3, optimize: 3, masking: 5, workflow: 1, council: 1, leads: -1 },
       features: [
         "30 daily prompts limit",
         "All features unlocked (Trial)",
@@ -170,7 +170,7 @@ let dbInitData = {
       duration: "1 Month",
       days: 30,
       prompts: 100,
-      featureLimits: { ppt: 5, mindmap: 8, matrix: 5, optimize: 5, masking: 20, workflow: 0, council: 0, leads: 10, graph: 10 },
+      featureLimits: { ppt: 5, mindmap: 8, matrix: 5, optimize: 5, masking: 20, workflow: 0, council: 0, leads: 10 },
       features: [
         "100 daily prompts limit",
         "Standard processing priority",
@@ -192,7 +192,7 @@ let dbInitData = {
       duration: "3 Months",
       days: 90,
       prompts: 150,
-      featureLimits: { ppt: 7, mindmap: 10, matrix: 10, optimize: 10, masking: 50, workflow: 10, council: 0, leads: 50, graph: 30 },
+      featureLimits: { ppt: 7, mindmap: 10, matrix: 10, optimize: 10, masking: 50, workflow: 10, council: 0, leads: 50 },
       features: [
         "150 daily prompts limit",
         "Better processing priority",
@@ -216,7 +216,7 @@ let dbInitData = {
       duration: "1 Year",
       days: 365,
       prompts: 200,
-      featureLimits: { ppt: 10, mindmap: 15, matrix: -1, optimize: -1, masking: -1, workflow: -1, council: -1, leads: -1, graph: -1 },
+      featureLimits: { ppt: 10, mindmap: 15, matrix: -1, optimize: -1, masking: -1, workflow: -1, council: -1, leads: -1 },
       features: [
         "200 daily prompts limit",
         "Maximum processing priority",
@@ -592,14 +592,14 @@ function getOrCreateUser(email) {
       promptsUsed: 0,
       lastResetDate: today,
       planExpiry: null,
-      featureUsage: { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, workflow: 0, council: 0, leads: 0, graph: 0 }
+      featureUsage: { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, workflow: 0, council: 0, leads: 0 }
     };
     db.users[email] = user;
     writeDB(db);
   } else {
     // Ensure featureUsage field exists (for existing users)
     if (!user.featureUsage) {
-      user.featureUsage = { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, workflow: 0, council: 0, leads: 0, graph: 0 };
+      user.featureUsage = { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, workflow: 0, council: 0, leads: 0 };
     }
 
     // Check Plan Expiry
@@ -616,7 +616,7 @@ function getOrCreateUser(email) {
     // Daily Reset at Midnight (prompts + feature usage)
     if (user.lastResetDate !== today) {
       user.promptsUsed = 0;
-      user.featureUsage = { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, workflow: 0, council: 0, leads: 0, graph: 0 };
+      user.featureUsage = { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, workflow: 0, council: 0, leads: 0 };
       user.lastResetDate = today;
       db.users[email] = user;
       writeDB(db);
@@ -632,7 +632,7 @@ function checkFeatureLimit(email, feature) {
   const user = getOrCreateUser(email);
   const db = readDB();
   const planInfo = db.plans && db.plans[user.plan];
-  const limits = planInfo?.featureLimits || { ppt: 3, mindmap: 5, matrix: 3, optimize: 3, masking: 5, workflow: 1, council: 1, leads: -1, graph: 5 };
+  const limits = planInfo?.featureLimits || { ppt: 3, mindmap: 5, matrix: 3, optimize: 3, masking: 5, workflow: 1, council: 1, leads: -1 };
   const limit = limits[feature];
   const used = user.featureUsage?.[feature] || 0;
   
@@ -647,7 +647,7 @@ function incrementFeatureUsage(email, feature) {
   const db = readDB();
   const user = db.users[email];
   if (user) {
-    if (!user.featureUsage) user.featureUsage = { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, workflow: 0, council: 0, leads: 0, graph: 0 };
+    if (!user.featureUsage) user.featureUsage = { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, workflow: 0, council: 0, leads: 0 };
     user.featureUsage[feature] = (user.featureUsage[feature] || 0) + 1;
     db.users[email] = user;
     writeDB(db);
@@ -697,7 +697,7 @@ app.post('/api/user/status', async (req, res) => {
   const db = readDB();
   const planInfo = db.plans && db.plans[user.plan];
   const userLimit = planInfo ? planInfo.prompts : (user.plan === 'free' ? 30 : 100);
-  const featureLimits = planInfo?.featureLimits || { ppt: 3, mindmap: 5, matrix: 3, optimize: 3, masking: 5, workflow: 1, council: 1, leads: -1, graph: 5 };
+  const featureLimits = planInfo?.featureLimits || { ppt: 3, mindmap: 5, matrix: 3, optimize: 3, masking: 5, workflow: 1, council: 1, leads: -1 };
   const isAdmin = email === ADMIN_EMAIL;
   
   res.json({
@@ -706,8 +706,8 @@ app.post('/api/user/status', async (req, res) => {
     promptsUsed: user.promptsUsed,
     limit: userLimit,
     expiry: user.planExpiry,
-    featureUsage: isAdmin ? { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, workflow: 0, council: 0, leads: 0, graph: 0 } : (user.featureUsage || { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, workflow: 0, council: 0, leads: 0, graph: 0 }),
-    featureLimits: isAdmin ? { ppt: -1, mindmap: -1, matrix: -1, optimize: -1, masking: -1, workflow: -1, council: -1, leads: -1, graph: -1 } : featureLimits
+    featureUsage: isAdmin ? { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, workflow: 0, council: 0, leads: 0 } : (user.featureUsage || { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, workflow: 0, council: 0, leads: 0 }),
+    featureLimits: isAdmin ? { ppt: -1, mindmap: -1, matrix: -1, optimize: -1, masking: -1, workflow: -1, council: -1, leads: -1 } : featureLimits
   });
 });
 
@@ -1189,7 +1189,7 @@ app.post('/api/chat', async (req, res) => {
   
   console.log(`[CHAT] Processing request with ${config.keys.length} API key(s). First key prefix: ${config.keys[0].substring(0, 6)}...`);
 
-  const { email, message, history, personality, mode, attachment, appCredentials, isGraphRequest } = req.body;
+  const { email, message, history, personality, mode, attachment, appCredentials } = req.body;
   if (!email) return res.status(400).json({ error: 'Email is required.' });
 
   const db = readDB();
@@ -1256,12 +1256,7 @@ app.post('/api/chat', async (req, res) => {
         return res.status(403).json({ error: 'FEATURE_LIMIT', message: `Prompt Optimization daily limit reached (${check.used}/${check.limit}). Upgrade your plan for more.` });
       }
     }
-    if (isGraphRequest) {
-      const check = checkFeatureLimit(email, 'graph');
-      if (!check.allowed) {
-        return res.status(403).json({ error: 'FEATURE_LIMIT', message: `Knowledge Graph Canvas daily limit reached (${check.used}/${check.limit}). Upgrade your plan for more.` });
-      }
-    }
+
   }
 
   if (!isAdmin && Number(userLimit) !== -1 && user.promptsUsed >= Number(userLimit)) {
@@ -1274,10 +1269,7 @@ app.post('/api/chat', async (req, res) => {
   try {
     let finalPrompt = message;
 
-    // GRAPH CANVAS MODE
-    if (isGraphRequest) {
-      finalPrompt = `Act as a database parser. Do not write text greetings. Analyze the following request and output a strict JSON object containing two arrays: 'nodes' (id, label, group) and 'links' (source, target, relationship).\n\nUser Request: "${message}"\n\nReturn ONLY raw JSON. Do not wrap in markdown or code blocks.`;
-    }
+
 
     // AA. GENERATE APP MODE
     if (mode === 'generate') {
@@ -1338,7 +1330,7 @@ User's original raw query: ${message}`;
 
     // B. WEB SEARCH — only for factual/current queries, 3s timeout to keep responses fast
     let searchGroundingContext = '';
-    const needsSearch = !isGraphRequest && mode !== 'generate' && /search|latest|news|weather|current|today|\b202[4-9]\b|who is|who won|score|price|stock|release|launch|update|trending/i.test(finalPrompt);
+    const needsSearch = mode !== 'generate' && /search|latest|news|weather|current|today|\b202[4-9]\b|who is|who won|score|price|stock|release|launch|update|trending/i.test(finalPrompt);
     
     if (needsSearch) {
       try {
@@ -1362,10 +1354,7 @@ User's original raw query: ${message}`;
     // C. SYSTEM INSTRUCTION / PERSONALITY
     let systemInstruction = "You are MatrixMind, a super advanced, friendly AI Assistant. ";
     
-    if (isGraphRequest) {
-      systemInstruction = "You are a pure JSON data generation engine. Output ONLY valid JSON containing 'nodes' and 'links' arrays. No markdown, no text.";
-    } else {
-      // Strict Personality enforcement
+    // Strict Personality enforcement
       if (personality === 'architect') {
         systemInstruction += "You are currently in ARCHITECT mode. You are a senior-level technical Architect and full-stack developer. ";
         systemInstruction += "STRICT RULES FOR ARCHITECT MODE: ";
@@ -1417,7 +1406,6 @@ User's original raw query: ${message}`;
       systemInstruction += "5. Always produce VALID Mermaid syntax that renders without errors. Test your output mentally before writing. ";
       systemInstruction += "RESPONSE SPEED: Keep your response concise yet complete. Respond within a single message. Do not split answers across multiple messages.";
       systemInstruction += " MANDATORY LINKS RULE: At the VERY END of your response, you MUST append a section titled '**📎 Official Sources & References:**' providing 2-5 valid, authentic, clickable markdown links relevant to the topic. NEVER skip this rule.";
-    }
 
     // D. BIND CHAT HISTORY
     const contents = [];
@@ -1466,21 +1454,7 @@ User's original raw query: ${message}`;
     const aiResponse = await queryGeminiAPI(config.keys, contents, systemInstruction);
 
     let finalResponse = aiResponse;
-    if (isGraphRequest) {
-      try {
-        const cleaned = aiResponse.replace(/```json/gi, '').replace(/```/g, '').trim();
-        const firstBrace = cleaned.indexOf('{');
-        const lastBrace = cleaned.lastIndexOf('}');
-        if (firstBrace >= 0 && lastBrace >= 0) {
-          finalResponse = cleaned.substring(firstBrace, lastBrace + 1);
-        } else {
-          throw new Error("No JSON object found");
-        }
-      } catch (e) {
-        console.error('[GRAPH] JSON parse error:', e.message);
-        finalResponse = JSON.stringify({ nodes: [], links: [], error: true });
-      }
-    }
+
 
     // F. INCREMENT USAGE
     user.promptsUsed += 1;
@@ -1490,9 +1464,9 @@ User's original raw query: ${message}`;
     // Increment feature-specific usage
     if (mode === 'matrix_simulation') incrementFeatureUsage(email, 'matrix');
     if (mode === 'optimize') incrementFeatureUsage(email, 'optimize');
-    if (isGraphRequest) incrementFeatureUsage(email, 'graph');
+
     // Mindmap: detect if response contains mermaid diagram
-    if (!isGraphRequest && /mindmap|flowchart|graph|diagram/i.test(message)) incrementFeatureUsage(email, 'mindmap');
+    if (/mindmap|flowchart|graph|diagram/i.test(message)) incrementFeatureUsage(email, 'mindmap');
 
     res.json({
       response: finalResponse,
