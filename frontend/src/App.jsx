@@ -7,7 +7,7 @@ import Legal from './components/Legal';
 import UpgradeModal from './components/UpgradeModal';
 import HelpSupport from './components/HelpSupport';
 import OwnerSecureLogin from './components/OwnerSecureLogin';
-import { AlertTriangle, X } from 'lucide-react';
+import { AlertTriangle, X, Cpu, Zap } from 'lucide-react';
 import SpaceBackground from './components/SpaceBackground';
 import './App.css';
 
@@ -31,6 +31,16 @@ function App() {
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [userPlanDetails, setUserPlanDetails] = useState(null);
   const [showExpiryReminder, setShowExpiryReminder] = useState(false);
+
+  // Performance mode state to toggle background complexity
+  const [perfMode, setPerfMode] = useState(() => localStorage.getItem('perf_mode_static_bg') === 'true');
+
+  const handleTogglePerfMode = () => {
+    const newVal = !perfMode;
+    setPerfMode(newVal);
+    localStorage.setItem('perf_mode_static_bg', String(newVal));
+    window.dispatchEvent(new Event('perfModeChanged'));
+  };
 
   // Configuration settings (Gemini API key checks)
   const [appConfig, setAppConfig] = useState(null);
@@ -195,6 +205,16 @@ function App() {
       <div className="matrixmind-logo-badge" title="MatrixMind AI">
         <img src="/matrixmind-logo.jpg" alt="MatrixMind AI" />
       </div>
+
+      {/* PERFORMANCE TOGGLE BUTTON — allows users to switch off 3D background if lagging */}
+      <button 
+        className="perf-toggle-btn"
+        onClick={handleTogglePerfMode}
+        title={perfMode ? "Switch to 3D Background" : "Switch to 2D Background (Reduces Lag)"}
+      >
+        {perfMode ? <Zap size={13} color="#fda085" /> : <Cpu size={13} color="#00f2fe" />}
+        <span>{perfMode ? "2D BG" : "3D BG"}</span>
+      </button>
 
       {view === 'setup' && (
         <Setup 

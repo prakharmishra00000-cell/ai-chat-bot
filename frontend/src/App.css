@@ -2119,3 +2119,58 @@ body {
     left: 8px;
   }
 }
+
+/* Performance Toggle Button */
+.perf-toggle-btn {
+  position: fixed;
+  top: 72px; /* 12px top + 52px badge height + 8px gap = 72px */
+  left: 12px;
+  width: 52px;
+  height: 28px;
+  border-radius: 14px;
+  background: rgba(13, 21, 37, 0.75);
+  border: 1px solid rgba(0, 242, 254, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  color: #ffffff;
+  font-size: 0.65rem;
+  font-weight: 700;
+  font-family: 'Outfit', sans-serif;
+  cursor: pointer;
+  z-index: 9999;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.perf-toggle-btn:hover {
+  background: rgba(13, 21, 37, 0.95);
+  border-color: rgba(0, 242, 254, 0.85);
+  box-shadow: 0 0 10px rgba(0, 242, 254, 0.5);
+  transform: translateY(-1px);
+}
+
+.perf-toggle-btn span {
+  font-size: 0.6rem;
+  letter-spacing: 0.5px;
+}
+
+/* Mobile responsive for performance toggle button */
+@media (max-width: 768px) {
+  .perf-toggle-btn {
+    top: 54px; /* 8px top + 40px badge height + 6px gap = 54px */
+    left: 8px;
+    width: 44px;
+    height: 20px;
+    font-size: 0.55rem;
+    border-radius: 10px;
+    gap: 2px;
+  }
+  .perf-toggle-btn span {
+    font-size: 0.5rem;
+  }
+}
+
