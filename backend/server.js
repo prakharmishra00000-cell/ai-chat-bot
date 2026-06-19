@@ -3087,8 +3087,8 @@ app.post('/api/admin/self-code', async (req, res) => {
   });
 });
 
-// Serve MatrixMind logo for social media previews (OG image)
-app.get('/matrixmind-logo.jpg', (req, res) => {
+// Serve MatrixMind logo for social media previews (OG image) and standard browser icons/favicons
+app.get(['/matrixmind-logo.jpg', '/favicon.ico', '/apple-touch-icon.png', '/apple-touch-icon-precomposed.png'], (req, res) => {
   const logoPath = path.join(__dirname, 'matrixmind-logo.jpg');
   if (fs.existsSync(logoPath)) {
     res.sendFile(logoPath);
@@ -3120,6 +3120,8 @@ app.get('*', (req, res) => {
       // Inject absolute paths for social sharing cards & browser icons
       html = html.replace(/content="\/matrixmind-logo\.jpg"/g, `content="${absoluteLogoUrl}"`);
       html = html.replace(/href="\/matrixmind-logo\.jpg"/g, `href="${absoluteLogoUrl}"`);
+      html = html.replace(/href="\/favicon\.ico"/g, `href="${protocol}://${host}/favicon.ico"`);
+      html = html.replace(/href="\/apple-touch-icon\.png"/g, `href="${protocol}://${host}/apple-touch-icon.png"`);
       
       res.send(html);
     } catch (err) {
