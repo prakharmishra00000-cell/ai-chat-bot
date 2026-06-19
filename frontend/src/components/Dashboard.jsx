@@ -591,13 +591,7 @@ function Dashboard({
     if (!textToSend.trim() && !attachment) return;
     if (loading) return;
 
-    // Detect if this is an OS Ghost / Take the Wheel command
-    const isOSGhostCommand = /take the wheel|start menu|start button|taskbar|system terminal|clean desktop|delete.*files|approve.*invoice|go to downloads/i.test(textToSend);
-    
-    if (takeTheWheelActive || isOSGhostCommand) {
-      if (!takeTheWheelActive) {
-        setTakeTheWheelActive(true);
-      }
+    if (takeTheWheelActive) {
       
       const currentChat = conversations.find(c => c.id === activeChatId);
       if (!currentChat) return;
