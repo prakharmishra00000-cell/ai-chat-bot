@@ -7,7 +7,7 @@ import {
 import mermaid from 'mermaid';
 import CouncilRoom from './CouncilRoom';
 import WorkflowPanel from './WorkflowPanel';
-import OSGhostPanel from './OSGhostPanel';
+
 import MindMap3D from './MindMap3D';
 
 // Initialize Mermaid.js configuration
@@ -147,12 +147,7 @@ function Dashboard({
   // Search bar for filtering chats
   const [chatSearchQuery, setChatSearchQuery] = useState('');
   const [themeDropdownOpen, setThemeDropdownOpen] = useState(false);
-  const [osGhostMode, setOsGhostMode] = useState(false);
-  const [osGhostInitialPrompt, setOsGhostInitialPrompt] = useState('');
-  const [takeTheWheelActive, setTakeTheWheelActive] = useState(false);
-  const [currentOsPlan, setCurrentOsPlan] = useState(null);
-  const [planModifications, setPlanModifications] = useState([]);
-  const [osGhostAutoExecute, setOsGhostAutoExecute] = useState(false);
+
 
   // Prompt states
   const [promptInput, setPromptInput] = useState('');
@@ -591,158 +586,7 @@ function Dashboard({
     if (!textToSend.trim() && !attachment) return;
     if (loading) return;
 
-    if (takeTheWheelActive) {
-      
-      const currentChat = conversations.find(c => c.id === activeChatId);
-      if (!currentChat) return;
 
-      const originalRawInput = textToSend;
-
-      const userMsg = {
-        id: 'msg_user_' + Date.now(),
-        sender: 'user',
-        text: originalRawInput,
-        attachment: null,
-        timestamp: new Date().toISOString()
-      };
-
-      const updatedMessages = [...currentChat.messages, userMsg];
-      
-      const updatedChatList = conversations.map(c => {
-        if (c.id === activeChatId) {
-          return {
-            ...c,
-            title: c.messages.length === 0 ? originalRawInput.substring(0, 40) : c.title,
-            messages: updatedMessages
-          };
-        }
-        return c;
-      });
-      saveChatsToLocal(updatedChatList);
-      setPromptInput('');
-      setAttachment(null);
-      setLoading(true);
-
-      const wait = (ms) => new Promise((res) => setTimeout(res, ms));
-
-      // Simulate bot reasoning/backend mapping
-      setTimeout(async () => {
-        let targetScenario = 'desktop';
-        if (/tab|crm|browser|web|page|approve|invoice/i.test(originalRawInput) || (currentOsPlan && currentOsPlan.scenario === 'browser')) {
-          targetScenario = 'browser';
-        } else if (/start|menu|taskbar|launch|button/i.test(originalRawInput) || (currentOsPlan && currentOsPlan.scenario === 'start_menu')) {
-          targetScenario = 'start_menu';
-        }
-
-        // Reconstruct planModifications from actual conversation messages
-        const newMods = [];
-        let foundInitial = false;
-        for (const msg of updatedMessages) {
-          if (msg.sender === 'user') {
-            if (foundInitial) {
-              newMods.push(msg.text);
-            } else {
-              foundInitial = true;
-            }
-          }
-        }
-        setPlanModifications(newMods);
-
-        let newSteps = [];
-        if (newMods.length > 0) {
-          newSteps = [...currentOsPlan.steps];
-        } else {
-          // Initial plan generation
-          if (targetScenario === 'browser') {
-            const hasApproveKeyword = /approve|invoice|pay|acme/i.test(originalRawInput);
-            if (hasApproveKeyword) {
-              newSteps = [
-                "Launch browser and load crm.matrixmind.io (AI cursor will automatically execute)",
-                "Navigate browser tab: click Tab 2 'CRM Invoices' [x: 240, y: 40] (AI cursor will automatically click)",
-                "Approve pending invoice for client Acme Corp [x: 620, y: 195] (AI cursor will automatically click)",
-                "Verify invoice approval status badge & success banner (AI cursor will automatically execute)"
-              ];
-            } else {
-              newSteps = [
-                "Launch browser and load crm.matrixmind.io (AI cursor will automatically execute)",
-                "Navigate browser tab: click Tab 2 'CRM Invoices' [x: 240, y: 40] (AI cursor will automatically click)",
-                "Verify CRM Invoices list is loaded successfully (AI cursor will automatically execute)"
-              ];
-            }
-          } else if (targetScenario === 'start_menu') {
-            const hasTerminalKeyword = /terminal|powershell|run|verify|shell|command|diagnostics/i.test(originalRawInput);
-            if (hasTerminalKeyword) {
-              newSteps = [
-                "Locate Start Menu Launcher Button at bottom-left corner [x: 28, y: 515] (AI cursor will automatically click)",
-                "Click Start Menu Button to reveal launcher shortcuts (AI cursor will automatically click)",
-                "Identify 'System Terminal' list item at [x: 100, y: 440] (AI cursor will automatically click)",
-                "Click launcher item to spawn simulated Windows PowerShell / Terminal instance (AI cursor will automatically click)",
-                "Verify terminal standard output is responsive (AI cursor will automatically execute)"
-              ];
-            } else {
-              newSteps = [
-                "Locate Start Menu Launcher Button at bottom-left corner [x: 28, y: 515] (AI cursor will automatically click)",
-                "Click Start Menu Button to reveal launcher shortcuts (AI cursor will automatically click)"
-              ];
-            }
-          } else {
-            newSteps = [
-              "Create directory /Documents/Acme_Corp (AI cursor will automatically execute)",
-              "Create directory /Documents/Stark_Ind (AI cursor will automatically execute)",
-              "Create directory /Documents/Creative (AI cursor will automatically execute)",
-              "Move 2 matching Acme Corp PDFs (AI cursor will automatically execute)",
-              "Move 1 matching Stark Industries PDF (AI cursor will automatically execute)",
-              "Move 2 matching design images (AI cursor will automatically execute)"
-            ];
-          }
-        }
-
-        const planObj = {
-          scenario: targetScenario,
-          steps: newSteps
-        };
-        setCurrentOsPlan(planObj);
-        setOsGhostInitialPrompt(originalRawInput);
-
-        // Formulate markdown text for the bot response
-        let stepsMarkdown = newSteps.map((step, idx) => `${idx + 1}. **${step}**`).join('\n');
-        if (newMods.length > 0) {
-          stepsMarkdown += '\n\n**Custom Additions:**\n' + newMods.map((mod) => `* **${mod}** (AI will execute at the end)`).join('\n');
-        }
-
-        const botResponseText = `### 🤖 OS Ghost - Proposed Execution Plan
-The bot backend server has successfully mapped your computer screen layout and generated the following step-by-step procedure:
-
-${stepsMarkdown}
-
----
-*You can type in the chat to add more instructions to this plan, or click the button below to start the execution.*
-
-[APPROVE_OS_GHOST_EXECUTION]`;
-
-        const botMsg = {
-          id: 'msg_bot_' + Date.now(),
-          sender: 'bot',
-          text: botResponseText,
-          timestamp: new Date().toISOString()
-        };
-
-        const finalChatList = conversations.map(c => {
-          if (c.id === activeChatId) {
-            return {
-              ...c,
-              messages: [...updatedMessages, botMsg]
-            };
-          }
-          return c;
-        });
-
-        saveChatsToLocal(finalChatList);
-        setLoading(false);
-      }, 150);
-
-      return;
-    }
 
     // Check Plan limitations locally before calling backend
     if (userPlanDetails) {
@@ -1072,39 +916,7 @@ ${stepsMarkdown}
       return (
         <div key={i} className="markdown-render">
           {part.content.split('\n').map((line, lineIdx) => {
-            if (line.includes('[APPROVE_OS_GHOST_EXECUTION]')) {
-              return (
-                <button
-                  key={lineIdx}
-                  onClick={() => {
-                    setOsGhostInitialPrompt(osGhostInitialPrompt || 'Clean up my machine');
-                    setOsGhostAutoExecute(true);
-                    setOsGhostMode(true);
-                  }}
-                  style={{
-                    marginTop: '12px',
-                    width: '100%',
-                    padding: '12px 20px',
-                    background: 'linear-gradient(90deg, #10b981, #059669)',
-                    color: '#fff',
-                    border: 'none',
-                    borderRadius: '8px',
-                    fontWeight: 'bold',
-                    fontSize: '0.85rem',
-                    cursor: 'pointer',
-                    boxShadow: '0 0 15px rgba(16, 185, 129, 0.4)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '8px',
-                    transition: 'all 0.2s',
-                    boxSizing: 'border-box'
-                  }}
-                >
-                  <Check size={16} /> Approve & Start Execution
-                </button>
-              );
-            }
+
 
             // Check headers
             if (line.startsWith('### ')) {
@@ -1437,21 +1249,7 @@ ${stepsMarkdown}
                 <div className="tooltip-text">Multi-dimensional reasoning for complex edge-cases.</div>
               </div>
 
-              <div className="tooltip-container">
-                <button 
-                  className={`mode-toggle-btn ${takeTheWheelActive ? 'active' : ''}`}
-                  style={takeTheWheelActive ? { background: 'linear-gradient(90deg, #10b981, #059669)', color: '#fff', border: 'none', boxShadow: '0 0 10px rgba(16, 185, 129, 0.4)' } : {}}
-                  onClick={() => {
-                    setTakeTheWheelActive(!takeTheWheelActive);
-                    setCurrentOsPlan(null);
-                    setPlanModifications([]);
-                    setOsGhostAutoExecute(false);
-                  }}
-                >
-                  Take the Wheel
-                </button>
-                <div className="tooltip-text">Drive system mouse coordinates, folder allocations, and custom scripts under your supervision.</div>
-              </div>
+
               
 
             </div>
@@ -1796,22 +1594,7 @@ ${stepsMarkdown}
         />
       )}
 
-      {/* OS Ghost Simulator overlay */}
-      {osGhostMode && (
-        <OSGhostPanel
-          initialPrompt={osGhostInitialPrompt}
-          autoExecute={osGhostAutoExecute}
-          initialModifications={planModifications}
-          onClose={() => {
-            setOsGhostMode(false);
-            setOsGhostInitialPrompt('');
-            setOsGhostAutoExecute(false);
-            setPlanModifications([]);
-            setTakeTheWheelActive(false);
-            setCurrentOsPlan(null);
-          }}
-        />
-      )}
+
 
     </div>
   );
