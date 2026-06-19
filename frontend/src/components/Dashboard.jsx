@@ -8,8 +8,8 @@ import mermaid from 'mermaid';
 import CouncilRoom from './CouncilRoom';
 import WorkflowPanel from './WorkflowPanel';
 
-import MindMap3D from './MindMap3D';
-import Interactive3DObject from './Interactive3DObject';
+const MindMap3D = React.lazy(() => import('./MindMap3D'));
+const Interactive3DObject = React.lazy(() => import('./Interactive3DObject'));
 
 // Initialize Mermaid.js configuration
 try {
@@ -115,7 +115,9 @@ function MermaidChart({ chartCode, defaultTo3D = false }) {
           dangerouslySetInnerHTML={{ __html: svg }} 
         />
       ) : (
-        <MindMap3D chartCode={chartCode} />
+        <React.Suspense fallback={<div style={{ padding: '20px', color: 'var(--accent-cyan)', textAlign: 'center', fontFamily: 'var(--font-heading)' }}>Loading 3D Mind Map...</div>}>
+          <MindMap3D chartCode={chartCode} />
+        </React.Suspense>
       )}
     </div>
   );
@@ -941,7 +943,11 @@ function Dashboard({
                 const composite = compositeParam ? compositeParam[1].trim() : null;
                 const label = textParam ? textParam[1].trim() : (composite ? "Custom 3D Object" : `${color || ''} ${material || ''} ${shape || 'Shape'}`);
 
-                return <Interactive3DObject key={lineIdx} shape={shape} color={color} material={material} composite={composite} label={label} />;
+                return (
+                  <React.Suspense key={lineIdx} fallback={<div style={{ padding: '15px', color: 'var(--accent-cyan)', textAlign: 'center', background: 'rgba(0,0,0,0.2)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)', fontSize: '0.85rem' }}>Loading 3D Visualizer...</div>}>
+                    <Interactive3DObject shape={shape} color={color} material={material} composite={composite} label={label} />
+                  </React.Suspense>
+                );
               }
             }
 

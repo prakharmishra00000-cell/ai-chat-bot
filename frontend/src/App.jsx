@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import Setup from './components/Setup';
 import Login from './components/Login';
 import Dashboard from './components/Dashboard';
@@ -8,7 +8,7 @@ import UpgradeModal from './components/UpgradeModal';
 import HelpSupport from './components/HelpSupport';
 import OwnerSecureLogin from './components/OwnerSecureLogin';
 import { AlertTriangle, X, Cpu, Zap } from 'lucide-react';
-import SpaceBackground from './components/SpaceBackground';
+const SpaceBackground = lazy(() => import('./components/SpaceBackground'));
 import './App.css';
 
 function App() {
@@ -199,7 +199,9 @@ function App() {
   return (
     <div className={`app-container theme-${theme}`}>
       {/* GLOBAL 3D BACKGROUND (Visible on Login, Dashboard, Subscription, etc.) */}
-      <SpaceBackground theme={theme} />
+      <Suspense fallback={<div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: -1, background: '#010103' }} />}>
+        <SpaceBackground theme={theme} />
+      </Suspense>
 
       {/* GLOBAL FLOATING CIRCULAR LOGO — visible on every page */}
       <div className="matrixmind-logo-badge" title="MatrixMind AI">
