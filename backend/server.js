@@ -587,20 +587,21 @@ const ADMIN_EMAIL = 'prakharmishra00000@gmail.com';
 // User Session and Plan Status Middleware Helper
 function getOrCreateUser(email) {
   if (!email) return null;
+  const cleanEmail = email.trim().toLowerCase();
   const db = readDB();
   const today = new Date().toISOString().split('T')[0];
   
-  let user = db.users[email];
+  let user = db.users[cleanEmail];
   if (!user) {
     user = {
-      email,
+      email: cleanEmail,
       plan: 'free',
       promptsUsed: 0,
       lastResetDate: today,
       planExpiry: null,
       featureUsage: { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, workflow: 0, council: 0, leads: 0 }
     };
-    db.users[email] = user;
+    db.users[cleanEmail] = user;
     writeDB(db);
   } else {
     // Ensure featureUsage field exists (for existing users)
@@ -614,7 +615,7 @@ function getOrCreateUser(email) {
       if (new Date() > expiry) {
         user.plan = 'free';
         user.planExpiry = null;
-        db.users[email] = user;
+        db.users[cleanEmail] = user;
         writeDB(db);
       }
     }
@@ -624,7 +625,7 @@ function getOrCreateUser(email) {
       user.promptsUsed = 0;
       user.featureUsage = { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, workflow: 0, council: 0, leads: 0 };
       user.lastResetDate = today;
-      db.users[email] = user;
+      db.users[cleanEmail] = user;
       writeDB(db);
     }
   }
@@ -653,14 +654,16 @@ function checkFeatureLimit(email, feature) {
 
 // Increment feature usage count
 function incrementFeatureUsage(email, feature) {
-  if (email === ADMIN_EMAIL) return;
+  if (!email) return;
+  const cleanEmail = email.trim().toLowerCase();
+  if (cleanEmail === ADMIN_EMAIL) return;
   
   const db = readDB();
-  const user = db.users[email];
+  const user = db.users[cleanEmail];
   if (user) {
     if (!user.featureUsage) user.featureUsage = { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, interview: 0, workflow: 0, council: 0, leads: 0, threed: 0 };
     user.featureUsage[feature] = (user.featureUsage[feature] || 0) + 1;
-    db.users[email] = user;
+    db.users[cleanEmail] = user;
     writeDB(db);
   }
 }
@@ -672,13 +675,14 @@ app.post('/api/user/auth', async (req, res) => {
     const { email, action } = req.body;
     if (!email || !action) return res.status(400).json({ error: 'Email and action are required' });
     
+    const cleanEmail = email.trim().toLowerCase();
     const db = readDB();
-    const userExists = !!db.users[email];
+    const userExists = !!db.users[cleanEmail];
 
     if (action === 'login') {
       if (!userExists) {
         // Auto-register on login attempt — seamless cross-device experience
-        getOrCreateUser(email);
+        getOrCreateUser(cleanEmail);
         return res.json({ success: true, message: 'Account created and logged in successfully.', autoRegistered: true });
       }
       return res.json({ success: true, message: 'Logged in successfully.' });
@@ -688,7 +692,7 @@ app.post('/api/user/auth', async (req, res) => {
         return res.json({ success: true, message: 'Account found. Logged in successfully.', alreadyExists: true });
       }
       // Create the user implicitly via helper
-      getOrCreateUser(email);
+      getOrCreateUser(cleanEmail);
       return res.json({ success: true, message: 'Signed up successfully.' });
     } else {
       return res.status(400).json({ error: 'INVALID_ACTION', message: 'Action must be login or signup.' });
@@ -2108,6 +2112,7 @@ app.post('/api/payment/submit-utr', (req, res) => {
       return res.status(400).json({ error: 'Invalid UTR. Must be exactly 12 digits.' });
     }
 
+    const cleanEmail = email.trim().toLowerCase();
     const db = readDB();
     db.pendingApprovals = db.pendingApprovals || [];
 
@@ -2119,7 +2124,7 @@ app.post('/api/payment/submit-utr', (req, res) => {
 
     const approvalRequest = {
       id: 'req_' + Date.now(),
-      email,
+      email: cleanEmail,
       plan: planRequested || 'standard',
       transactionId: utr,
       amount: 0,
@@ -2607,16 +2612,17 @@ app.post('/api/admin/approvals/action', (req, res) => {
   const expiryDate = new Date();
   expiryDate.setDate(expiryDate.getDate() + days);
 
-  const user = getOrCreateUser(approvalReq.email);
+  const cleanUserEmail = approvalReq.email.trim().toLowerCase();
+  const user = getOrCreateUser(cleanUserEmail);
   user.plan = planToActivate;
   user.planExpiry = expiryDate.toISOString();
-  db.users[approvalReq.email] = user;
+  db.users[cleanUserEmail] = user;
 
   // Log transaction
   if (!db.transactions) db.transactions = [];
   db.transactions.push({
     id: `txn_${Date.now()}`,
-    email: approvalReq.email,
+    email: cleanUserEmail,
     amount: price,
     plan: planToActivate,
     paymentRef: `UPI_${approvalReq.transactionId}`,
