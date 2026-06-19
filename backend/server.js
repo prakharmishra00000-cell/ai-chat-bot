@@ -2517,10 +2517,11 @@ app.post('/api/payment/razorpay/webhook', express.raw({ type: 'application/json'
       console.log(`[WEBHOOK] Processing upgrade for: ${cleanEmail}, plan: ${planId}, duration: ${durationDays}`);
 
       // Automatically Unlock Plan
-      const db = readDB();
       const user = getOrCreateUser(cleanEmail);
       user.plan = planId;
       
+      // Re-read DB after getOrCreateUser (it may have written internally)
+      const db = readDB();
       const dbPlans = db.plans || {};
       const planConfig = dbPlans[planId];
       const days = parseInt(durationDays) || (planConfig ? parseInt(planConfig.days) : 30) || 30;
@@ -2598,10 +2599,11 @@ app.post('/api/payment/razorpay/verify', async (req, res) => {
     console.log(`[VERIFY] Payment confirmed: ${razorpay_payment_id}, amount: ₹${amountPaid}, email: ${cleanEmail}, plan: ${planId}`);
 
     // Unlock the plan
-    const db = readDB();
     const user = getOrCreateUser(cleanEmail);
     user.plan = planId;
 
+    // Re-read DB after getOrCreateUser (it may have written internally)
+    const db = readDB();
     const dbPlans = db.plans || {};
     const planConfig = dbPlans[planId];
     const days = planConfig ? (parseInt(planConfig.days) || 30) : 30;
