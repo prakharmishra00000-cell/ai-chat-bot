@@ -654,20 +654,37 @@ function Dashboard({
         } else {
           // Initial plan generation
           if (targetScenario === 'browser') {
-            newSteps = [
-              "Launch browser and load crm.matrixmind.io (AI cursor will automatically execute)",
-              "Navigate browser tab: click Tab 2 'CRM Invoices' [x: 240, y: 40] (AI cursor will automatically click)",
-              "Approve pending invoice for client Acme Corp [x: 620, y: 195] (AI cursor will automatically click)",
-              "Verify invoice approval status badge & success banner (AI cursor will automatically execute)"
-            ];
+            const hasApproveKeyword = /approve|invoice|pay|acme/i.test(originalRawInput);
+            if (hasApproveKeyword) {
+              newSteps = [
+                "Launch browser and load crm.matrixmind.io (AI cursor will automatically execute)",
+                "Navigate browser tab: click Tab 2 'CRM Invoices' [x: 240, y: 40] (AI cursor will automatically click)",
+                "Approve pending invoice for client Acme Corp [x: 620, y: 195] (AI cursor will automatically click)",
+                "Verify invoice approval status badge & success banner (AI cursor will automatically execute)"
+              ];
+            } else {
+              newSteps = [
+                "Launch browser and load crm.matrixmind.io (AI cursor will automatically execute)",
+                "Navigate browser tab: click Tab 2 'CRM Invoices' [x: 240, y: 40] (AI cursor will automatically click)",
+                "Verify CRM Invoices list is loaded successfully (AI cursor will automatically execute)"
+              ];
+            }
           } else if (targetScenario === 'start_menu') {
-            newSteps = [
-              "Locate Start Menu Launcher Button at bottom-left corner [x: 28, y: 515] (AI cursor will automatically click)",
-              "Click Start Menu Button to reveal launcher shortcuts (AI cursor will automatically click)",
-              "Identify 'System Terminal' list item at [x: 100, y: 440] (AI cursor will automatically click)",
-              "Click launcher item to spawn simulated Windows PowerShell / Terminal instance (AI cursor will automatically click)",
-              "Verify terminal standard output is responsive (AI cursor will automatically execute)"
-            ];
+            const hasTerminalKeyword = /terminal|powershell|run|verify|shell|command|diagnostics/i.test(originalRawInput);
+            if (hasTerminalKeyword) {
+              newSteps = [
+                "Locate Start Menu Launcher Button at bottom-left corner [x: 28, y: 515] (AI cursor will automatically click)",
+                "Click Start Menu Button to reveal launcher shortcuts (AI cursor will automatically click)",
+                "Identify 'System Terminal' list item at [x: 100, y: 440] (AI cursor will automatically click)",
+                "Click launcher item to spawn simulated Windows PowerShell / Terminal instance (AI cursor will automatically click)",
+                "Verify terminal standard output is responsive (AI cursor will automatically execute)"
+              ];
+            } else {
+              newSteps = [
+                "Locate Start Menu Launcher Button at bottom-left corner [x: 28, y: 515] (AI cursor will automatically click)",
+                "Click Start Menu Button to reveal launcher shortcuts (AI cursor will automatically click)"
+              ];
+            }
           } else {
             newSteps = [
               "Create directory /Documents/Acme_Corp (AI cursor will automatically execute)",

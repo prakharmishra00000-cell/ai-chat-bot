@@ -41,6 +41,7 @@ export default function OSGhostPanel({ onClose, initialPrompt, autoExecute = fal
   const [folders, setFolders] = useState([]); // { name: '', x: , y: , files: [] }
   const [trashCount, setTrashCount] = useState(0);
   const logsEndRef = useRef(null);
+  const activePromptRef = useRef(initialPrompt || "");
   const wait = (ms) => new Promise((res) => setTimeout(res, ms));
 
   // Scenario state & user-editable prompt directive
@@ -106,7 +107,10 @@ export default function OSGhostPanel({ onClose, initialPrompt, autoExecute = fal
     // --- STEP 5: Execution ---
     setCurrentStep(5);
 
+    const activePrompt = activePromptRef.current || directivePrompt;
+
     if (scenario === 'browser') {
+      const hasApproveKeyword = /approve|invoice|pay|acme/i.test(activePrompt);
       // Move to Tab 2
       addLog('ACTION', 'Moving cursor to browser Tab 2: "CRM Invoices" [x: 240, y: 40]...');
       setCursorPos({ x: 240, y: 40 });
@@ -120,33 +124,44 @@ export default function OSGhostPanel({ onClose, initialPrompt, autoExecute = fal
       addLog('ACTION', 'click(left, single) -> Switched active tab to "CRM Invoices"');
       await wait(800);
 
-      // Ingest new frame
-      addLog('VISION', 'Ingesting updated framebuffer after tab switch...');
-      await wait(600);
-      addLog('MAPPING', 'Mapped "Approve" button for Acme Corp at [x: 620, y: 195]');
-      await wait(600);
+      if (hasApproveKeyword) {
+        // Ingest new frame
+        addLog('VISION', 'Ingesting updated framebuffer after tab switch...');
+        await wait(600);
+        addLog('MAPPING', 'Mapped "Approve" button for Acme Corp at [x: 620, y: 195]');
+        await wait(600);
 
-      // Move to Approve button
-      addLog('ACTION', 'Moving cursor to Approve button [x: 620, y: 195]...');
-      setCursorPos({ x: 620, y: 195 });
-      await wait(1000);
+        // Move to Approve button
+        addLog('ACTION', 'Moving cursor to Approve button [x: 620, y: 195]...');
+        setCursorPos({ x: 620, y: 195 });
+        await wait(1000);
 
-      // Click Approve
-      setCursorClick(true);
-      await wait(100);
-      setCursorClick(false);
-      setInvoiceApproved(true);
-      addLog('ACTION', 'click(left, single) -> Approved Acme Corp Invoice #INV-2026-004');
-      await wait(1000);
+        // Click Approve
+        setCursorClick(true);
+        await wait(100);
+        setCursorClick(false);
+        setInvoiceApproved(true);
+        addLog('ACTION', 'click(left, single) -> Approved Acme Corp Invoice #INV-2026-004');
+        await wait(1000);
 
-      // --- STEP 6: Verification ---
-      setCurrentStep(6);
-      addLog('VERIFICATION', 'Taking final screen snapshot...');
-      await wait(800);
-      addLog('VERIFICATION', 'Validating CRM portal state: Invoice #INV-2026-004 status is APPROVED.');
-      await wait(600);
-      addLog('VERIFICATION', 'Task Completed Successfully. Returning system controls.');
+        // --- STEP 6: Verification ---
+        setCurrentStep(6);
+        addLog('VERIFICATION', 'Taking final screen snapshot...');
+        await wait(800);
+        addLog('VERIFICATION', 'Validating CRM portal state: Invoice #INV-2026-004 status is APPROVED.');
+        await wait(600);
+        addLog('VERIFICATION', 'Task Completed Successfully. Returning system controls.');
+      } else {
+        // --- STEP 6: Verification ---
+        setCurrentStep(6);
+        addLog('VERIFICATION', 'Taking final screen snapshot to verify browser active tab...');
+        await wait(800);
+        addLog('VERIFICATION', 'Browser Tab 2 (CRM Invoices) active tab state verified.');
+        await wait(600);
+        addLog('VERIFICATION', 'Task Completed Successfully. Returning system controls.');
+      }
     } else if (scenario === 'start_menu') {
+      const hasTerminalKeyword = /terminal|powershell|run|verify|shell|command|diagnostics/i.test(activePrompt);
       // Move to Start button [x: 28, y: 515]
       addLog('ACTION', 'Moving cursor to Start Menu launcher button [x: 28, y: 515]...');
       setCursorPos({ x: 28, y: 515 });
@@ -160,63 +175,73 @@ export default function OSGhostPanel({ onClose, initialPrompt, autoExecute = fal
       addLog('ACTION', 'click(left, single) -> Opened OS Start Menu Launcher.');
       await wait(800);
 
-      // Ingest updated frame
-      addLog('VISION', 'Ingesting updated framebuffer of opened Start Menu launcher...');
-      await wait(600);
-      addLog('MAPPING', 'Mapped \'System Terminal\' shortcut item at [x: 100, y: 440]');
-      await wait(600);
+      if (hasTerminalKeyword) {
+        // Ingest updated frame
+        addLog('VISION', 'Ingesting updated framebuffer of opened Start Menu launcher...');
+        await wait(600);
+        addLog('MAPPING', 'Mapped \'System Terminal\' shortcut item at [x: 100, y: 440]');
+        await wait(600);
 
-      // Move to System Terminal item
-      addLog('ACTION', 'Moving cursor to \'System Terminal\' program item [x: 100, y: 440]...');
-      setCursorPos({ x: 100, y: 440 });
-      await wait(1000);
+        // Move to System Terminal item
+        addLog('ACTION', 'Moving cursor to \'System Terminal\' program item [x: 100, y: 440]...');
+        setCursorPos({ x: 100, y: 440 });
+        await wait(1000);
 
-      // Click System Terminal
-      setCursorClick(true);
-      await wait(100);
-      setCursorClick(false);
-      setShowStartMenu(false);
-      setShowTerminalWindow(true);
-      setTerminalLines([
-        "Microsoft Windows [Version 10.0.22631.3527]",
-        "(c) Microsoft Corporation. All rights reserved.",
-        "",
-        "PS C:\\Users\\matrix_mind> "
-      ]);
-      addLog('ACTION', 'click(left, single) -> Executed command shell binary. Terminal window spawned.');
-      await wait(1000);
+        // Click System Terminal
+        setCursorClick(true);
+        await wait(100);
+        setCursorClick(false);
+        setShowStartMenu(false);
+        setShowTerminalWindow(true);
+        setTerminalLines([
+          "Microsoft Windows [Version 10.0.22631.3527]",
+          "(c) Microsoft Corporation. All rights reserved.",
+          "",
+          "PS C:\\Users\\matrix_mind> "
+        ]);
+        addLog('ACTION', 'click(left, single) -> Executed command shell binary. Terminal window spawned.');
+        await wait(1000);
 
-      // Typing command
-      addLog('ACTION', 'Typing shell instructions: "echo \'MatrixMind OS Agent running...\'"');
-      setTerminalLines(prev => [
-        ...prev.slice(0, -1),
-        "PS C:\\Users\\matrix_mind> echo 'MatrixMind OS Agent running...'",
-        "'MatrixMind OS Agent running...'",
-        "",
-        "PS C:\\Users\\matrix_mind> "
-      ]);
-      await wait(1200);
+        // Typing command
+        addLog('ACTION', 'Typing shell instructions: "echo \'MatrixMind OS Agent running...\'"');
+        setTerminalLines(prev => [
+          ...prev.slice(0, -1),
+          "PS C:\\Users\\matrix_mind> echo 'MatrixMind OS Agent running...'",
+          "'MatrixMind OS Agent running...'",
+          "",
+          "PS C:\\Users\\matrix_mind> "
+        ]);
+        await wait(1200);
 
-      // Running verification command
-      addLog('ACTION', 'Executing system diagnostics checklist command...');
-      setTerminalLines(prev => [
-        ...prev.slice(0, -1),
-        "PS C:\\Users\\matrix_mind> ./verify_system_modules.ps1",
-        "Checking integrity...",
-        "[SUCCESS] Host network adapter: OK",
-        "[SUCCESS] Subprocess orchestration: ACTIVE",
-        "",
-        "PS C:\\Users\\matrix_mind> "
-      ]);
-      await wait(1200);
+        // Running verification command
+        addLog('ACTION', 'Executing system diagnostics checklist command...');
+        setTerminalLines(prev => [
+          ...prev.slice(0, -1),
+          "PS C:\\Users\\matrix_mind> ./verify_system_modules.ps1",
+          "Checking integrity...",
+          "[SUCCESS] Host network adapter: OK",
+          "[SUCCESS] Subprocess orchestration: ACTIVE",
+          "",
+          "PS C:\\Users\\matrix_mind> "
+        ]);
+        await wait(1200);
 
-      // --- STEP 6: Verification ---
-      setCurrentStep(6);
-      addLog('VERIFICATION', 'Taking final screen snapshot to verify terminal window state...');
-      await wait(800);
-      addLog('VERIFICATION', 'Terminal subprocess confirmed running with PID 8942. Standard output verified.');
-      await wait(600);
-      addLog('VERIFICATION', 'Task Completed Successfully. Returning system controls.');
+        // --- STEP 6: Verification ---
+        setCurrentStep(6);
+        addLog('VERIFICATION', 'Taking final screen snapshot to verify terminal window state...');
+        await wait(800);
+        addLog('VERIFICATION', 'Terminal subprocess confirmed running with PID 8942. Standard output verified.');
+        await wait(600);
+        addLog('VERIFICATION', 'Task Completed Successfully. Returning system controls.');
+      } else {
+        // --- STEP 6: Verification ---
+        setCurrentStep(6);
+        addLog('VERIFICATION', 'Taking final screen snapshot to verify Start Menu state...');
+        await wait(800);
+        addLog('VERIFICATION', 'Start Menu launcher confirmed open on screen.');
+        await wait(600);
+        addLog('VERIFICATION', 'Task Completed Successfully. Returning system controls.');
+      }
     } else {
       // Create folders
       addLog('ACTION', 'Creating target subdirectories for clean grouping...');
@@ -407,6 +432,7 @@ export default function OSGhostPanel({ onClose, initialPrompt, autoExecute = fal
   // Main execution timeline
   const startOSGhostWorkflow = async (promptOverride = null) => {
     const activePrompt = promptOverride !== null ? promptOverride : directivePrompt;
+    activePromptRef.current = activePrompt;
     if (promptOverride !== null) {
       setDirectivePrompt(promptOverride);
     }
@@ -794,18 +820,22 @@ export default function OSGhostPanel({ onClose, initialPrompt, autoExecute = fal
                       <span style={{ color: '#ff9900' }}>•</span>
                       <span>Click Start Menu Button to reveal launcher shortcuts <span style={{ color: '#94a3b8' }}>(AI cursor will automatically click)</span></span>
                     </div>
-                    <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
-                      <span style={{ color: '#ff9900' }}>•</span>
-                      <span>Identify 'System Terminal' list item at [x: 100, y: 440] <span style={{ color: '#94a3b8' }}>(AI cursor will automatically click)</span></span>
-                    </div>
-                    <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
-                      <span style={{ color: '#ff9900' }}>•</span>
-                      <span>Click launcher item to spawn simulated Windows PowerShell / Terminal instance <span style={{ color: '#94a3b8' }}>(AI cursor will automatically click)</span></span>
-                    </div>
-                    <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
-                      <span style={{ color: '#2dd4bf' }}>•</span>
-                      <span>Verify terminal standard output is responsive <span style={{ color: '#94a3b8' }}>(AI cursor will automatically execute)</span></span>
-                    </div>
+                    {/terminal|powershell|run|verify|shell|command|diagnostics/i.test(directivePrompt) && (
+                      <>
+                        <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
+                          <span style={{ color: '#ff9900' }}>•</span>
+                          <span>Identify 'System Terminal' list item at [x: 100, y: 440] <span style={{ color: '#94a3b8' }}>(AI cursor will automatically click)</span></span>
+                        </div>
+                        <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
+                          <span style={{ color: '#ff9900' }}>•</span>
+                          <span>Click launcher item to spawn simulated Windows PowerShell / Terminal instance <span style={{ color: '#94a3b8' }}>(AI cursor will automatically click)</span></span>
+                        </div>
+                        <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
+                          <span style={{ color: '#2dd4bf' }}>•</span>
+                          <span>Verify terminal standard output is responsive <span style={{ color: '#94a3b8' }}>(AI cursor will automatically execute)</span></span>
+                        </div>
+                      </>
+                    )}
                   </>
                 ) : (
                   <>
@@ -817,14 +847,23 @@ export default function OSGhostPanel({ onClose, initialPrompt, autoExecute = fal
                       <span style={{ color: '#ff9900' }}>•</span>
                       <span>Navigate browser tab: click Tab 2 <b>'CRM Invoices'</b> [x: 240, y: 40] <span style={{ color: '#94a3b8' }}>(AI cursor will automatically click)</span></span>
                     </div>
-                    <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
-                      <span style={{ color: '#ff9900' }}>•</span>
-                      <span>Approve pending invoice for client <b>Acme Corp</b> [x: 620, y: 195] <span style={{ color: '#94a3b8' }}>(AI cursor will automatically click)</span></span>
-                    </div>
-                    <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
-                      <span style={{ color: '#2dd4bf' }}>•</span>
-                      <span>Verify invoice approval status badge & success banner <span style={{ color: '#94a3b8' }}>(AI cursor will automatically execute)</span></span>
-                    </div>
+                    {/approve|invoice|pay|acme/i.test(directivePrompt) ? (
+                      <>
+                        <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
+                          <span style={{ color: '#ff9900' }}>•</span>
+                          <span>Approve pending invoice for client <b>Acme Corp</b> [x: 620, y: 195] <span style={{ color: '#94a3b8' }}>(AI cursor will automatically click)</span></span>
+                        </div>
+                        <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
+                          <span style={{ color: '#2dd4bf' }}>•</span>
+                          <span>Verify invoice approval status badge & success banner <span style={{ color: '#94a3b8' }}>(AI cursor will automatically execute)</span></span>
+                        </div>
+                      </>
+                    ) : (
+                      <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
+                        <span style={{ color: '#2dd4bf' }}>•</span>
+                        <span>Verify CRM Invoices list is loaded successfully <span style={{ color: '#94a3b8' }}>(AI cursor will automatically execute)</span></span>
+                      </div>
+                    )}
                   </>
                 )}
 
