@@ -2639,12 +2639,30 @@ app.post('/api/payment/razorpay/verify', async (req, res) => {
 
     let payment = await rzp.payments.fetch(razorpay_payment_id);
     
+    // LOG FULL PAYMENT DETAILS for debugging
+    console.log(`[VERIFY] ===== RAZORPAY PAYMENT DETAILS =====`);
+    console.log(`[VERIFY] Payment ID: ${payment.id}`);
+    console.log(`[VERIFY] Status: ${payment.status}`);
+    console.log(`[VERIFY] Amount: ₹${payment.amount / 100}`);
+    console.log(`[VERIFY] Currency: ${payment.currency}`);
+    console.log(`[VERIFY] Method: ${payment.method}`);
+    console.log(`[VERIFY] Bank: ${payment.bank || 'N/A'}`);
+    console.log(`[VERIFY] VPA: ${payment.vpa || 'N/A'}`);
+    console.log(`[VERIFY] Email: ${payment.email}`);
+    console.log(`[VERIFY] Contact: ${payment.contact || 'N/A'}`);
+    console.log(`[VERIFY] Order ID: ${payment.order_id}`);
+    console.log(`[VERIFY] Captured: ${payment.captured}`);
+    console.log(`[VERIFY] Fee: ₹${(payment.fee || 0) / 100} (Razorpay's cut)`);
+    console.log(`[VERIFY] Tax: ₹${(payment.tax || 0) / 100}`);
+    console.log(`[VERIFY] Error Code: ${payment.error_code || 'NONE'}`);
+    console.log(`[VERIFY] ========================================`);
+    
     // If payment is only authorized but not yet captured, capture it now so money settles
     if (payment.status === 'authorized') {
       try {
         console.log(`[VERIFY] Payment ${razorpay_payment_id} is authorized but not captured. Capturing now...`);
         payment = await rzp.payments.capture(razorpay_payment_id, payment.amount, payment.currency);
-        console.log(`[VERIFY] Payment ${razorpay_payment_id} captured successfully.`);
+        console.log(`[VERIFY] Payment ${razorpay_payment_id} captured successfully. New status: ${payment.status}`);
       } catch (captureErr) {
         console.error(`[VERIFY] Failed to capture payment ${razorpay_payment_id}:`, captureErr.message);
         // Continue anyway — the payment might auto-capture via Razorpay settings
@@ -2658,7 +2676,7 @@ app.post('/api/payment/razorpay/verify', async (req, res) => {
 
     const cleanEmail = (email || '').trim().toLowerCase();
     const amountPaid = payment.amount / 100;
-    console.log(`[VERIFY] Payment confirmed: ${razorpay_payment_id}, amount: ₹${amountPaid}, email: ${cleanEmail}, plan: ${planId}`);
+    console.log(`[VERIFY] ✅ Payment CONFIRMED and CAPTURED: ${razorpay_payment_id}, amount: ₹${amountPaid}, email: ${cleanEmail}, plan: ${planId}`);
 
     // Unlock the plan
     const user = getOrCreateUser(cleanEmail);
