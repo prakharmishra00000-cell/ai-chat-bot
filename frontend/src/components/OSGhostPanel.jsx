@@ -164,122 +164,166 @@ export default function OSGhostPanel({ onClose }) {
     addLog('SAFETY', 'Sequence Authorized by User. Commencing OS hardware inputs...');
     await wait(500);
 
-
     // --- STEP 5: Execution ---
     setCurrentStep(5);
 
-    // Create folders
-    addLog('ACTION', 'Creating target subdirectories for clean grouping...');
-    await wait(600);
+    if (scenario === 'browser') {
+      // Move to Tab 2
+      addLog('ACTION', 'Moving cursor to browser Tab 2: "CRM Invoices" [x: 240, y: 40]...');
+      setCursorPos({ x: 240, y: 40 });
+      await wait(1000);
 
-    // Create Acme Corp folder
-    setCursorPos({ x: 500, y: 100 });
-    await wait(700);
-    setCursorClick(true); await wait(100); setCursorClick(false);
-    addLog('ACTION', 'mkdir("/Documents/Acme_Corp")');
-    setFolders(prev => [...prev, { name: 'Acme_Corp', x: 500, y: 100, count: 0 }]);
-    await wait(800);
+      // Click Tab 2
+      setCursorClick(true);
+      await wait(100);
+      setCursorClick(false);
+      setActiveBrowserTab(2);
+      addLog('ACTION', 'click(left, single) -> Switched active tab to "CRM Invoices"');
+      await wait(800);
 
-    // Create Stark Industries folder
-    setCursorPos({ x: 500, y: 220 });
-    await wait(700);
-    setCursorClick(true); await wait(100); setCursorClick(false);
-    addLog('ACTION', 'mkdir("/Documents/Stark_Ind")');
-    setFolders(prev => [...prev, { name: 'Stark_Ind', x: 500, y: 220, count: 0 }]);
-    await wait(800);
+      // Ingest new frame
+      addLog('VISION', 'Ingesting updated framebuffer after tab switch...');
+      await wait(600);
+      addLog('MAPPING', 'Mapped "Approve" button for Acme Corp at [x: 620, y: 195]');
+      await wait(600);
 
-    // Create Creative folder
-    setCursorPos({ x: 500, y: 340 });
-    await wait(700);
-    setCursorClick(true); await wait(100); setCursorClick(false);
-    addLog('ACTION', 'mkdir("/Documents/Creative")');
-    setFolders(prev => [...prev, { name: 'Creative', x: 500, y: 340, count: 0 }]);
-    await wait(800);
+      // Move to Approve button
+      addLog('ACTION', 'Moving cursor to Approve button [x: 620, y: 195]...');
+      setCursorPos({ x: 620, y: 195 });
+      await wait(1000);
 
-    // Drag invoice_acme_corp.pdf (ID 1) -> Acme_Corp folder
-    addLog('ACTION', 'Moving Acme Corp PDF records to new location...');
-    setCursorPos({ x: 50, y: 70 });
-    await wait(750);
-    setCursorPos({ x: 500, y: 100 });
-    await wait(750);
-    setDesktopFiles(prev => prev.map(f => f.id === 1 ? { ...f, status: 'moved' } : f));
-    setFolders(prev => prev.map(f => f.name === 'Acme_Corp' ? { ...f, count: f.count + 1 } : f));
-    addLog('ACTION', 'mv("invoice_acme_corp.pdf", "/Documents/Acme_Corp/")');
-    await wait(800);
+      // Click Approve
+      setCursorClick(true);
+      await wait(100);
+      setCursorClick(false);
+      setInvoiceApproved(true);
+      addLog('ACTION', 'click(left, single) -> Approved Acme Corp Invoice #INV-2026-004');
+      await wait(1000);
 
-    // Drag invoice_acme_copy.pdf (ID 9) -> Acme_Corp folder
-    setCursorPos({ x: 310, y: 70 });
-    await wait(750);
-    setCursorPos({ x: 500, y: 100 });
-    await wait(750);
-    setDesktopFiles(prev => prev.map(f => f.id === 9 ? { ...f, status: 'moved' } : f));
-    setFolders(prev => prev.map(f => f.name === 'Acme_Corp' ? { ...f, count: f.count + 1 } : f));
-    addLog('ACTION', 'mv("invoice_acme_copy.pdf", "/Documents/Acme_Corp/")');
-    await wait(800);
+      // --- STEP 6: Verification ---
+      setCurrentStep(6);
+      addLog('VERIFICATION', 'Taking final screen snapshot...');
+      await wait(800);
+      addLog('VERIFICATION', 'Validating CRM portal state: Invoice #INV-2026-004 status is APPROVED.');
+      await wait(600);
+      addLog('VERIFICATION', 'Task Completed Successfully. Returning system controls.');
 
-    // Drag invoice_stark_ind.pdf (ID 2) -> Stark_Ind folder
-    addLog('ACTION', 'Moving Stark Industries PDF records...');
-    setCursorPos({ x: 50, y: 150 });
-    await wait(750);
-    setCursorPos({ x: 500, y: 220 });
-    await wait(750);
-    setDesktopFiles(prev => prev.map(f => f.id === 2 ? { ...f, status: 'moved' } : f));
-    setFolders(prev => prev.map(f => f.name === 'Stark_Ind' ? { ...f, count: f.count + 1 } : f));
-    addLog('ACTION', 'mv("invoice_stark_ind.pdf", "/Documents/Stark_Ind/")');
-    await wait(800);
+      setStatus('completed');
+      setRunning(false);
+    } else {
+      // Create folders
+      addLog('ACTION', 'Creating target subdirectories for clean grouping...');
+      await wait(600);
 
-    // Drag banner_design.jpg (ID 5) -> Creative folder
-    addLog('ACTION', 'Grouping creative assets together...');
-    setCursorPos({ x: 180, y: 70 });
-    await wait(750);
-    setCursorPos({ x: 500, y: 340 });
-    await wait(750);
-    setDesktopFiles(prev => prev.map(f => f.id === 5 ? { ...f, status: 'moved' } : f));
-    setFolders(prev => prev.map(f => f.name === 'Creative' ? { ...f, count: f.count + 1 } : f));
-    addLog('ACTION', 'mv("banner_design.jpg", "/Documents/Creative/")');
-    await wait(800);
+      // Create Acme Corp folder
+      setCursorPos({ x: 500, y: 100 });
+      await wait(700);
+      setCursorClick(true); await wait(100); setCursorClick(false);
+      addLog('ACTION', 'mkdir("/Documents/Acme_Corp")');
+      setFolders(prev => [...prev, { name: 'Acme_Corp', x: 500, y: 100, count: 0 }]);
+      await wait(800);
 
-    // Drag logo_new.png (ID 7) -> Creative folder
-    setCursorPos({ x: 180, y: 230 });
-    await wait(750);
-    setCursorPos({ x: 500, y: 340 });
-    await wait(750);
-    setDesktopFiles(prev => prev.map(f => f.id === 7 ? { ...f, status: 'moved' } : f));
-    setFolders(prev => prev.map(f => f.name === 'Creative' ? { ...f, count: f.count + 1 } : f));
-    addLog('ACTION', 'mv("logo_new.png", "/Documents/Creative/")');
-    await wait(800);
+      // Create Stark Industries folder
+      setCursorPos({ x: 500, y: 220 });
+      await wait(700);
+      setCursorClick(true); await wait(100); setCursorClick(false);
+      addLog('ACTION', 'mkdir("/Documents/Stark_Ind")');
+      setFolders(prev => [...prev, { name: 'Stark_Ind', x: 500, y: 220, count: 0 }]);
+      await wait(800);
 
-    // Drag screenshot_1_dup.png (ID 3) -> Trash Bin [x: 750, y: 500]
-    addLog('ACTION', 'Sending duplicate screenshots to Recycle Bin...');
-    setCursorPos({ x: 50, y: 230 });
-    await wait(750);
-    setCursorPos({ x: 750, y: 500 });
-    await wait(750);
-    setDesktopFiles(prev => prev.map(f => f.id === 3 ? { ...f, status: 'deleted' } : f));
-    setTrashCount(prev => prev + 1);
-    addLog('ACTION', 'rm("screenshot_1_dup.png") -> Sent to Trash');
-    await wait(800);
+      // Create Creative folder
+      setCursorPos({ x: 500, y: 340 });
+      await wait(700);
+      setCursorClick(true); await wait(100); setCursorClick(false);
+      addLog('ACTION', 'mkdir("/Documents/Creative")');
+      setFolders(prev => [...prev, { name: 'Creative', x: 500, y: 340, count: 0 }]);
+      await wait(800);
 
-    // Drag screenshot_2_dup.png (ID 11) -> Trash Bin [x: 750, y: 500]
-    setCursorPos({ x: 310, y: 230 });
-    await wait(750);
-    setCursorPos({ x: 750, y: 500 });
-    await wait(750);
-    setDesktopFiles(prev => prev.map(f => f.id === 11 ? { ...f, status: 'deleted' } : f));
-    setTrashCount(prev => prev + 1);
-    addLog('ACTION', 'rm("screenshot_2_dup.png") -> Sent to Trash');
-    await wait(1000);
+      // Drag invoice_acme_corp.pdf (ID 1) -> Acme_Corp folder
+      addLog('ACTION', 'Moving Acme Corp PDF records to new location...');
+      setCursorPos({ x: 50, y: 70 });
+      await wait(750);
+      setCursorPos({ x: 500, y: 100 });
+      await wait(750);
+      setDesktopFiles(prev => prev.map(f => f.id === 1 ? { ...f, status: 'moved' } : f));
+      setFolders(prev => prev.map(f => f.name === 'Acme_Corp' ? { ...f, count: f.count + 1 } : f));
+      addLog('ACTION', 'mv("invoice_acme_corp.pdf", "/Documents/Acme_Corp/")');
+      await wait(800);
 
-    // --- STEP 6: Verification ---
-    setCurrentStep(6);
-    addLog('VERIFICATION', 'Taking final screen snapshot...');
-    await wait(800);
-    addLog('VERIFICATION', 'Validating final filesystem output. 5 files moved, 2 duplicate files sent to Trash.');
-    await wait(600);
-    addLog('VERIFICATION', 'Task Completed Successfully. Returning system controls to User.');
-    
-    setStatus('completed');
-    setRunning(false);
+      // Drag invoice_acme_copy.pdf (ID 9) -> Acme_Corp folder
+      setCursorPos({ x: 310, y: 70 });
+      await wait(750);
+      setCursorPos({ x: 500, y: 100 });
+      await wait(750);
+      setDesktopFiles(prev => prev.map(f => f.id === 9 ? { ...f, status: 'moved' } : f));
+      setFolders(prev => prev.map(f => f.name === 'Acme_Corp' ? { ...f, count: f.count + 1 } : f));
+      addLog('ACTION', 'mv("invoice_acme_copy.pdf", "/Documents/Acme_Corp/")');
+      await wait(800);
+
+      // Drag invoice_stark_ind.pdf (ID 2) -> Stark_Ind folder
+      addLog('ACTION', 'Moving Stark Industries PDF records...');
+      setCursorPos({ x: 50, y: 150 });
+      await wait(750);
+      setCursorPos({ x: 500, y: 220 });
+      await wait(750);
+      setDesktopFiles(prev => prev.map(f => f.id === 2 ? { ...f, status: 'moved' } : f));
+      setFolders(prev => prev.map(f => f.name === 'Stark_Ind' ? { ...f, count: f.count + 1 } : f));
+      addLog('ACTION', 'mv("invoice_stark_ind.pdf", "/Documents/Stark_Ind/")');
+      await wait(800);
+
+      // Drag banner_design.jpg (ID 5) -> Creative folder
+      addLog('ACTION', 'Grouping creative assets together...');
+      setCursorPos({ x: 180, y: 70 });
+      await wait(750);
+      setCursorPos({ x: 500, y: 340 });
+      await wait(750);
+      setDesktopFiles(prev => prev.map(f => f.id === 5 ? { ...f, status: 'moved' } : f));
+      setFolders(prev => prev.map(f => f.name === 'Creative' ? { ...f, count: f.count + 1 } : f));
+      addLog('ACTION', 'mv("banner_design.jpg", "/Documents/Creative/")');
+      await wait(800);
+
+      // Drag logo_new.png (ID 7) -> Creative folder
+      setCursorPos({ x: 180, y: 230 });
+      await wait(750);
+      setCursorPos({ x: 500, y: 340 });
+      await wait(750);
+      setDesktopFiles(prev => prev.map(f => f.id === 7 ? { ...f, status: 'moved' } : f));
+      setFolders(prev => prev.map(f => f.name === 'Creative' ? { ...f, count: f.count + 1 } : f));
+      addLog('ACTION', 'mv("logo_new.png", "/Documents/Creative/")');
+      await wait(800);
+
+      // Drag screenshot_1_dup.png (ID 3) -> Trash Bin [x: 750, y: 500]
+      addLog('ACTION', 'Sending duplicate screenshots to Recycle Bin...');
+      setCursorPos({ x: 50, y: 230 });
+      await wait(750);
+      setCursorPos({ x: 750, y: 500 });
+      await wait(750);
+      setDesktopFiles(prev => prev.map(f => f.id === 3 ? { ...f, status: 'deleted' } : f));
+      setTrashCount(prev => prev + 1);
+      addLog('ACTION', 'rm("screenshot_1_dup.png") -> Sent to Trash');
+      await wait(800);
+
+      // Drag screenshot_2_dup.png (ID 11) -> Trash Bin [x: 750, y: 500]
+      setCursorPos({ x: 310, y: 230 });
+      await wait(750);
+      setCursorPos({ x: 750, y: 500 });
+      await wait(750);
+      setDesktopFiles(prev => prev.map(f => f.id === 11 ? { ...f, status: 'deleted' } : f));
+      setTrashCount(prev => prev + 1);
+      addLog('ACTION', 'rm("screenshot_2_dup.png") -> Sent to Trash');
+      await wait(1000);
+
+      // --- STEP 6: Verification ---
+      setCurrentStep(6);
+      addLog('VERIFICATION', 'Taking final screen snapshot...');
+      await wait(800);
+      addLog('VERIFICATION', 'Validating final filesystem output. 5 files moved, 2 duplicate files sent to Trash.');
+      await wait(600);
+      addLog('VERIFICATION', 'Task Completed Successfully. Returning system controls to User.');
+
+      setStatus('completed');
+      setRunning(false);
+    }
   };
 
   return (
