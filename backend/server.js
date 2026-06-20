@@ -1236,14 +1236,64 @@ app.get('/api/health', (req, res) => {
   const config = readConfig();
   const keyCount = config?.keys?.length || 0;
   const keyPreviews = (config?.keys || []).map(k => k.substring(0, 6) + '...' + k.substring(k.length - 4));
+  const db = readDB();
   res.json({
     status: keyCount > 0 ? 'OK' : 'NO_KEYS',
     keyCount,
     keyPreviews,
     configFileExists: fs.existsSync(CONFIG_PATH),
     envKeysFound: Object.keys(process.env).filter(k => k.includes('GEMINI')).length,
+    firebaseStatus: {
+      initialized: firebaseInitialized,
+      cloudLoaded: firebaseFirstLoadComplete,
+      isHardcodedSeed: dbIsHardcodedSeed,
+      retryCount: firebaseRetryCount || 0
+    },
+    dbStats: {
+      users: Object.keys(db.users || {}).length,
+      plans: Object.keys(db.plans || {}).join(', ')
+    },
     timestamp: new Date().toISOString()
   });
+});
+
+// Admin: Force sync current DB to ExtendsClass backup
+app.post('/api/admin/force-sync-backup', (req, res) => {
+  const db = readDB();
+  if (!db || !db.plans) {
+    return res.status(400).json({ error: 'No valid data to sync' });
+  }
+  // Bypass debounce — force immediate sync
+  const https = require('https');
+  const payload = JSON.stringify(db);
+  const options = {
+    hostname: CLOUD_DB_HOST,
+    path: CLOUD_DB_PATH,
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      'Content-Length': Buffer.byteLength(payload)
+    }
+  };
+  const syncReq = https.request(options, (syncRes) => {
+    let body = '';
+    syncRes.on('data', chunk => body += chunk);
+    syncRes.on('end', () => {
+      console.log('[CLOUD-BACKUP] Force sync completed. Users:', Object.keys(db.users || {}).length);
+      res.json({ 
+        success: true, 
+        message: 'Backup synced to ExtendsClass',
+        users: Object.keys(db.users || {}).length,
+        plans: Object.keys(db.plans || {}).join(', ')
+      });
+    });
+  });
+  syncReq.on('error', (e) => {
+    console.error('[CLOUD-BACKUP] Force sync failed:', e.message);
+    res.status(500).json({ error: 'Sync failed: ' + e.message });
+  });
+  syncReq.write(payload);
+  syncReq.end();
 });
 
 // PPT File Download endpoint
