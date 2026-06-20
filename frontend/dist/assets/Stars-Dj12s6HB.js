@@ -1,4 +1,4 @@
-import{r as e}from"./vendor-CIM259Cv.js";import{R as y,C as A,c as w,A as x,V as C,n as E,S as z}from"./extends-Bob8uCuv.js";const P=()=>parseInt(y.replace(/\D+/g,"")),_=P();class F extends z{constructor(){super({uniforms:{time:{value:0},fade:{value:1}},vertexShader:`
+import{r as e}from"./vendor-CIM259Cv.js";import{R as y,C as A,c as w,A as x,V as C,n as E,S as z}from"./extends-cIrgyfiE.js";const P=()=>parseInt(y.replace(/\D+/g,"")),_=P();class F extends z{constructor(){super({uniforms:{time:{value:0},fade:{value:1}},vertexShader:`
       uniform float time;
       attribute float size;
       varying vec3 vColor;
