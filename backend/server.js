@@ -1664,79 +1664,50 @@ app.get('/api/apps/serve/:id', (req, res) => {
 });
 
 function detectLanguage(message, history) {
-  const msgLower = message.toLowerCase();
+  const msgLower = message.toLowerCase().trim();
   
-  // 1. Explicit english requests
-  if (/\bin\s+english\b/i.test(msgLower) || /\benglish\s+me\b/i.test(msgLower) || /\benglish\s+mein\b/i.test(msgLower)) {
-    return 'english';
+  // 1. Explicit "in hindi" or "hindi me/mein" request — user explicitly wants Hindi
+  if (/\b(in\s+hindi|hindi\s+me(?:in)?|hindi\s+m[ae]i?n?)\b/i.test(msgLower) || 
+      /\b(give|answer|reply|respond|bata|batao|samjha|samjhao)\b.*\bhindi\b/i.test(msgLower)) {
+    return 'hindi';
   }
   
-  // 2. Explicit hindi requests
-  if (/\bin\s+hindi\b/i.test(msgLower) || /\bhindi\s+me\b/i.test(msgLower) || /\bhindi\s+mein\b/i.test(msgLower)) {
-    return 'hindi';
-  }
-
-  // 3. Devanagari character range check
-  const hasDevanagari = /[\u0900-\u097F]/.test(message);
-  if (hasDevanagari) {
-    return 'hindi';
-  }
-
-  // 4. Hinglish patterns
-  const hinglishPatterns = [
-    /\bkya\b/i, /\bhai\b/i, /\bhain\b/i, /\bko\b/i, /\bka\b/i, /\bki\b/i, /\bke\b/i,
-    /\bbanao\b/i, /\bkaise\b/i, /\bkyun\b/i, /\bkyon\b/i, /\bbatao\b/i, /\bsamjhao\b/i,
-    /\bkar\b/i, /\bkaro\b/i, /\bkarte\b/i, /\bkrna\b/i, /\bkarna\b/i, /\bhota\b/i,
-    /\bhoti\b/i, /\bhote\b/i, /\bse\b/i, /\bme\b/i, /\bmein\b/i, /\bpar\b/i, /\bpe\b/i,
-    /\bek\b/i, /\bhi\b/i, /\btoh\b/i, /\bto\b/i, /\btha\b/i, /\bthi\b/i, /\bthe\b/i,
-    /\braha\b/i, /\brahi\b/i, /\brahe\b/i, /\bho\b/i, /\bgaya\b/i, /\bgayi\b/i, /\bgaye\b/i,
-    /\bbanaen\b/i, /\bbanaiye\b/i, /\bchahiye\b/i, /\bkijiye\b/i, /\bkr\b/i, /\bbaat\b/i
-  ];
-  const isHinglish = hinglishPatterns.some(pattern => pattern.test(msgLower));
-  if (isHinglish) {
-    return 'hindi';
-  }
-
-  const isContinuation = [
-    'explain', 'explain it', 'more', 'tell me more', 'elaborate', 'go on', 'details',
-    'why', 'how', 'continue', 'proceed', 'next', 'ok', 'okay', 'yes', 'no', 'sure', 'fine'
-  ].includes(message.trim().toLowerCase());
-
-  // 5. English question indicators
-  const englishQuestionIndicators = [
-    /\bwhat\b/i, /\bhow\b/i, /\bwhy\b/i, /\bwho\b/i, /\bwhen\b/i, /\bwhere\b/i,
-    /\bexplain\b/i, /\bdefine\b/i, /\bdescribe\b/i, /\bphysics\b/i, /\bscience\b/i,
-    /\bwrite\b/i, /\bcode\b/i, /\bcreate\b/i, /\bgenerate\b/i, /\bshow\b/i, /\bgive\b/i,
-    /\bwhat's\b/i
-  ];
-  const isEnglishQuestion = !isContinuation && englishQuestionIndicators.some(p => p.test(msgLower));
-  if (isEnglishQuestion) {
+  // 2. Explicit "in english" request — user explicitly wants English
+  if (/\b(in\s+english|english\s+me(?:in)?|english\s+m[ae]i?n?)\b/i.test(msgLower)) {
     return 'english';
   }
 
-  // 6. Check history for continuous 4 times Hindi/Hinglish
-  let consecutiveHindiCount = 0;
-  if (history && Array.isArray(history)) {
-    const userHistory = history.filter(h => h.sender === 'user');
-    for (let i = userHistory.length - 1; i >= 0; i--) {
-      const txt = userHistory[i].text;
-      const txtLower = txt.toLowerCase();
-      const histDevanagari = /[\u0900-\u097F]/.test(txt);
-      const histHinglish = hinglishPatterns.some(pattern => pattern.test(txtLower)) || /\bin\s+hindi\b/i.test(txtLower) || /\bhindi\s+me\b/i.test(txtLower) || /\bhindi\s+mein\b/i.test(txtLower);
-      const histEnglish = /\bin\s+english\b/i.test(txtLower) || /\benglish\s+me\b/i.test(txtLower) || /\benglish\s+mein\b/i.test(txtLower);
-      
-      if ((histDevanagari || histHinglish) && !histEnglish) {
-        consecutiveHindiCount++;
-      } else {
-        break;
-      }
-    }
-  }
-
-  if (consecutiveHindiCount >= 4) {
+  // 3. Devanagari script detected — clearly Hindi
+  if (/[\u0900-\u097F]/.test(message)) {
     return 'hindi';
   }
 
+  // 4. Hinglish detection — STRICT: only words that are NOT common English words
+  //    Removed: to, hi, me, se, the, ho, par, pe, ek, ka, ki, ke (all common English or too short)
+  const strongHinglishWords = [
+    /\bkya\b/i, /\bhai\b/i, /\bhain\b/i, /\bbanao\b/i, /\bkaise\b/i, 
+    /\bkyun\b/i, /\bkyon\b/i, /\bbatao\b/i, /\bsamjhao\b/i, /\bsamjha\b/i,
+    /\bkaro\b/i, /\bkarte\b/i, /\bkrna\b/i, /\bkarna\b/i, /\bhota\b/i,
+    /\bhoti\b/i, /\bhote\b/i, /\bmein\b/i, /\btoh\b/i, /\btha\b/i, /\bthi\b/i,
+    /\braha\b/i, /\brahi\b/i, /\brahe\b/i, /\bgaya\b/i, /\bgayi\b/i, /\bgaye\b/i,
+    /\bbanaen\b/i, /\bbanaiye\b/i, /\bchahiye\b/i, /\bkijiye\b/i, /\bbaat\b/i,
+    /\bbolna\b/i, /\bbolo\b/i, /\bdikhao\b/i, /\blikho\b/i, /\bpadho\b/i,
+    /\bsuno\b/i, /\bjao\b/i, /\baao\b/i, /\bchalo\b/i, /\bkuch\b/i,
+    /\bkoi\b/i, /\bkaun\b/i, /\bkahan\b/i, /\bkab\b/i, /\byeh\b/i, /\bwoh\b/i,
+    /\bnahi\b/i, /\bnahin\b/i, /\bnhi\b/i, /\bhum\b/i, /\btum\b/i, /\baap\b/i,
+    /\bkr\b/i, /\bh\b/i, /\biska\b/i, /\buska\b/i, /\bjaise\b/i, /\bwaise\b/i,
+    /\bphir\b/i, /\bfir\b/i, /\bsabse\b/i, /\bbahut\b/i, /\bzyada\b/i,
+    /\baccha\b/i, /\btheek\b/i, /\bthik\b/i, /\bsahi\b/i, /\bgalat\b/i,
+    /\bpehle\b/i, /\bbaad\b/i, /\bdusra\b/i, /\bteesra\b/i
+  ];
+  
+  // Count how many Hinglish words match — need at least 2 to be confident
+  const hinglishMatchCount = strongHinglishWords.filter(p => p.test(msgLower)).length;
+  if (hinglishMatchCount >= 2) {
+    return 'hindi';
+  }
+
+  // 5. Default: English
   return 'english';
 }
 
@@ -1985,12 +1956,12 @@ User's original raw query: ${message}`;
       // Safety and language instruction
       systemInstruction += "SAFETY: Politely handle or refuse adult queries, illegal activities, or copyright infringement requests. Keep your content safe and appropriate for users of all ages. ";
       
-      // Dynamic language rules
+      // Dynamic language rules — match response language to user's prompt language
       const detectedLang = detectLanguage(message, history);
       if (detectedLang === 'hindi') {
-        systemInstruction += "STRICT LANGUAGE RULE: You MUST reply STRICTLY in Hindi (using Hindi Devanagari script characters, e.g., 'भौतिक विज्ञान एक...'). Do NOT reply in English or Hinglish (Romanized Hindi). Translate all explanations to Hindi. ";
+        systemInstruction += "STRICT LANGUAGE RULE: The user's message is in Hindi or Hinglish. You MUST reply STRICTLY in Hindi (using Hindi Devanagari script characters, e.g., 'भौतिक विज्ञान एक...'). Do NOT reply in English or Hinglish (Romanized Hindi). Translate ALL explanations, headings, bullet points, and content to Hindi Devanagari script. ";
       } else {
-        systemInstruction += "STRICT LANGUAGE RULE: You MUST reply ONLY in English. Do NOT reply in Hindi or Hinglish under any circumstances. ";
+        systemInstruction += "STRICT LANGUAGE RULE: The user's message is in English. You MUST reply ONLY in English. Do NOT reply in Hindi, Hinglish, or any other language. Even if the topic is about India or Hindi culture, respond ONLY in English. ";
       }
 
       // Mind map / Visual diagram instructions
