@@ -2573,54 +2573,60 @@ app.post('/api/admin/reset-password', (req, res) => {
 });
 
 // ADMIN ANALYTICS PORTAL ENDPOINT
-app.post('/api/admin/stats', (req, res) => {
+app.post('/api/admin/stats', async (req, res) => {
   const { email } = req.body;
   if (email !== 'prakharmishra00000@gmail.com') {
     return res.status(401).json({ error: 'UNAUTHORIZED', message: 'Unauthorized access to admin stats.' });
   }
 
+  await waitForFirebase();
   const db = readDB();
   const usersArray = Object.values(db.users);
+  const plans = db.plans || {};
+  const now = new Date();
   
-  // Calculations
-  const totalUsers = usersArray.length;
-  
-  let freeUsers = 0;
-  let standardUsers = 0;
-  let betterUsers = 0;
-  let premiumUsers = 0;
+  // Plan distribution & active subscription revenue
+  let freeUsers = 0, standardUsers = 0, betterUsers = 0, premiumUsers = 0;
+  let activeRevenue = 0;
+  let activeSubscribers = 0;
+  const revenueByPlan = {};
 
   usersArray.forEach(u => {
     if (u.plan === 'standard') standardUsers++;
     else if (u.plan === 'better') betterUsers++;
     else if (u.plan === 'premium') premiumUsers++;
     else freeUsers++;
+
+    // Calculate active subscription revenue (users with non-expired paid plans)
+    if (u.plan !== 'free' && u.planExpiry) {
+      const expiry = new Date(u.planExpiry);
+      if (expiry > now) {
+        activeSubscribers++;
+        const planPrice = plans[u.plan]?.price || 0;
+        activeRevenue += planPrice;
+        revenueByPlan[u.plan] = (revenueByPlan[u.plan] || 0) + planPrice;
+      }
+    }
   });
 
-  // Calculate visitors
-  const today = new Date().toISOString().split('T')[0];
+  // Visitors
+  const today = now.toISOString().split('T')[0];
   const visitorsToday = db.visits ? (db.visits[today] || 0) : 0;
   
-  // Total Revenue
-  const totalRevenue = db.transactions.reduce((acc, t) => acc + t.amount, 0);
+  // Total Revenue from all transactions
+  const totalRevenue = (db.transactions || []).reduce((acc, t) => acc + (t.amount || 0), 0);
 
   // Signups today
-  const signupsToday = usersArray.filter(u => {
-    return u.lastResetDate === today;
-  }).length;
+  const signupsToday = usersArray.filter(u => u.lastResetDate === today).length;
 
-  // Retrieve bot backups list
+  // Backups list
   const backupDir = path.join(__dirname, 'backup');
   let backups = [];
   if (fs.existsSync(backupDir)) {
     try {
       backups = fs.readdirSync(backupDir).map(file => {
         const stats = fs.statSync(path.join(backupDir, file));
-        return {
-          filename: file,
-          size: stats.size,
-          date: stats.mtime.toISOString()
-        };
+        return { filename: file, size: stats.size, date: stats.mtime.toISOString() };
       }).sort((a,b) => new Date(b.date) - new Date(a.date));
     } catch (e) {
       console.error('Failed to read backup files:', e);
@@ -2628,27 +2634,37 @@ app.post('/api/admin/stats', (req, res) => {
   }
 
   res.json({
-    totalUsers,
+    totalUsers: usersArray.length,
     visitorsToday,
     signupsToday,
     totalRevenue,
+    activeRevenue,
+    activeSubscribers,
+    revenueByPlan,
     planDistribution: {
       free: freeUsers,
       standard: standardUsers,
       better: betterUsers,
       premium: premiumUsers
     },
-    transactions: db.transactions.slice(-100).reverse(),
+    transactions: (db.transactions || []).slice(-100).reverse(),
     users: usersArray.map(u => ({
       email: u.email,
       plan: u.plan,
       promptsUsed: u.promptsUsed,
-      expiry: u.planExpiry
+      expiry: u.planExpiry,
+      planPrice: plans[u.plan]?.price || 0,
+      isActive: u.plan !== 'free' && u.planExpiry && new Date(u.planExpiry) > now
     })),
     anonymousVisits: db.anonymousVisits || {},
     supportQueries: db.supportQueries || [],
     pendingApprovals: db.pendingApprovals || [],
-    backups
+    backups,
+    cloudStatus: {
+      firebaseLoaded: firebaseFirstLoadComplete,
+      isHardcodedSeed: dbIsHardcodedSeed,
+      lastSync: new Date().toISOString()
+    }
   });
 });
 

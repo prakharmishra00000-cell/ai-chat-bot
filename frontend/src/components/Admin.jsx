@@ -379,36 +379,62 @@ function Admin({ onBack, email }) {
           {/* TAB 1: ANALYTICS & TRAFFIC */}
           {activeTab === 'analytics' && (
             <div>
-              <div className="admin-stats-row" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '20px', marginBottom: '30px' }}>
-                <div className="stat-card glass-panel" style={{ padding: '24px', borderRadius: 'var(--radius-lg)' }}>
-                  <div className="stat-label">Total Registered Users</div>
-                  <div className="stat-value" style={{ color: 'var(--accent-cyan)' }}>{stats.totalUsers}</div>
-                  <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '8px' }}>Signed up accounts</p>
+              {/* Cloud Sync Status Banner */}
+              {stats.cloudStatus && (
+                <div style={{ 
+                  display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 16px', marginBottom: '20px',
+                  borderRadius: '10px', fontSize: '0.8rem',
+                  background: stats.cloudStatus.firebaseLoaded && !stats.cloudStatus.isHardcodedSeed 
+                    ? 'rgba(0, 230, 118, 0.08)' : 'rgba(255, 51, 102, 0.1)',
+                  border: `1px solid ${stats.cloudStatus.firebaseLoaded && !stats.cloudStatus.isHardcodedSeed ? 'rgba(0,230,118,0.25)' : 'rgba(255,51,102,0.25)'}`
+                }}>
+                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', 
+                    background: stats.cloudStatus.firebaseLoaded && !stats.cloudStatus.isHardcodedSeed ? '#00e676' : '#ff3366',
+                    boxShadow: `0 0 8px ${stats.cloudStatus.firebaseLoaded ? '#00e676' : '#ff3366'}` }} />
+                  <span style={{ color: stats.cloudStatus.firebaseLoaded ? '#a5d6a7' : '#ff8a80' }}>
+                    {stats.cloudStatus.firebaseLoaded && !stats.cloudStatus.isHardcodedSeed 
+                      ? `🔥 Firebase Live • Synced at ${new Date(stats.cloudStatus.lastSync).toLocaleTimeString()}`
+                      : '⚠️ Using local fallback data — Firebase not connected'}
+                  </span>
                 </div>
-                <div className="stat-card glass-panel" style={{ padding: '24px', borderRadius: 'var(--radius-lg)' }}>
-                  <div className="stat-label">Total Page views (Today)</div>
-                  <div className="stat-value" style={{ color: '#ffe259' }}>{stats.visitorsToday}</div>
-                  <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '8px' }}>Total traffic hits</p>
+              )}
+
+              {/* Top Stats Row */}
+              <div className="admin-stats-row" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '16px', marginBottom: '25px' }}>
+                <div className="stat-card glass-panel" style={{ padding: '20px', borderRadius: 'var(--radius-lg)' }}>
+                  <div className="stat-label">Total Users</div>
+                  <div className="stat-value" style={{ color: 'var(--accent-cyan)', fontSize: '2rem' }}>{stats.totalUsers}</div>
+                  <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '6px' }}>Registered accounts</p>
                 </div>
-                <div className="stat-card glass-panel" style={{ padding: '24px', borderRadius: 'var(--radius-lg)' }}>
-                  <div className="stat-label">Anonymous Visitors (Today)</div>
-                  <div className="stat-value" style={{ color: 'var(--accent-purple)' }}>
-                    {stats.anonymousVisits[new Date().toISOString().split('T')[0]] || 0}
-                  </div>
-                  <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '8px' }}>Visited but did not sign up</p>
+                <div className="stat-card glass-panel" style={{ padding: '20px', borderRadius: 'var(--radius-lg)' }}>
+                  <div className="stat-label">Active Subscribers</div>
+                  <div className="stat-value" style={{ color: '#00e676', fontSize: '2rem' }}>{stats.activeSubscribers || 0}</div>
+                  <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '6px' }}>Paid plans currently active</p>
                 </div>
-                <div className="stat-card glass-panel" style={{ padding: '24px', borderRadius: 'var(--radius-lg)' }}>
-                  <div className="stat-label">Total Revenue Generated</div>
-                  <div className="stat-value" style={{ color: 'var(--accent-neon-green)' }}>₹{stats.totalRevenue}</div>
-                  <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '8px' }}>UPI direct payments</p>
+                <div className="stat-card glass-panel" style={{ padding: '20px', borderRadius: 'var(--radius-lg)' }}>
+                  <div className="stat-label">Active Revenue</div>
+                  <div className="stat-value" style={{ color: '#ffd740', fontSize: '2rem' }}>₹{stats.activeRevenue || 0}</div>
+                  <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '6px' }}>From current subscriptions</p>
+                </div>
+                <div className="stat-card glass-panel" style={{ padding: '20px', borderRadius: 'var(--radius-lg)' }}>
+                  <div className="stat-label">Total Revenue</div>
+                  <div className="stat-value" style={{ color: 'var(--accent-neon-green)', fontSize: '2rem' }}>₹{stats.totalRevenue}</div>
+                  <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '6px' }}>All-time transactions</p>
+                </div>
+                <div className="stat-card glass-panel" style={{ padding: '20px', borderRadius: 'var(--radius-lg)' }}>
+                  <div className="stat-label">Page Views (Today)</div>
+                  <div className="stat-value" style={{ color: '#ce93d8', fontSize: '2rem' }}>{stats.visitorsToday}</div>
+                  <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '6px' }}>
+                    Anonymous: {stats.anonymousVisits[new Date().toISOString().split('T')[0]] || 0}
+                  </p>
                 </div>
               </div>
 
-              <div className="admin-grid" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '30px' }}>
+              <div className="admin-grid" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '25px' }}>
                 {/* Transaction history logs */}
                 <div className="admin-table-container glass-panel" style={{ padding: '25px', borderRadius: 'var(--radius-lg)', overflowX: 'auto' }}>
-                  <h3 className="admin-section-title" style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '1.2rem', marginBottom: '20px' }}>
-                    Recent Payments Logs
+                  <h3 className="admin-section-title" style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '1.15rem', marginBottom: '18px' }}>
+                    💳 Recent Payment Logs
                   </h3>
                   {stats.transactions.length === 0 ? (
                     <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', textAlign: 'center', padding: '30px' }}>No payments logged yet.</p>
@@ -428,7 +454,7 @@ function Admin({ onBack, email }) {
                           <tr key={t.id}>
                             <td>{new Date(t.date).toLocaleDateString()}</td>
                             <td style={{ fontWeight: 600 }}>{t.email}</td>
-                            <td><span style={{ fontSize: '0.75rem', padding: '2px 8px', borderRadius: '4px', background: 'rgba(0, 242, 254, 0.1)', color: 'var(--accent-cyan)' }}>{t.plan.toUpperCase()}</span></td>
+                            <td><span style={{ fontSize: '0.75rem', padding: '2px 8px', borderRadius: '4px', background: 'rgba(0, 242, 254, 0.1)', color: 'var(--accent-cyan)' }}>{(t.plan || '').toUpperCase()}</span></td>
                             <td style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{t.paymentRef || t.razorpayPaymentId || '-'}</td>
                             <td style={{ color: 'var(--accent-neon-green)', fontWeight: 700 }}>₹{t.amount}</td>
                           </tr>
@@ -438,116 +464,180 @@ function Admin({ onBack, email }) {
                   )}
                 </div>
 
-                {/* Plan distributions charts */}
-                <div className="admin-chart-box glass-panel" style={{ padding: '25px', borderRadius: 'var(--radius-lg)' }}>
-                  <h3 className="admin-section-title" style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '1.2rem', marginBottom: '20px' }}>
-                    Active Plan Distribution
-                  </h3>
-                  <div className="bar-chart" style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                    <div className="chart-bar-row">
-                      <span className="chart-label">Free</span>
-                      <div className="chart-bar-wrapper" style={{ flex: 1, background: 'rgba(255,255,255,0.05)', height: '12px', borderRadius: '6px', margin: '0 15px' }}>
-                        <div className="chart-bar-fill" style={{ width: getPercentage(stats.planDistribution.free, stats.totalUsers), height: '100%', background: '#94a3b8', borderRadius: '6px' }}></div>
-                      </div>
-                      <span className="chart-value">{stats.planDistribution.free}</span>
-                    </div>
-                    <div className="chart-bar-row">
-                      <span className="chart-label">Standard</span>
-                      <div className="chart-bar-wrapper" style={{ flex: 1, background: 'rgba(255,255,255,0.05)', height: '12px', borderRadius: '6px', margin: '0 15px' }}>
-                        <div className="chart-bar-fill" style={{ width: getPercentage(stats.planDistribution.standard, stats.totalUsers), height: '100%', background: 'var(--accent-cyan)', borderRadius: '6px' }}></div>
-                      </div>
-                      <span className="chart-value">{stats.planDistribution.standard}</span>
-                    </div>
-                    <div className="chart-bar-row">
-                      <span className="chart-label">Better</span>
-                      <div className="chart-bar-wrapper" style={{ flex: 1, background: 'rgba(255,255,255,0.05)', height: '12px', borderRadius: '6px', margin: '0 15px' }}>
-                        <div className="chart-bar-fill" style={{ width: getPercentage(stats.planDistribution.better, stats.totalUsers), height: '100%', background: '#ffe259', borderRadius: '6px' }}></div>
-                      </div>
-                      <span className="chart-value">{stats.planDistribution.better}</span>
-                    </div>
-                    <div className="chart-bar-row">
-                      <span className="chart-label">Premium</span>
-                      <div className="chart-bar-wrapper" style={{ flex: 1, background: 'rgba(255,255,255,0.05)', height: '12px', borderRadius: '6px', margin: '0 15px' }}>
-                        <div className="chart-bar-fill" style={{ width: getPercentage(stats.planDistribution.premium, stats.totalUsers), height: '100%', background: '#ff3366', borderRadius: '6px' }}></div>
-                      </div>
-                      <span className="chart-value">{stats.planDistribution.premium}</span>
+                {/* Plan distribution + Revenue breakdown */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                  <div className="admin-chart-box glass-panel" style={{ padding: '22px', borderRadius: 'var(--radius-lg)' }}>
+                    <h3 className="admin-section-title" style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '1.1rem', marginBottom: '18px' }}>
+                      📊 Plan Distribution
+                    </h3>
+                    <div className="bar-chart" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      {[
+                        { label: 'Free', count: stats.planDistribution.free, color: '#94a3b8' },
+                        { label: 'Standard', count: stats.planDistribution.standard, color: 'var(--accent-cyan)' },
+                        { label: 'Pro', count: stats.planDistribution.better, color: '#ffd740' },
+                        { label: 'Ultimate', count: stats.planDistribution.premium, color: '#ff3366' }
+                      ].map(p => (
+                        <div key={p.label} className="chart-bar-row">
+                          <span className="chart-label" style={{ minWidth: '70px' }}>{p.label}</span>
+                          <div className="chart-bar-wrapper" style={{ flex: 1, background: 'rgba(255,255,255,0.05)', height: '12px', borderRadius: '6px', margin: '0 10px' }}>
+                            <div className="chart-bar-fill" style={{ width: getPercentage(p.count, stats.totalUsers), height: '100%', background: p.color, borderRadius: '6px', transition: 'width 0.5s ease' }}></div>
+                          </div>
+                          <span className="chart-value" style={{ minWidth: '24px', textAlign: 'right' }}>{p.count}</span>
+                        </div>
+                      ))}
                     </div>
                   </div>
+
+                  {/* Active Revenue Breakdown */}
+                  {stats.revenueByPlan && Object.keys(stats.revenueByPlan).length > 0 && (
+                    <div className="glass-panel" style={{ padding: '22px', borderRadius: 'var(--radius-lg)' }}>
+                      <h4 style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '1.1rem', marginBottom: '15px', color: '#ffd740' }}>
+                        💰 Active Revenue Breakdown
+                      </h4>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        {Object.entries(stats.revenueByPlan).map(([plan, amount]) => (
+                          <div key={plan} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: 'rgba(0,0,0,0.2)', borderRadius: '8px' }}>
+                            <span style={{ fontWeight: 600, textTransform: 'capitalize' }}>{plan}</span>
+                            <span style={{ color: '#ffd740', fontWeight: 700 }}>₹{amount}</span>
+                          </div>
+                        ))}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', borderTop: '1px solid var(--border-glass)', marginTop: '4px' }}>
+                          <span style={{ fontWeight: 700 }}>Total Active</span>
+                          <span style={{ color: '#00e676', fontWeight: 800, fontSize: '1.1rem' }}>₹{stats.activeRevenue || 0}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
           )}
 
-          {/* TAB 2: USERS & CREDENTIALS (EXCLUDING CHATS) */}
+          {/* TAB 2: USERS & CREDENTIALS — LIVE DATA */}
           {activeTab === 'users' && (
-            <div className="admin-grid" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '30px' }}>
-              <div className="admin-table-container glass-panel" style={{ padding: '25px', borderRadius: 'var(--radius-lg)' }}>
-                <h3 className="admin-section-title" style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '1.2rem', marginBottom: '20px' }}>
-                  Registered Profiles & Credentials
+            <div>
+              {/* Summary cards */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '25px' }}>
+                <div className="glass-panel" style={{ padding: '18px', borderRadius: 'var(--radius-lg)', textAlign: 'center' }}>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '6px' }}>Total Users</div>
+                  <div style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--accent-cyan)' }}>{stats.totalUsers}</div>
+                </div>
+                <div className="glass-panel" style={{ padding: '18px', borderRadius: 'var(--radius-lg)', textAlign: 'center' }}>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '6px' }}>Active Paid</div>
+                  <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#00e676' }}>{stats.users.filter(u => u.isActive).length}</div>
+                </div>
+                <div className="glass-panel" style={{ padding: '18px', borderRadius: 'var(--radius-lg)', textAlign: 'center' }}>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '6px' }}>Free Users</div>
+                  <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#94a3b8' }}>{stats.users.filter(u => u.plan === 'free').length}</div>
+                </div>
+                <div className="glass-panel" style={{ padding: '18px', borderRadius: 'var(--radius-lg)', textAlign: 'center' }}>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '6px' }}>Active Revenue</div>
+                  <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#ffd740' }}>₹{stats.activeRevenue || 0}</div>
+                </div>
+              </div>
+
+              {/* Full user table */}
+              <div className="admin-table-container glass-panel" style={{ padding: '25px', borderRadius: 'var(--radius-lg)', marginBottom: '25px' }}>
+                <h3 className="admin-section-title" style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '1.15rem', marginBottom: '18px' }}>
+                  👤 All Registered Users ({stats.users.length})
                 </h3>
                 <table className="admin-table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                   <thead>
                     <tr>
-                      <th>Signup Email</th>
-                      <th>Plan Tier</th>
+                      <th>Status</th>
+                      <th>Email</th>
+                      <th>Plan</th>
+                      <th>Price</th>
                       <th>Prompts Used</th>
-                      <th>Expiration Date</th>
+                      <th>Expiry</th>
+                      <th>Days Left</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {stats.users.map((u, idx) => (
-                      <tr key={idx}>
-                        <td style={{ fontWeight: 600, color: 'var(--text-main)' }}>{u.email}</td>
-                        <td>
-                          <span style={{ fontSize: '0.75rem', padding: '2px 8px', borderRadius: '4px', background: u.plan === 'free' ? 'rgba(255,255,255,0.05)' : 'rgba(0, 242, 254, 0.1)', color: u.plan === 'free' ? '#94a3b8' : 'var(--accent-cyan)' }}>
-                            {u.plan.toUpperCase()}
-                          </span>
-                        </td>
-                        <td>{u.promptsUsed} prompts</td>
-                        <td style={{ fontSize: '0.85rem', color: u.expiry ? 'var(--accent-neon-green)' : 'var(--text-muted)' }}>
-                          {u.expiry ? new Date(u.expiry).toLocaleDateString() + ' ' + new Date(u.expiry).toLocaleTimeString() : 'None (Unlimited/Free)'}
-                        </td>
-                      </tr>
-                    ))}
+                    {/* Sort: active paid users first, then free */}
+                    {[...stats.users].sort((a, b) => {
+                      if (a.isActive && !b.isActive) return -1;
+                      if (!a.isActive && b.isActive) return 1;
+                      if (a.plan !== 'free' && b.plan === 'free') return -1;
+                      if (a.plan === 'free' && b.plan !== 'free') return 1;
+                      return 0;
+                    }).map((u, idx) => {
+                      const daysLeft = u.expiry ? Math.max(0, Math.ceil((new Date(u.expiry) - new Date()) / (1000 * 60 * 60 * 24))) : null;
+                      return (
+                        <tr key={idx} style={{ background: u.isActive ? 'rgba(0, 230, 118, 0.04)' : 'transparent' }}>
+                          <td>
+                            {u.isActive ? (
+                              <span style={{ fontSize: '0.7rem', padding: '3px 8px', borderRadius: '10px', background: 'rgba(0, 230, 118, 0.15)', color: '#00e676', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#00e676', display: 'inline-block' }}></span>
+                                ACTIVE
+                              </span>
+                            ) : u.plan === 'free' ? (
+                              <span style={{ fontSize: '0.7rem', padding: '3px 8px', borderRadius: '10px', background: 'rgba(255,255,255,0.04)', color: '#94a3b8' }}>FREE</span>
+                            ) : (
+                              <span style={{ fontSize: '0.7rem', padding: '3px 8px', borderRadius: '10px', background: 'rgba(255,51,102,0.1)', color: '#ff5555' }}>EXPIRED</span>
+                            )}
+                          </td>
+                          <td style={{ fontWeight: 600, color: 'var(--text-main)' }}>{u.email}</td>
+                          <td>
+                            <span style={{ 
+                              fontSize: '0.75rem', padding: '2px 8px', borderRadius: '4px', fontWeight: 600,
+                              background: u.plan === 'free' ? 'rgba(255,255,255,0.05)' : u.plan === 'premium' ? 'rgba(255,51,102,0.12)' : 'rgba(0, 242, 254, 0.1)', 
+                              color: u.plan === 'free' ? '#94a3b8' : u.plan === 'premium' ? '#ff6b8a' : 'var(--accent-cyan)' 
+                            }}>
+                              {u.plan.toUpperCase()}
+                            </span>
+                          </td>
+                          <td style={{ color: u.planPrice > 0 ? '#ffd740' : 'var(--text-muted)', fontWeight: u.planPrice > 0 ? 700 : 400 }}>
+                            {u.planPrice > 0 ? `₹${u.planPrice}` : '—'}
+                          </td>
+                          <td>{u.promptsUsed} prompts</td>
+                          <td style={{ fontSize: '0.82rem', color: u.expiry ? (u.isActive ? '#a5d6a7' : '#ff8a80') : 'var(--text-muted)' }}>
+                            {u.expiry ? new Date(u.expiry).toLocaleDateString() : '—'}
+                          </td>
+                          <td>
+                            {daysLeft !== null ? (
+                              <span style={{ 
+                                fontWeight: 700, fontSize: '0.85rem',
+                                color: daysLeft > 30 ? '#00e676' : daysLeft > 7 ? '#ffd740' : '#ff5555'
+                              }}>
+                                {daysLeft > 0 ? `${daysLeft}d` : 'Expired'}
+                              </span>
+                            ) : '—'}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
 
-              {/* Expiry alerts & expired plans statistics */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                <div className="glass-panel" style={{ padding: '20px', borderRadius: 'var(--radius-lg)' }}>
-                  <h4 style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1rem', color: '#ffb86c', marginBottom: '15px' }}>
-                    <Calendar size={18} /> Active Subscriptions
+              {/* Active subscribers detail panel */}
+              {stats.users.filter(u => u.isActive).length > 0 && (
+                <div className="glass-panel" style={{ padding: '22px', borderRadius: 'var(--radius-lg)' }}>
+                  <h4 style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.05rem', color: '#00e676', marginBottom: '15px', fontFamily: 'var(--font-heading)' }}>
+                    💎 Active Paying Subscribers ({stats.users.filter(u => u.isActive).length})
                   </h4>
-                  {activeExpirations.length === 0 ? (
-                    <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>No active premium members.</p>
-                  ) : (
-                    <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                      {activeExpirations.map((u, i) => (
-                        <li key={i} style={{ fontSize: '0.8rem', paddingBottom: '8px', borderBottom: '1px solid var(--border-glass)' }}>
-                          <span style={{ fontWeight: 600 }}>{u.email}</span>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-muted)', marginTop: '4px' }}>
-                            <span>Tier: {u.plan.toUpperCase()}</span>
-                            <span>Expires: {new Date(u.expiry).toLocaleDateString()}</span>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '12px' }}>
+                    {stats.users.filter(u => u.isActive).map((u, i) => {
+                      const daysLeft = Math.max(0, Math.ceil((new Date(u.expiry) - new Date()) / (1000 * 60 * 60 * 24)));
+                      return (
+                        <div key={i} style={{ 
+                          padding: '14px 16px', borderRadius: '10px', 
+                          background: 'rgba(0, 230, 118, 0.05)', border: '1px solid rgba(0,230,118,0.15)'
+                        }}>
+                          <div style={{ fontWeight: 700, fontSize: '0.9rem', marginBottom: '6px' }}>{u.email}</div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                            <span>{u.plan.toUpperCase()} • ₹{u.planPrice}</span>
+                            <span style={{ color: daysLeft > 30 ? '#00e676' : daysLeft > 7 ? '#ffd740' : '#ff5555', fontWeight: 600 }}>
+                              {daysLeft}d remaining
+                            </span>
                           </div>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
-
-                <div className="glass-panel" style={{ padding: '20px', borderRadius: 'var(--radius-lg)' }}>
-                  <h4 style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1rem', color: '#ff5555', marginBottom: '15px' }}>
-                    <AlertTriangle size={18} /> Expired Members
-                  </h4>
-                  <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '10px' }}>
-                    Users whose subscription terms have ended and downgraded to free tier:
-                  </p>
-                  <span style={{ fontSize: '2rem', fontWeight: 800, color: '#ff5555' }}>
-                    {expiredUsers.length} accounts
-                  </span>
-                </div>
-              </div>
+              )}
             </div>
           )}
 
