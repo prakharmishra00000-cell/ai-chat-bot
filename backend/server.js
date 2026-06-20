@@ -145,7 +145,7 @@ let dbInitData = {
       name: "Free",
       price: 0,
       prompts: 30,
-      featureLimits: { ppt: 3, mindmap: 5, matrix: 3, optimize: 3, masking: 5, interview: 3, workflow: 1, council: 1, leads: -1 },
+      featureLimits: { ppt: 3, mindmap: 5, matrix: 3, optimize: 3, masking: 5, interview: 3, workflow: 1, council: 1, leads: -1, threed: 3 },
       features: [
         "30 daily prompts limit",
         "All features unlocked (Trial)",
@@ -182,7 +182,7 @@ let dbInitData = {
       duration: "1 Month",
       days: 30,
       prompts: 100,
-      featureLimits: { ppt: 5, mindmap: 8, matrix: 5, optimize: 5, masking: 20, interview: 10, workflow: 0, council: 0 },
+      featureLimits: { ppt: 5, mindmap: 8, matrix: 5, optimize: 5, masking: 20, interview: 10, workflow: 0, council: 0, threed: 5 },
       features: [
         "100 daily prompts limit",
         "Standard processing priority",
@@ -217,7 +217,7 @@ let dbInitData = {
       duration: "3 Months",
       days: 90,
       prompts: 150,
-      featureLimits: { ppt: 7, mindmap: 10, matrix: 10, optimize: 10, masking: 50, interview: 30, workflow: 10, council: 0 },
+      featureLimits: { ppt: 7, mindmap: 10, matrix: 10, optimize: 10, masking: 50, interview: 30, workflow: 10, council: 0, threed: 10 },
       features: [
         "150 daily prompts limit",
         "Better processing priority",
@@ -253,7 +253,7 @@ let dbInitData = {
       duration: "1 Year",
       days: 365,
       prompts: 200,
-      featureLimits: { ppt: 10, mindmap: 15, matrix: -1, optimize: -1, masking: -1, interview: -1, workflow: -1, council: -1 },
+      featureLimits: { ppt: 10, mindmap: 15, matrix: -1, optimize: -1, masking: -1, interview: -1, workflow: -1, council: -1, threed: -1 },
       features: [
         "200 daily prompts limit",
         "Maximum processing priority",
@@ -294,7 +294,8 @@ let dbInitData = {
     interview: "Interview Mode",
     workflow: "Workflow Sequencer",
     council: "Council Room",
-    leads: "Lead Extractor"
+    leads: "Lead Extractor",
+    threed: "3D Object Generator"
   }
 };
 
@@ -911,7 +912,7 @@ function getOrCreateUser(email) {
         promptsUsed: 0,
         lastResetDate: today,
         planExpiry: null,
-        featureUsage: { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, interview: 0, workflow: 0, council: 0, leads: 0 },
+        featureUsage: { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, interview: 0, workflow: 0, council: 0, leads: 0, threed: 0 },
         _temporary: true // Flag: this user was NOT loaded from the real database
       };
     }
@@ -921,14 +922,14 @@ function getOrCreateUser(email) {
       promptsUsed: 0,
       lastResetDate: today,
       planExpiry: null,
-      featureUsage: { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, interview: 0, workflow: 0, council: 0, leads: 0 }
+      featureUsage: { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, interview: 0, workflow: 0, council: 0, leads: 0, threed: 0 }
     };
     db.users[cleanEmail] = user;
     writeDB(db);
   } else {
     // Ensure featureUsage field exists (for existing users)
     if (!user.featureUsage) {
-      user.featureUsage = { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, interview: 0, workflow: 0, council: 0, leads: 0 };
+      user.featureUsage = { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, interview: 0, workflow: 0, council: 0, leads: 0, threed: 0 };
     }
 
     // Check Plan Expiry — ONLY downgrade if plan has ACTUALLY expired
@@ -947,7 +948,7 @@ function getOrCreateUser(email) {
     // Daily Reset at Midnight (prompts + feature usage)
     if (user.lastResetDate !== today) {
       user.promptsUsed = 0;
-      user.featureUsage = { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, interview: 0, workflow: 0, council: 0, leads: 0 };
+      user.featureUsage = { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, interview: 0, workflow: 0, council: 0, leads: 0, threed: 0 };
       user.lastResetDate = today;
       db.users[cleanEmail] = user;
       writeDB(db);
@@ -972,7 +973,7 @@ function getOrCreateDevice(deviceId) {
       deviceId,
       promptsUsed: 0,
       lastResetDate: today,
-      featureUsage: { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, interview: 0, workflow: 0, council: 0, leads: 0 }
+      featureUsage: { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, interview: 0, workflow: 0, council: 0, leads: 0, threed: 0 }
     };
     db.devices[deviceId] = device;
     writeDB(db);
@@ -980,7 +981,7 @@ function getOrCreateDevice(deviceId) {
     // Daily reset at midnight
     if (device.lastResetDate !== today) {
       device.promptsUsed = 0;
-      device.featureUsage = { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, interview: 0, workflow: 0, council: 0, leads: 0 };
+      device.featureUsage = { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, interview: 0, workflow: 0, council: 0, leads: 0, threed: 0 };
       device.lastResetDate = today;
       db.devices[deviceId] = device;
       writeDB(db);
@@ -996,7 +997,7 @@ function checkDeviceFeatureLimit(deviceId, feature) {
   
   const db = readDB();
   const freePlan = db.plans && db.plans['free'];
-  const defaultLimits = { ppt: 3, mindmap: 5, matrix: 3, optimize: 3, masking: 5, interview: 3, workflow: 1, council: 1, leads: -1 };
+  const defaultLimits = { ppt: 3, mindmap: 5, matrix: 3, optimize: 3, masking: 5, interview: 3, workflow: 1, council: 1, leads: -1, threed: 3 };
   const limits = freePlan?.featureLimits || defaultLimits;
   let limit = limits[feature];
   if (limit === undefined) limit = defaultLimits[feature] !== undefined ? defaultLimits[feature] : 0;
@@ -1012,7 +1013,7 @@ function incrementDeviceFeatureUsage(deviceId, feature) {
   const db = readDB();
   if (!db.devices || !db.devices[deviceId]) return;
   const device = db.devices[deviceId];
-  if (!device.featureUsage) device.featureUsage = { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, interview: 0, workflow: 0, council: 0, leads: 0 };
+  if (!device.featureUsage) device.featureUsage = { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, interview: 0, workflow: 0, council: 0, leads: 0, threed: 0 };
   device.featureUsage[feature] = (device.featureUsage[feature] || 0) + 1;
   db.devices[deviceId] = device;
   writeDB(db);
@@ -1047,7 +1048,7 @@ function incrementFeatureUsage(email, feature) {
   const db = readDB();
   const user = db.users[cleanEmail];
   if (user) {
-    if (!user.featureUsage) user.featureUsage = { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, interview: 0, workflow: 0, council: 0, leads: 0 };
+    if (!user.featureUsage) user.featureUsage = { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, interview: 0, workflow: 0, council: 0, leads: 0, threed: 0 };
     user.featureUsage[feature] = (user.featureUsage[feature] || 0) + 1;
     db.users[cleanEmail] = user;
     writeDB(db);
@@ -1104,7 +1105,7 @@ app.post('/api/device/status', async (req, res) => {
     plan: 'free',
     promptsUsed: device.promptsUsed,
     limit: freePlan ? freePlan.prompts : 30,
-    featureUsage: device.featureUsage || { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, interview: 0, workflow: 0, council: 0, leads: 0 },
+    featureUsage: device.featureUsage || { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, interview: 0, workflow: 0, council: 0, leads: 0, threed: 0 },
     featureLimits: freePlan?.featureLimits || defaultLimits
   });
 });
@@ -1127,15 +1128,15 @@ app.post('/api/user/status', async (req, res) => {
       promptsUsed: 0,
       limit: -1,
       expiry: null,
-      featureUsage: { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, interview: 0, workflow: 0, council: 0, leads: 0 },
-      featureLimits: { ppt: -1, mindmap: -1, matrix: -1, optimize: -1, masking: -1, interview: -1, workflow: -1, council: -1, leads: -1 },
+      featureUsage: { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, interview: 0, workflow: 0, council: 0, leads: 0, threed: 0 },
+      featureLimits: { ppt: -1, mindmap: -1, matrix: -1, optimize: -1, masking: -1, interview: -1, workflow: -1, council: -1, leads: -1, threed: -1 },
       isAdmin: true
     });
   }
   
   const planInfo = db.plans && db.plans[user.plan];
   const userLimit = planInfo ? planInfo.prompts : (user.plan === 'free' ? 30 : 100);
-  const featureLimits = planInfo?.featureLimits || { ppt: 3, mindmap: 5, matrix: 3, optimize: 3, masking: 5, interview: 3, workflow: 1, council: 1, leads: -1 };
+  const featureLimits = planInfo?.featureLimits || { ppt: 3, mindmap: 5, matrix: 3, optimize: 3, masking: 5, interview: 3, workflow: 1, council: 1, leads: -1, threed: 3 };
   
   res.json({
     email: user.email,
@@ -1143,7 +1144,7 @@ app.post('/api/user/status', async (req, res) => {
     promptsUsed: user.promptsUsed,
     limit: userLimit,
     expiry: user.planExpiry,
-    featureUsage: user.featureUsage || { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, interview: 0, workflow: 0, council: 0, leads: 0 },
+    featureUsage: user.featureUsage || { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, interview: 0, workflow: 0, council: 0, leads: 0, threed: 0 },
     featureLimits: featureLimits
   });
 });
