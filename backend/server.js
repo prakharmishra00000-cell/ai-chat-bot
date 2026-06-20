@@ -2021,60 +2021,50 @@ ALWAYS use the composite format for complex objects. ALWAYS include 8+ parts for
 ONLY use [3D_SHAPE_RENDER] for requests where the user explicitly wants an interactive rotatable 3D geometric model (simple shapes, objects made of primitives).
 Do NOT output HTML canvas code, base64, or image URLs for 3D shapes. ONLY use the token format above. `;
 
-      systemInstruction += `LIVE ANIMATED 3D SCENES — MOVING 3D WORLDS (360° Rotatable):
-You have TWO tokens for live animated 3D scenes. Choose the best one:
+      systemInstruction += `LIVE ANIMATED 3D SCENES — USE FOR ANY "SHOW ME", "LIVE", "ANIMATED", "3D VIEW" REQUEST:
+
+You have TWO tokens. The frontend has a SMART MAPPER that handles ANY keyword — so you are NOT limited to the list below. Use the closest word that describes what the user wants.
 
 ━━━ TOKEN 1: [3D_ANIMATED: scene=<name>] ━━━
-Use for: dragon, phoenix, galaxy, blackhole, tornado, rocket
-- scene=dragon → Flying dragon, flapping wings, fire breath, glowing eyes
-- scene=phoenix → Fire phoenix bird, animated wings, fire trail
-- scene=galaxy → Rotating spiral galaxy, 8000 stars
-- scene=blackhole → Black hole with accretion disk, glowing rings
-- scene=tornado → Spinning tornado with particle debris
-- scene=rocket → Rocket launch with fire exhaust and boosters
+Use ONLY for: dragon, phoenix, galaxy, blackhole, tornado, rocket
 
-━━━ TOKEN 2: [3D_DYNAMIC: scene=<name>] ━━━
-Use for ALL OTHER animated scenes:
-- scene=shark → Great white shark swimming in ocean with fish
-- scene=butterfly → Multiple colorful butterflies flying
-- scene=eagle → Soaring eagle in the sky
-- scene=underwater → Full underwater world: shark + fish + coral + bubbles
-- scene=fish → Underwater world with colorful fish
-- scene=volcano → Erupting volcano island with lava particles
-- scene=solarsystem → Full solar system with orbiting planets + rings
-- scene=planet → Giant ringed planet with atmosphere + comet
-- scene=comet → Speeding comet through space with sparkle trail
-- scene=forest → Forest with trees, eagle, butterflies
-- scene=space → Space battle scene with explosions, electric particles
-- scene=snow → Snowstorm with snowman
-- scene=snowman → Snow scene with animated snowfall
-- scene=waterfall → Rainforest waterfall with trees, butterfly, eagle
-- scene=rainforest → Rainforest scene with wildlife
+━━━ TOKEN 2: [3D_DYNAMIC: scene=<anything>] ━━━
+Use for LITERALLY ANYTHING ELSE. The system auto-maps to the best matching 3D scene.
+You can use ANY of these (and more — just use the best keyword):
+shark, whale, dolphin, octopus, jellyfish, turtle, fish, clownfish, mermaid,
+eagle, hawk, falcon, owl, butterfly, dragonfly, bee, hummingbird,
+tiger, lion, wolf, bear, deer, horse, elephant, giraffe, zebra, rabbit,
+snake, crocodile, frog, lizard, chameleon,
+volcano, lava, eruption, fire, mountain, canyon, cave, desert,
+forest, jungle, rainforest, tree, meadow, valley, waterfall,
+snow, snowman, blizzard, ice, winter, arctic,
+planet, saturn, jupiter, mars, moon, asteroid, comet, solarsystem, nebula, alien, ufo, astronaut,
+space, spaceship, satellite, star,
+plane, airplane, helicopter, drone, submarine
 
-DECISION GUIDE:
-- Dragon/Phoenix/Galaxy/Blackhole/Tornado/Rocket → [3D_ANIMATED: scene=...]
-- Shark/Fish/Butterfly/Eagle/Volcano/Solar System/Forest/Snow/Waterfall → [3D_DYNAMIC: scene=...]
-- Anything not listed above → use [3D_DYNAMIC: scene=shark] as closest match, OR use [AI_IMAGE:] for static image
+CRITICAL RULES:
+1. When user asks for ANY live/moving/animated/3D view of ANYTHING → use [3D_DYNAMIC: scene=<best_keyword>]
+2. The scene= value should be a single English word matching the subject (tiger, waterfall, snowman, etc.)
+3. User gets 360° rotation by dragging + zoom by scrolling
+4. ALWAYS combine the token with a brief explanation
+5. For objects not in the list, pick the CLOSEST related keyword (e.g. "crocodile" → scene=crocodile, "flamingo" → scene=eagle, "whale shark" → scene=shark)
 
-RULES:
-1. ALWAYS use one of these tokens when user asks for any live/animated/moving/3D scene
-2. User gets 360° rotation with mouse drag + zoom with scroll
-3. You can combine the token with a text explanation
-4. ALWAYS mention that they can rotate 360° by dragging the mouse
-
-EXAMPLES:
-- "show me a flying dragon" → [3D_ANIMATED: scene=dragon]
-- "show a shark swimming" → [3D_DYNAMIC: scene=shark]
-- "animated galaxy" → [3D_ANIMATED: scene=galaxy]
-- "underwater world with fish" → [3D_DYNAMIC: scene=underwater]
-- "volcano erupting" → [3D_DYNAMIC: scene=volcano]
-- "solar system" → [3D_DYNAMIC: scene=solarsystem]
-- "butterfly flying" → [3D_DYNAMIC: scene=butterfly]
-- "eagle soaring" → [3D_DYNAMIC: scene=eagle]
-- "black hole" → [3D_ANIMATED: scene=blackhole]
-- "rocket launch" → [3D_ANIMATED: scene=rocket]
-- "forest scene" → [3D_DYNAMIC: scene=forest]
-- "snowstorm" → [3D_DYNAMIC: scene=snow]
+EXAMPLES (literally any request):
+- "show me a tiger" → [3D_DYNAMIC: scene=tiger]
+- "live view of dolphin" → [3D_DYNAMIC: scene=dolphin]
+- "show whale in ocean" → [3D_DYNAMIC: scene=whale]
+- "3D view of waterfall" → [3D_DYNAMIC: scene=waterfall]
+- "show me a horse running" → [3D_DYNAMIC: scene=horse]
+- "live snowstorm" → [3D_DYNAMIC: scene=snow]
+- "animated forest" → [3D_DYNAMIC: scene=forest]
+- "show planet saturn" → [3D_DYNAMIC: scene=saturn]
+- "3D view of volcano" → [3D_DYNAMIC: scene=volcano]
+- "show me a butterfly" → [3D_DYNAMIC: scene=butterfly]
+- "live solar system" → [3D_DYNAMIC: scene=solarsystem]
+- "show an eagle flying" → [3D_DYNAMIC: scene=eagle]
+- "3D view of underwater" → [3D_DYNAMIC: scene=underwater]
+- "show a comet" → [3D_DYNAMIC: scene=comet]
+- "show a rainforest" → [3D_DYNAMIC: scene=rainforest]
 `;
 
       systemInstruction += `AI IMAGE GENERATION — COLORFUL 3D RENDERED IMAGES:

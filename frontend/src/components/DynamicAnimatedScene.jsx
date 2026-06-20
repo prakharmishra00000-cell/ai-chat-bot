@@ -458,8 +458,76 @@ const DYNAMIC_SCENES = {
   planet:       { render: () => <><Planet position={[0,0,0]} color="#2244FF" scale={1.5} hasAtmosphere hasRings/><Comet position={[2,1,-1]} scale={0.5}/><Stars radius={100} depth={50} count={3000} factor={4} fade/></>,   env:'#000008', cam:[0,2,9], label:'🪐 Planet'  },
 };
 
+// ── SMART KEYWORD MAPPER ─────────────────────────────────────────────────
+// Maps ANY word the user might say to the closest scene
+const KEYWORD_MAP = {
+  // Ocean / Water creatures
+  shark:'shark', whale:'underwater', dolphin:'underwater', octopus:'underwater',
+  jellyfish:'underwater', crab:'underwater', turtle:'underwater', seahorse:'underwater',
+  coral:'underwater', ocean:'underwater', sea:'underwater', marine:'underwater',
+  aquatic:'underwater', mermaid:'underwater', submarine:'underwater', diver:'underwater',
+  fish:'fish', clownfish:'fish', nemo:'fish', piranha:'fish', tuna:'fish',
+  // Birds / Air
+  eagle:'eagle', hawk:'eagle', falcon:'eagle', vulture:'eagle', condor:'eagle',
+  bird:'eagle', parrot:'eagle', owl:'eagle', hummingbird:'butterfly',
+  butterfly:'butterfly', dragonfly:'butterfly', bee:'butterfly', insect:'butterfly',
+  // Land animals
+  tiger:'volcano', lion:'volcano', wolf:'forest', bear:'forest', deer:'forest',
+  fox:'forest', rabbit:'forest', squirrel:'forest', horse:'forest',
+  elephant:'forest', giraffe:'forest', zebra:'forest',
+  // Reptiles / Fantasy
+  snake:'underwater', crocodile:'underwater', alligator:'underwater',
+  frog:'rainforest', lizard:'rainforest', chameleon:'rainforest',
+  // Space
+  planet:'planet', saturn:'planet', jupiter:'planet', mars:'planet', earth:'planet',
+  moon:'planet', asteroid:'comet', meteorite:'comet', comet:'comet',
+  solarsystem:'solarsystem', solar:'solarsystem', universe:'solarsystem',
+  nebula:'space', galaxy:'space', milkyway:'space', cosmos:'space',
+  alien:'space', ufo:'space', spaceship:'space', spacecraft:'space',
+  satellite:'space', station:'space', astronaut:'space', star:'space',
+  // Fire / Nature events
+  volcano:'volcano', lava:'volcano', eruption:'volcano', magma:'volcano',
+  fire:'volcano', explosion:'volcano', wildfire:'forest',
+  tornado:'snow', cyclone:'snow', hurricane:'snow', storm:'snow',
+  lightning:'space', thunder:'snow',
+  // Winter
+  snow:'snow', snowman:'snowman', blizzard:'snow', ice:'snow',
+  winter:'snow', frost:'snow', tundra:'snow', arctic:'snow',
+  // Forest / Nature
+  forest:'forest', jungle:'rainforest', rainforest:'rainforest',
+  tree:'forest', woods:'forest', nature:'forest', meadow:'forest',
+  mountain:'volcano', hill:'forest', valley:'forest', cliff:'volcano',
+  cave:'volcano', canyon:'volcano',
+  // Water
+  waterfall:'waterfall', river:'waterfall', lake:'underwater', pond:'underwater',
+  stream:'waterfall', water:'waterfall', rain:'waterfall',
+  // Vehicles / Tech
+  car:'space', truck:'space', plane:'eagle', airplane:'eagle', jet:'eagle',
+  helicopter:'eagle', rocket:'space', spacerocket:'space', drone:'eagle',
+  // Fantasy
+  unicorn:'butterfly', pegasus:'eagle', fairy:'butterfly', elf:'forest',
+  dwarf:'volcano', wizard:'space', magic:'space',
+  // Misc
+  rainbow:'butterfly', cloud:'eagle', sky:'eagle', wind:'snow',
+  desert:'volcano', beach:'underwater', island:'volcano', tropical:'rainforest',
+  jungle:'rainforest', swamp:'underwater',
+};
+
+function resolveScene(input) {
+  const key = input.toLowerCase().replace(/[^a-z]/g, '');
+  if (DYNAMIC_SCENES[key]) return key;
+  // Try keyword map
+  if (KEYWORD_MAP[key]) return KEYWORD_MAP[key];
+  // Try partial match
+  for (const [word, scene] of Object.entries(KEYWORD_MAP)) {
+    if (key.includes(word) || word.includes(key)) return scene;
+  }
+  // Default fallback
+  return 'shark';
+}
+
 export default function DynamicAnimatedScene({ scene = 'shark', label }) {
-  const key = scene.toLowerCase().replace(/[^a-z]/g, '');
+  const key = resolveScene(scene);
   const config = DYNAMIC_SCENES[key] || DYNAMIC_SCENES.shark;
   const displayLabel = label || config.label;
   const SceneRender = config.render;
