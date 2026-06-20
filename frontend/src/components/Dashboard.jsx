@@ -955,6 +955,44 @@ function Dashboard({
               }
             }
 
+            // AI Image Generator (renders AI-generated images from Pollinations.ai)
+            if (line.includes('[AI_IMAGE:')) {
+              const startIdx = line.indexOf('[AI_IMAGE:');
+              const endIdx = line.indexOf(']', startIdx);
+              if (endIdx !== -1) {
+                const tokenContent = line.substring(startIdx + 10, endIdx);
+                const promptParam = tokenContent.match(/prompt\s*=\s*(.+)/);
+                const imagePrompt = promptParam ? promptParam[1].trim() : 'abstract digital art';
+                const encodedPrompt = encodeURIComponent(imagePrompt);
+                const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024&nologo=true&seed=${Date.now()}`;
+                
+                return (
+                  <div key={lineIdx} style={{ margin: '15px 0', borderRadius: '16px', overflow: 'hidden', border: '1px solid rgba(0,242,254,0.15)', boxShadow: '0 8px 32px rgba(0,0,0,0.4)', position: 'relative', background: 'rgba(6,6,18,0.8)' }}>
+                    <div style={{ position: 'absolute', top: '12px', left: '12px', zIndex: 10, background: 'rgba(0,0,0,0.7)', padding: '5px 14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.15)', fontSize: '0.8rem', fontWeight: 'bold', color: '#fff', fontFamily: 'Inter, sans-serif', backdropFilter: 'blur(8px)' }}>
+                      🎨 AI Generated Image
+                    </div>
+                    <div style={{ position: 'absolute', top: '12px', right: '12px', zIndex: 10, display: 'flex', gap: '8px' }}>
+                      <a href={imageUrl} target="_blank" rel="noopener noreferrer" download style={{ background: 'rgba(0,0,0,0.7)', padding: '5px 12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.15)', fontSize: '0.75rem', color: '#00f2fe', textDecoration: 'none', fontFamily: 'Inter, sans-serif', backdropFilter: 'blur(8px)' }}>
+                        ⬇ Download
+                      </a>
+                    </div>
+                    <img 
+                      src={imageUrl} 
+                      alt={imagePrompt} 
+                      style={{ width: '100%', maxHeight: '550px', objectFit: 'contain', display: 'block', background: '#0a0a1a' }}
+                      onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }}
+                    />
+                    <div style={{ display: 'none', alignItems: 'center', justifyContent: 'center', height: '300px', color: '#ff5555', fontSize: '0.9rem', flexDirection: 'column', gap: '10px' }}>
+                      <span>⚠️ Image generation failed. Try again.</span>
+                    </div>
+                    <div style={{ padding: '10px 15px', fontSize: '0.7rem', color: 'rgba(255,255,255,0.4)', borderTop: '1px solid rgba(255,255,255,0.05)', fontFamily: 'Inter, sans-serif' }}>
+                      Prompt: {imagePrompt}
+                    </div>
+                  </div>
+                );
+              }
+            }
+
             // Check headers
             if (line.startsWith('### ')) {
               return <h4 key={lineIdx} style={{ margin: '15px 0 5px' }}>{line.replace('### ', '')}</h4>;

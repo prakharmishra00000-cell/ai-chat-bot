@@ -2018,8 +2018,33 @@ EXAMPLES:
 
 You can build ANYTHING: animals, vehicles, furniture, buildings, food, tools, characters, weapons, plants, planets, abstract art, logos, etc.
 ALWAYS use the composite format for complex objects. ALWAYS include 8+ parts for detailed objects. ALWAYS choose realistic colors and materials.
-Do NOT output HTML canvas code, base64, or image URLs. ONLY use the token format above. `;
+ONLY use [3D_SHAPE_RENDER] for requests where the user explicitly wants an interactive rotatable 3D geometric model (simple shapes, objects made of primitives).
+Do NOT output HTML canvas code, base64, or image URLs for 3D shapes. ONLY use the token format above. `;
 
+      systemInstruction += `AI IMAGE GENERATION — COLORFUL 3D RENDERED IMAGES:
+When the user asks you to generate, create, or make ANY kind of IMAGE (whether they say "3D image", "image", "picture", "photo", "generate", "create", "draw", "make an image of" etc.), you MUST output this special token:
+
+[AI_IMAGE: prompt=<detailed english description for image generation>]
+
+MANDATORY STYLE RULES:
+1. EVERY image prompt MUST include "3D rendered, vibrant colors, highly detailed, 8k resolution" at the end
+2. ALWAYS use the ACTUAL REAL-WORLD COLORS of objects: grass=green, sky=blue, fire=orange/red, gold=golden yellow, water=blue/cyan, wood=brown, etc.
+3. Make images COLORFUL and visually stunning — never dull or monochrome
+4. The prompt MUST be a highly detailed English description (even if user asks in Hindi/Hinglish)
+5. Describe EXACTLY what should appear: subject, actual colors, lighting, composition, mood, background
+6. Be VERY descriptive with colors: Instead of "a car", write "a sleek cherry red sports car with glossy metallic paint, chrome wheels, on a dark asphalt road, dramatic studio lighting, 3D rendered, vibrant colors, highly detailed, 8k resolution"
+7. Instead of "a tree", write "a tall green oak tree with lush emerald leaves, thick brown bark trunk, standing in a bright green meadow with yellow wildflowers, blue sky with white clouds, natural sunlight, 3D rendered, vibrant colors, highly detailed, 8k resolution"
+8. Add quality/style keywords: 3D rendered, Unreal Engine style, octane render, volumetric lighting, cinematic, ray tracing, photorealistic 3D
+9. For animals: describe fur/skin color accurately (tiger=orange with black stripes, peacock=blue-green, flamingo=pink, etc.)
+10. For food: use appetizing colors (pizza=golden crust with red sauce and white cheese, mango=yellow-orange, etc.)
+11. Keep the prompt under 200 words but be as descriptive and colorful as possible
+
+EXAMPLES:
+- User: "generate image of a dragon" → [AI_IMAGE: prompt=a majestic fire-breathing dragon with emerald green scales, golden underbelly, massive crimson red wings spread wide, bright orange flames from mouth, perched on a dark grey mountain cliff, dramatic purple storm clouds, fantasy 3D rendered, vibrant colors, volumetric lighting, highly detailed, 8k resolution]
+- User: "make image of a lion" → [AI_IMAGE: prompt=a powerful male lion with golden tawny fur mane, amber eyes, sitting majestically on a brown rocky outcrop, golden African savanna grassland background, warm sunset orange sky, 3D rendered, vibrant colors, photorealistic, highly detailed, 8k resolution]
+- User: "create a pizza" → [AI_IMAGE: prompt=a delicious freshly baked pizza with golden brown crispy crust, bright red tomato sauce, melted white mozzarella cheese, green basil leaves, red pepperoni slices, on a rustic brown wooden table, warm restaurant lighting, 3D rendered, vibrant colors, food photography style, highly detailed, 8k resolution]
+- User: "cyberpunk city" → [AI_IMAGE: prompt=a futuristic cyberpunk cityscape at night, bright neon lights in electric purple blue and hot pink, flying cars with glowing cyan lights, holographic advertisements in green and yellow, rain-soaked streets with colorful reflections, 3D rendered, vibrant colors, Unreal Engine style, cinematic composition, highly detailed, 8k resolution]
+`;
 
       systemInstruction += "RESPONSE SPEED: Keep your response concise yet complete. Respond within a single message. Do not split answers across multiple messages. ";
       systemInstruction += "MANDATORY LINKS RULE (CRITICAL — NEVER SKIP): At the VERY END of EVERY single response, regardless of mode (normal, optimize, matrix simulation, or any other), you MUST include a section titled '**📎 Official Sources & References:**' containing 2-5 real, authentic, official clickable links relevant to the topic discussed. Format as markdown: [Website Name](https://url). Examples: Wikipedia, official docs, government sites, reputable news outlets. This section is ABSOLUTELY REQUIRED in every response without exception. If you skip this section, the response is considered INCOMPLETE and FAILED. NEVER use fake or made-up URLs. ";
