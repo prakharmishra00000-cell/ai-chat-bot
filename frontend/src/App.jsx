@@ -7,7 +7,7 @@ import Legal from './components/Legal';
 import UpgradeModal from './components/UpgradeModal';
 import HelpSupport from './components/HelpSupport';
 import OwnerSecureLogin from './components/OwnerSecureLogin';
-import LocalDeploy from './components/LocalDeploy';
+
 import { AlertTriangle, X, Cpu, Zap } from 'lucide-react';
 const SpaceBackground = lazy(() => import('./components/SpaceBackground'));
 import './App.css';
@@ -324,7 +324,7 @@ function App() {
             setView('owner_login');
           }}
           onShowHelp={() => setView('help')}
-          onShowLocalDeploy={() => setView('local_deploy')}
+
         />
       )}
 
@@ -339,9 +339,7 @@ function App() {
         <HelpSupport currentUser={currentUser} onBack={() => setView('chat')} />
       )}
 
-      {view === 'local_deploy' && (
-        <LocalDeploy onBack={() => setView('chat')} />
-      )}
+
 
       {view === 'legal' && (
         <Legal type={legalType} onBack={() => setView(currentUser ? 'chat' : 'login')} />
