@@ -535,15 +535,15 @@ function initFirebase() {
       firebaseInitialized = true;
       console.log('[FIREBASE] Successfully connected to Realtime Database.');
 
-      // RACE: Try Firebase SDK AND ExtendsClass REST backup IN PARALLEL
-      // Whichever loads first with valid data wins — this handles Firebase WebSocket hanging on Render
+      // RACE: Try Firebase REST API AND ExtendsClass REST backup IN PARALLEL
+      // .get() uses REST internally (unlike .once('value') which uses WebSocket and hangs on Render)
       const dbRef = getDatabase().ref('/');
       
       const firebasePromise = new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => reject(new Error('Firebase SDK timed out (10s)')), 10000);
-        dbRef.once('value').then((snapshot) => {
+        const timeout = setTimeout(() => reject(new Error('Firebase REST timed out (10s)')), 10000);
+        dbRef.get().then((snapshot) => {
           clearTimeout(timeout);
-          resolve({ source: 'firebase', data: snapshot.val() });
+          resolve({ source: 'firebase-rest', data: snapshot.val() });
         }).catch((err) => {
           clearTimeout(timeout);
           reject(err);
@@ -557,11 +557,10 @@ function initFirebase() {
       
       // Use Promise.any — first successful source wins
       Promise.any([firebasePromise, extendsClassPromise]).then((result) => {
-        if (firebaseFirstLoadComplete) return; // Already loaded by another path
+        if (firebaseFirstLoadComplete) return;
         console.log(`[STARTUP] Cloud data loaded from: ${result.source.toUpperCase()}`);
         processFirebaseData(result.data);
       }).catch((err) => {
-        // ALL sources failed
         console.error('[STARTUP] All cloud data sources failed:', err.message || err);
         console.warn('[STARTUP] Using local data. Retries will continue in background...');
         firebaseFirstLoadComplete = true;
@@ -721,22 +720,22 @@ async function retryFirebaseLoad() {
     console.warn(`[CLOUD-BACKUP] Retry #${firebaseRetryCount} ExtendsClass fallback failed:`, e.message);
   }
 
-  // TRY 2: Firebase SDK (WebSocket) as secondary attempt
+  // TRY 2: Firebase REST API (.get() not WebSocket .once())
   if (firebaseFirstLoadComplete) return;
   
   const dbRef = getDatabase().ref('/');
   const retryTimeoutPromise = new Promise((_, reject) => {
-    setTimeout(() => reject(new Error(`Retry #${firebaseRetryCount} timed out after 15s`)), 15000);
+    setTimeout(() => reject(new Error(`Retry #${firebaseRetryCount} timed out after 10s`)), 10000);
   });
 
   Promise.race([
-    dbRef.once('value'),
+    dbRef.get(),
     retryTimeoutPromise
   ]).then((snapshot) => {
     if (firebaseFirstLoadComplete) return;
     const val = snapshot.val();
     processFirebaseData(val);
-    console.log(`[FIREBASE] Retry #${firebaseRetryCount} SUCCESS via Firebase SDK!`);
+    console.log(`[FIREBASE] Retry #${firebaseRetryCount} SUCCESS via REST API!`);
   }).catch((err) => {
     console.error(`[FIREBASE] Retry #${firebaseRetryCount} failed:`, err.message);
     if (firebaseRetryCount < FIREBASE_MAX_RETRIES) {
