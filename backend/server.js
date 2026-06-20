@@ -3714,6 +3714,48 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: "Internal Server Error" });
 });
 
+// IMAGE GENERATION PROXY ENDPOINT
+// Fetches AI-generated images server-side to avoid CORS issues
+app.get('/api/generate-image', async (req, res) => {
+  try {
+    const prompt = (req.query.prompt || 'colorful abstract 3D art').substring(0, 500);
+    const width = parseInt(req.query.width) || 1024;
+    const height = parseInt(req.query.height) || 1024;
+    const encoded = encodeURIComponent(prompt);
+
+    const providers = [
+      `https://image.pollinations.ai/prompt/${encoded}?width=${width}&height=${height}&nologo=true`,
+      `https://image.pollinations.ai/prompt/${encoded}?width=${width}&height=${height}&nologo=true&model=flux`,
+      `https://image.pollinations.ai/prompt/${encoded}?width=768&height=768&nologo=true`,
+    ];
+
+    let lastErr;
+    for (const url of providers) {
+      try {
+        const imgRes = await fetch(url, {
+          headers: { 'User-Agent': 'MatrixMindBot/1.0' },
+          timeout: 45000
+        });
+        if (imgRes.ok) {
+          const contentType = imgRes.headers.get('content-type') || 'image/jpeg';
+          res.setHeader('Content-Type', contentType);
+          res.setHeader('Cache-Control', 'public, max-age=3600');
+          res.setHeader('Access-Control-Allow-Origin', '*');
+          imgRes.body.pipe(res);
+          return;
+        }
+        lastErr = `HTTP ${imgRes.status}`;
+      } catch (e) {
+        lastErr = e.message;
+      }
+    }
+    res.status(502).json({ error: `Image generation failed: ${lastErr}` });
+  } catch (err) {
+    console.error('[IMAGE GEN]', err.message);
+    res.status(500).json({ error: 'Image generation error' });
+  }
+});
+
 // START EXPRESS SERVER
 app.listen(PORT, () => {
   console.log(`Super Advanced AI Bot Server running on http://localhost:${PORT}`);
