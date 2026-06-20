@@ -385,6 +385,87 @@ let globalDB = null;
 let firebaseInitialized = false;
 let firebaseFirstLoadComplete = false;
 
+// Shared helper: process Firebase cloud data snapshot into globalDB
+// Used by both initial load and retry mechanism
+function processFirebaseData(val) {
+  if (val) {
+    if (val._config) {
+      const currentConfig = readConfig() || {};
+      if (JSON.stringify(currentConfig) !== JSON.stringify({ ...currentConfig, ...val._config })) {
+        fs.writeFileSync(CONFIG_PATH, JSON.stringify({ ...currentConfig, ...val._config }, null, 2), 'utf8');
+      }
+      delete val._config;
+    }
+    
+    // CRITICAL: On cold start (Render ephemeral FS), local db.json is just hardcoded defaults.
+    // Cloud data should COMPLETELY OVERRIDE the local defaults (plans, users, limits, everything).
+    if (dbIsHardcodedSeed) {
+      console.log('[FIREBASE] Cold start detected. Using cloud data as source of truth (ignoring hardcoded defaults).');
+      if (!val.plans) val.plans = dbInitData.plans;
+      if (!val.featureNames) val.featureNames = dbInitData.featureNames;
+      if (!val.users) val.users = {};
+      if (!val.transactions) val.transactions = [];
+      if (!val.visits) val.visits = {};
+      if (!val.anonymousVisits) val.anonymousVisits = {};
+      if (!val.supportQueries) val.supportQueries = [];
+      if (!val.pendingApprovals) val.pendingApprovals = [];
+      dbIsHardcodedSeed = false;
+    } else {
+      // Normal operation: deep merge, Firebase takes precedence
+      const localDB = globalDB || readLocalDB();
+      
+      if (localDB.plans) {
+        if (!val.plans) val.plans = {};
+        Object.keys(localDB.plans).forEach(planKey => {
+          if (val.plans[planKey]) {
+            val.plans[planKey] = { ...localDB.plans[planKey], ...val.plans[planKey] };
+          } else {
+            val.plans[planKey] = localDB.plans[planKey];
+          }
+        });
+      }
+      
+      if (localDB.users) {
+        if (!val.users) val.users = {};
+        Object.keys(localDB.users).forEach(userKey => {
+          if (!val.users[userKey]) {
+            val.users[userKey] = localDB.users[userKey];
+          }
+        });
+      }
+      
+      if (localDB.featureNames) {
+        val.featureNames = val.featureNames 
+          ? { ...localDB.featureNames, ...val.featureNames }
+          : localDB.featureNames;
+      }
+
+      if (!val.transactions) val.transactions = localDB.transactions || [];
+      if (!val.visits) val.visits = localDB.visits || {};
+      if (!val.anonymousVisits) val.anonymousVisits = localDB.anonymousVisits || {};
+      if (!val.supportQueries) val.supportQueries = localDB.supportQueries || [];
+      if (!val.pendingApprovals) val.pendingApprovals = localDB.pendingApprovals || [];
+    }
+    
+    globalDB = val;
+    try {
+      fs.writeFileSync(DB_PATH, JSON.stringify(val, null, 2), 'utf8');
+    } catch (err) {
+      console.error('[FIREBASE] Failed to write local DB copy:', err.message);
+    }
+    console.log('[FIREBASE] Cloud data loaded successfully. Users:', Object.keys(val.users || {}).length, 
+      '| Plans:', Object.keys(val.plans || {}).join(', '));
+  } else {
+    // Firebase is empty — push local data as initial seed
+    if (!globalDB) globalDB = readLocalDB();
+    const initialPayload = { ...globalDB, _config: readConfig() || {} };
+    getDatabase().ref('/').set(initialPayload);
+    dbIsHardcodedSeed = false;
+    console.log('[FIREBASE] Cloud was empty. Pushed local data as initial seed.');
+  }
+  firebaseFirstLoadComplete = true;
+}
+
 function initFirebase() {
   if (firebaseInitialized) return;
   const config = readConfig();
@@ -423,98 +504,23 @@ function initFirebase() {
 
       // Load once from Firebase on startup to sync to local memory
       const dbRef = getDatabase().ref('/');
-      dbRef.once('value').then((snapshot) => {
+      
+      // CRITICAL: Wrap once() with a hard timeout using Promise.race
+      // Firebase's once('value') can silently hang forever on Render cold starts
+      const firebaseReadTimeout = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Firebase read timed out after 12 seconds')), 12000);
+      });
+      
+      Promise.race([
+        dbRef.once('value'),
+        firebaseReadTimeout
+      ]).then((snapshot) => {
         const val = snapshot.val();
-        if (val) {
-          if (val._config) {
-            const currentConfig = readConfig() || {};
-            // Only merge if there are changes to prevent infinite loop of writes
-            if (JSON.stringify(currentConfig) !== JSON.stringify({ ...currentConfig, ...val._config })) {
-              fs.writeFileSync(CONFIG_PATH, JSON.stringify({ ...currentConfig, ...val._config }, null, 2), 'utf8');
-            }
-            delete val._config; // Remove from DB object so it doesn't pollute globalDB
-          }
-          
-          // CRITICAL: On cold start (Render ephemeral FS), local db.json is just hardcoded defaults.
-          // In that case, Firebase cloud data should COMPLETELY OVERRIDE the local defaults.
-          // Only deep-merge when local data is real admin-configured data.
-          if (dbIsHardcodedSeed) {
-            // Cold start: Cloud data is the truth, use it directly
-            console.log('[FIREBASE] Cold start detected. Using cloud data as source of truth (ignoring hardcoded defaults).');
-            // Ensure schema completeness - add any missing fields from defaults
-            if (!val.plans) val.plans = dbInitData.plans;
-            if (!val.featureNames) val.featureNames = dbInitData.featureNames;
-            if (!val.users) val.users = {};
-            if (!val.transactions) val.transactions = [];
-            if (!val.visits) val.visits = {};
-            if (!val.anonymousVisits) val.anonymousVisits = {};
-            if (!val.supportQueries) val.supportQueries = [];
-            if (!val.pendingApprovals) val.pendingApprovals = [];
-            dbIsHardcodedSeed = false; // Only do this once
-          } else {
-            // Normal operation: deep merge to preserve local admin settings with Firebase as source of truth
-            const localDB = globalDB || readLocalDB();
-            
-            // Protect plans from getting wiped out if missing in Firebase (val.plans is undefined)
-            if (localDB.plans) {
-              if (!val.plans) val.plans = {};
-              Object.keys(localDB.plans).forEach(planKey => {
-                if (val.plans[planKey]) {
-                  // Firebase (val) takes precedence over local defaults (localDB)
-                  val.plans[planKey] = { ...localDB.plans[planKey], ...val.plans[planKey] };
-                } else {
-                  val.plans[planKey] = localDB.plans[planKey];
-                }
-              });
-            }
-            
-            // Protect users list
-            if (localDB.users) {
-              if (!val.users) val.users = {};
-              Object.keys(localDB.users).forEach(userKey => {
-                if (!val.users[userKey]) {
-                  val.users[userKey] = localDB.users[userKey];
-                }
-              });
-            }
-            
-            // Protect featureNames
-            if (localDB.featureNames) {
-              if (val.featureNames) {
-                val.featureNames = { ...localDB.featureNames, ...val.featureNames };
-              } else {
-                val.featureNames = localDB.featureNames;
-              }
-            }
-
-            // Protect other database schema arrays/objects from being deleted
-            if (!val.transactions) val.transactions = localDB.transactions || [];
-            if (!val.visits) val.visits = localDB.visits || {};
-            if (!val.anonymousVisits) val.anonymousVisits = localDB.anonymousVisits || {};
-            if (!val.supportQueries) val.supportQueries = localDB.supportQueries || [];
-            if (!val.pendingApprovals) val.pendingApprovals = localDB.pendingApprovals || [];
-          }
-          
-          globalDB = val;
-          try {
-            fs.writeFileSync(DB_PATH, JSON.stringify(val, null, 2), 'utf8');
-          } catch (err) {
-            console.error('[FIREBASE] Failed to write local DB copy:', err.message);
-          }
-          console.log('[FIREBASE] Cloud data loaded successfully. Users:', Object.keys(val.users || {}).length);
-        } else {
-          // If Firebase is empty, initialize it with the local db.json and config.json
-          if (!globalDB) globalDB = readLocalDB();
-          const initialPayload = { ...globalDB, _config: readConfig() || {} };
-          getDatabase().ref('/').set(initialPayload);
-          dbIsHardcodedSeed = false; // Disable hardcoded seed flag to enable writing updates to Firebase
-          console.log('[FIREBASE] Cloud was empty. Pushed local data as initial seed.');
-        }
-        firebaseFirstLoadComplete = true;
+        processFirebaseData(val);
       }).catch((err) => {
-        // CRITICAL: Always unblock requests even if Firebase read fails
-        console.error('[FIREBASE] Failed to load cloud data:', err.message);
-        console.warn('[FIREBASE] Proceeding with local data. Cloud sync will retry on next write.');
+        // CRITICAL: Always unblock requests even if Firebase read fails or times out
+        console.error('[FIREBASE] Initial load failed:', err.message);
+        console.warn('[FIREBASE] Will retry via retry mechanism. Using local data for now.');
         firebaseFirstLoadComplete = true;
       });
     } catch (e) {
@@ -658,55 +664,24 @@ function retryFirebaseLoad() {
   console.log(`[FIREBASE] Retry #${firebaseRetryCount}/${FIREBASE_MAX_RETRIES}: Attempting to load cloud data...`);
   
   const dbRef = getDatabase().ref('/');
-  const retryTimeout = setTimeout(() => {
-    console.warn(`[FIREBASE] Retry #${firebaseRetryCount} timed out after 15s.`);
+  const retryTimeoutPromise = new Promise((_, reject) => {
+    setTimeout(() => reject(new Error(`Retry #${firebaseRetryCount} timed out after 15s`)), 15000);
+  });
+
+  Promise.race([
+    dbRef.once('value'),
+    retryTimeoutPromise
+  ]).then((snapshot) => {
+    if (firebaseFirstLoadComplete) return; // Another path already loaded
+    const val = snapshot.val();
+    processFirebaseData(val);
+    console.log(`[FIREBASE] Retry #${firebaseRetryCount} SUCCESS!`);
+  }).catch((err) => {
+    console.error(`[FIREBASE] Retry #${firebaseRetryCount} failed:`, err.message);
     if (firebaseRetryCount < FIREBASE_MAX_RETRIES) {
       setTimeout(retryFirebaseLoad, FIREBASE_RETRY_INTERVAL);
     } else {
       console.error('[FIREBASE] All retries exhausted. Running with local data only.');
-    }
-  }, 15000);
-
-  dbRef.once('value').then((snapshot) => {
-    clearTimeout(retryTimeout);
-    if (firebaseFirstLoadComplete) return; // Another path already loaded
-    
-    const val = snapshot.val();
-    if (val) {
-      if (val._config) {
-        const currentConfig = readConfig() || {};
-        if (JSON.stringify(currentConfig) !== JSON.stringify({ ...currentConfig, ...val._config })) {
-          fs.writeFileSync(CONFIG_PATH, JSON.stringify({ ...currentConfig, ...val._config }, null, 2), 'utf8');
-        }
-        delete val._config;
-      }
-      
-      // Always use cloud data as truth on retry (we're in cold start state)
-      if (!val.plans) val.plans = dbInitData.plans;
-      if (!val.featureNames) val.featureNames = dbInitData.featureNames;
-      if (!val.users) val.users = {};
-      if (!val.transactions) val.transactions = [];
-      if (!val.visits) val.visits = {};
-      if (!val.anonymousVisits) val.anonymousVisits = {};
-      if (!val.supportQueries) val.supportQueries = [];
-      if (!val.pendingApprovals) val.pendingApprovals = [];
-      
-      globalDB = val;
-      dbIsHardcodedSeed = false;
-      firebaseFirstLoadComplete = true;
-      
-      try {
-        fs.writeFileSync(DB_PATH, JSON.stringify(val, null, 2), 'utf8');
-      } catch (err) {
-        console.error('[FIREBASE] Failed to write local DB copy:', err.message);
-      }
-      console.log(`[FIREBASE] Retry #${firebaseRetryCount} SUCCESS! Cloud data loaded. Users: ${Object.keys(val.users || {}).length}`);
-    }
-  }).catch((err) => {
-    clearTimeout(retryTimeout);
-    console.error(`[FIREBASE] Retry #${firebaseRetryCount} failed:`, err.message);
-    if (firebaseRetryCount < FIREBASE_MAX_RETRIES) {
-      setTimeout(retryFirebaseLoad, FIREBASE_RETRY_INTERVAL);
     }
   });
 }
