@@ -118,7 +118,7 @@ function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess, preFetche
 
       // Initialize Razorpay Options
       const options = {
-        key: configData.razorpayKeyId,
+        key: keyId,
         order_id: orderData.order.id,
         name: "MatrixMind Advanced AI",
         description: `Upgrade to ${plan.name} Plan`,
