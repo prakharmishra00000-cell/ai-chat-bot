@@ -991,10 +991,25 @@ app.post('/api/user/status', async (req, res) => {
   
   const user = getOrCreateUser(email);
   const db = readDB();
+  const isAdmin = email.trim().toLowerCase() === ADMIN_EMAIL;
+  
+  // Admin ALWAYS gets unlimited everything — never show "free" tier
+  if (isAdmin) {
+    return res.json({
+      email: user.email,
+      plan: 'premium',
+      promptsUsed: 0,
+      limit: -1,
+      expiry: null,
+      featureUsage: { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, interview: 0, workflow: 0, council: 0, leads: 0 },
+      featureLimits: { ppt: -1, mindmap: -1, matrix: -1, optimize: -1, masking: -1, interview: -1, workflow: -1, council: -1, leads: -1 },
+      isAdmin: true
+    });
+  }
+  
   const planInfo = db.plans && db.plans[user.plan];
   const userLimit = planInfo ? planInfo.prompts : (user.plan === 'free' ? 30 : 100);
   const featureLimits = planInfo?.featureLimits || { ppt: 3, mindmap: 5, matrix: 3, optimize: 3, masking: 5, interview: 3, workflow: 1, council: 1, leads: -1 };
-  const isAdmin = email === ADMIN_EMAIL;
   
   res.json({
     email: user.email,
@@ -1002,8 +1017,8 @@ app.post('/api/user/status', async (req, res) => {
     promptsUsed: user.promptsUsed,
     limit: userLimit,
     expiry: user.planExpiry,
-    featureUsage: isAdmin ? { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, interview: 0, workflow: 0, council: 0, leads: 0 } : (user.featureUsage || { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, interview: 0, workflow: 0, council: 0, leads: 0 }),
-    featureLimits: isAdmin ? { ppt: -1, mindmap: -1, matrix: -1, optimize: -1, masking: -1, interview: -1, workflow: -1, council: -1, leads: -1 } : featureLimits
+    featureUsage: user.featureUsage || { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, interview: 0, workflow: 0, council: 0, leads: 0 },
+    featureLimits: featureLimits
   });
 });
 
