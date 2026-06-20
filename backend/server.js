@@ -802,10 +802,7 @@ app.use(async (req, res, next) => {
 
 // Track visits (middleware) — MUST wait for Firebase to prevent stale data overwriting cloud
 app.use(async (req, res, next) => {
-  // Simple session tracker for unique pageviews
   if (req.path === '/' || req.path === '/index.html') {
-    // CRITICAL: Wait for Firebase to load before touching globalDB
-    // Without this, stale hardcoded defaults can overwrite real cloud data
     await waitForFirebase();
 
     const today = new Date().toISOString().split('T')[0];
@@ -813,28 +810,8 @@ app.use(async (req, res, next) => {
     db.visits = db.visits || {};
     db.visits[today] = (db.visits[today] || 0) + 1;
     
-    // Update global database instantly in memory
-    globalDB = db;
-
-    // Persist to disk and sync to cloud asynchronously to avoid blocking user response
-    setTimeout(() => {
-      try {
-        // CRITICAL: Use globalDB (latest) instead of captured `db` to prevent
-        // pushing stale data that was captured before Firebase finished loading
-        fs.writeFile(DB_PATH, JSON.stringify(globalDB, null, 2), 'utf8', (err) => {
-          if (err) console.error('[VISITS] Async disk write error:', err.message);
-        });
-        
-        if (firebaseInitialized && firebaseFirstLoadComplete && !dbIsHardcodedSeed) {
-          const config = readConfig() || {};
-          getDatabase().ref('/').set({ ...globalDB, _config: config }).catch(e => {
-            console.error('[VISITS] Async Firebase sync failed:', e.message);
-          });
-        }
-      } catch (e) {
-        console.error('[VISITS] Async persistence failure:', e.message);
-      }
-    }, 500); // Delay to ensure Firebase has fully synced before any push
+    // Use writeDB which has all safety guards (dbIsHardcodedSeed check, debouncing, etc.)
+    writeDB(db);
   }
   next();
 });
