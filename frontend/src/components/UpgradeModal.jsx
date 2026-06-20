@@ -502,28 +502,13 @@ function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess, preFetche
                 </div>
 
                 <ul className="plan-features">
-                  {/* Render dynamic features if featureLimits exists, else fallback to hardcoded features array */}
-                  {(() => {
-                    let displayFeatures = plan.features || [];
-                    if (plan.featureLimits && Object.keys(featureNames).length > 0) {
-                      const baseFeatures = displayFeatures.filter(f => !f.includes('/day') && !f.includes('Unlimited') && !f.includes('Masking') && !f.includes('Workflow') && !f.includes('Council') && !f.includes('Interview') && !f.includes('PPT') && !f.includes('Mind Map') && !f.includes('Matrix') && !f.includes('Optimization'));
-                      const dynamicFeatures = [];
-                      Object.keys(plan.featureLimits).forEach(key => {
-                        const limit = plan.featureLimits[key];
-                        const name = featureNames[key] || key;
-                        if (limit > 0) dynamicFeatures.push(`${name} (${limit}/day)`);
-                        else if (Number(limit) === -1) dynamicFeatures.push(`${name} (Unlimited)`);
-                      });
-                      displayFeatures = [...baseFeatures, ...dynamicFeatures];
-                    }
-                    
-                    return displayFeatures.map((feature, idx) => (
-                      <li key={idx}>
-                        <Check size={16} color="var(--accent-cyan)" />
-                        <span>{feature}</span>
-                      </li>
-                    ));
-                  })()}
+                  {/* Show all features exactly as saved by admin */}
+                  {(plan.features || []).map((feature, idx) => (
+                    <li key={idx}>
+                      <Check size={16} color="var(--accent-cyan)" />
+                      <span>{feature}</span>
+                    </li>
+                  ))}
                 </ul>
 
                 {isActive && (
