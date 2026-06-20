@@ -11,6 +11,7 @@ import WorkflowPanel from './WorkflowPanel';
 
 const MindMap3D = React.lazy(() => import('./MindMap3D'));
 const Interactive3DObject = React.lazy(() => import('./Interactive3DObject'));
+const AnimatedScene3D = React.lazy(() => import('./AnimatedScenes'));
 
 // AI Image Renderer with loading state and retry across multiple providers
 function AIImageRenderer({ prompt }) {
@@ -1041,6 +1042,24 @@ function Dashboard({
                 const imagePrompt = promptParam ? promptParam[1].trim() : 'abstract colorful digital art 3D rendered';
                 
                 return <AIImageRenderer key={lineIdx} prompt={imagePrompt} />;
+              }
+            }
+
+            // 3D Animated Scene renderer
+            if (line.includes('[3D_ANIMATED:')) {
+              const startIdx = line.indexOf('[3D_ANIMATED:');
+              const endIdx = line.indexOf(']', startIdx);
+              if (endIdx !== -1) {
+                const tokenContent = line.substring(startIdx + 13, endIdx);
+                const sceneParam = tokenContent.match(/scene\s*=\s*([^,;\]]+)/);
+                const labelParam = tokenContent.match(/label\s*=\s*([^;\]]+)/);
+                const scene = sceneParam ? sceneParam[1].trim() : 'dragon';
+                const label = labelParam ? labelParam[1].trim() : null;
+                return (
+                  <React.Suspense key={lineIdx} fallback={<div style={{padding:'15px',color:'#00f2fe',textAlign:'center',background:'rgba(0,0,0,0.2)',borderRadius:'8px',border:'1px solid rgba(255,255,255,0.05)',fontSize:'0.85rem'}}>Loading 3D Scene...</div>}>
+                    <AnimatedScene3D scene={scene} label={label} />
+                  </React.Suspense>
+                );
               }
             }
 

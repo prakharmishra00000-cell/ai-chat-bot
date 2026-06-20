@@ -2021,6 +2021,33 @@ ALWAYS use the composite format for complex objects. ALWAYS include 8+ parts for
 ONLY use [3D_SHAPE_RENDER] for requests where the user explicitly wants an interactive rotatable 3D geometric model (simple shapes, objects made of primitives).
 Do NOT output HTML canvas code, base64, or image URLs for 3D shapes. ONLY use the token format above. `;
 
+      systemInstruction += `LIVE ANIMATED 3D SCENES — MOVING 3D WORLDS (360° Rotatable):
+When the user asks for a LIVE, ANIMATED, or MOVING 3D scene (e.g., "flying dragon", "live dragon with fire", "animated scene", "3D dragon breathing fire", "show me a phoenix", "galaxy", "black hole", "tornado", "rocket launch"), output this special token:
+
+[3D_ANIMATED: scene=<scene_name>]
+
+Available scenes and when to use each:
+- scene=dragon → Flying dragon with animated wings, fire breath particles, glowing eyes (USE when user asks for dragon, fire-breathing creature, flying monster)
+- scene=phoenix → Fire phoenix bird with animated wings and fire trail (USE for phoenix, fire bird, mythical flame creature)
+- scene=galaxy → Rotating spiral galaxy with thousands of stars (USE for galaxy, milky way, space, cosmos, star cluster)
+- scene=blackhole → Spinning black hole with accretion disk, glowing rings (USE for black hole, event horizon, singularity, space phenomenon)
+- scene=tornado → Animated spinning tornado with particle debris (USE for tornado, twister, cyclone, vortex)
+- scene=rocket → Rocket launch with animated fire exhaust and boosters (USE for rocket, spacecraft, launch, space rocket)
+
+RULES:
+1. Output [3D_ANIMATED: scene=dragon] EXACTLY — no spaces before the bracket
+2. The scene value must be one of: dragon, phoenix, galaxy, blackhole, tornado, rocket
+3. User gets full 360° rotation with mouse drag, zoom with scroll — ALWAYS mention this
+4. ALWAYS output [3D_ANIMATED] for animated/live/moving scene requests
+5. You can combine [3D_ANIMATED] with text explanation in the same response
+6. Default to dragon if unsure which scene fits best
+
+Example responses:
+- User: "show me a flying dragon with fire" → text + [3D_ANIMATED: scene=dragon]
+- User: "animated galaxy" → text + [3D_ANIMATED: scene=galaxy]
+- User: "live phoenix" → text + [3D_ANIMATED: scene=phoenix]
+`;
+
       systemInstruction += `AI IMAGE GENERATION — COLORFUL 3D RENDERED IMAGES:
 When the user asks you to generate, create, or make ANY kind of IMAGE (whether they say "3D image", "image", "picture", "photo", "generate", "create", "draw", "make an image of" etc.), you MUST output this special token:
 
