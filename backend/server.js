@@ -340,44 +340,72 @@ const https = require('https');
 const CLOUD_DB_HOST = 'extendsclass.com';
 const CLOUD_DB_PATH = '/api/json-storage/bin/efdebab';
 
+let cloudSyncTimeout = null;
 function syncDBToCloud(data) {
-  try {
-    const payload = JSON.stringify(data);
-    const options = {
-      hostname: CLOUD_DB_HOST,
-      path: CLOUD_DB_PATH,
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'Content-Length': Buffer.byteLength(payload)
-      }
-    };
-    const req = https.request(options, (res) => { res.on('data', () => {}); });
-    req.on('error', (e) => console.error('Cloud Sync Error:', e.message));
-    req.write(payload);
-    req.end();
-  } catch (e) {
-    console.error("Cloud DB Sync failed:", e);
-  }
+  // Debounce cloud backup sync (5 seconds)
+  if (cloudSyncTimeout) return;
+  cloudSyncTimeout = setTimeout(() => {
+    cloudSyncTimeout = null;
+    try {
+      const payload = JSON.stringify(data);
+      const options = {
+        hostname: CLOUD_DB_HOST,
+        path: CLOUD_DB_PATH,
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(payload)
+        }
+      };
+      const req = https.request(options, (res) => { res.on('data', () => {}); });
+      req.on('error', (e) => console.error('[CLOUD-BACKUP] Sync Error:', e.message));
+      req.write(payload);
+      req.end();
+      console.log('[CLOUD-BACKUP] Synced to ExtendsClass backup.');
+    } catch (e) {
+      console.error('[CLOUD-BACKUP] Sync failed:', e.message);
+    }
+  }, 5000);
 }
 
-function fetchDBFromCloud(callback) {
-  try {
-    const req = https.get(`https://${CLOUD_DB_HOST}${CLOUD_DB_PATH}`, (res) => {
-      let body = '';
-      res.on('data', chunk => body += chunk);
-      res.on('end', () => {
-        try {
-          const data = JSON.parse(body);
-          if (data && data.plans) callback(data);
-          else callback(null);
-        } catch(e) { callback(null); }
+// Promise-based fetch from ExtendsClass cloud backup
+function fetchDBFromCloud() {
+  return new Promise((resolve) => {
+    try {
+      const req = https.get(`https://${CLOUD_DB_HOST}${CLOUD_DB_PATH}`, (res) => {
+        let body = '';
+        res.on('data', chunk => body += chunk);
+        res.on('end', () => {
+          try {
+            const data = JSON.parse(body);
+            if (data && data.plans && data.users) {
+              console.log('[CLOUD-BACKUP] Successfully fetched backup data. Users:', Object.keys(data.users || {}).length);
+              resolve(data);
+            } else {
+              console.warn('[CLOUD-BACKUP] Backup data is empty or invalid.');
+              resolve(null);
+            }
+          } catch(e) {
+            console.error('[CLOUD-BACKUP] Parse error:', e.message);
+            resolve(null);
+          }
+        });
       });
-    });
-    req.on('error', () => callback(null));
-  } catch(e) {
-    callback(null);
-  }
+      req.on('error', (e) => {
+        console.error('[CLOUD-BACKUP] Fetch error:', e.message);
+        resolve(null);
+      });
+      // Hard timeout for the HTTP request
+      req.setTimeout(10000, () => {
+        console.warn('[CLOUD-BACKUP] Fetch timed out after 10s.');
+        req.destroy();
+        resolve(null);
+      });
+    } catch(e) {
+      console.error('[CLOUD-BACKUP] Fetch failed:', e.message);
+      resolve(null);
+    }
+  });
 }
 
 // --- FIREBASE INTEGRATION & MEMORY DB ---
@@ -464,6 +492,11 @@ function processFirebaseData(val) {
     console.log('[FIREBASE] Cloud was empty. Pushed local data as initial seed.');
   }
   firebaseFirstLoadComplete = true;
+  
+  // Keep ExtendsClass backup in sync whenever we successfully load cloud data
+  if (globalDB && !dbIsHardcodedSeed) {
+    syncDBToCloud(globalDB);
+  }
 }
 
 function initFirebase() {
@@ -517,10 +550,24 @@ function initFirebase() {
       ]).then((snapshot) => {
         const val = snapshot.val();
         processFirebaseData(val);
-      }).catch((err) => {
-        // CRITICAL: Always unblock requests even if Firebase read fails or times out
+      }).catch(async (err) => {
+        // CRITICAL: Firebase SDK failed — try ExtendsClass REST backup immediately
         console.error('[FIREBASE] Initial load failed:', err.message);
-        console.warn('[FIREBASE] Will retry via retry mechanism. Using local data for now.');
+        console.log('[FIREBASE] Attempting ExtendsClass cloud backup as fallback...');
+        
+        try {
+          const backupData = await fetchDBFromCloud();
+          if (backupData) {
+            console.log('[CLOUD-BACKUP] Using backup data as source of truth!');
+            processFirebaseData(backupData);
+            return; // processFirebaseData sets firebaseFirstLoadComplete = true
+          }
+        } catch (backupErr) {
+          console.error('[CLOUD-BACKUP] Fallback also failed:', backupErr.message);
+        }
+        
+        // Both Firebase AND ExtendsClass failed — unblock with local data
+        console.warn('[FIREBASE] All sources failed. Using local data for now. Retries will continue...');
         firebaseFirstLoadComplete = true;
       });
     } catch (e) {
@@ -594,10 +641,13 @@ function writeDB(data) {
     }, 100); // 100ms debounce
   }
 
-  // CRITICAL: NEVER push hardcoded seed data to Firebase.
+  // CRITICAL: NEVER push hardcoded seed data to Firebase or cloud backup.
   if (dbIsHardcodedSeed) {
     return true;
   }
+
+  // Always sync to ExtendsClass cloud backup (debounced, reliable REST API)
+  syncDBToCloud(data);
 
   if (firebaseInitialized) {
     if (!firebaseFirstLoadComplete) {
@@ -657,11 +707,26 @@ let firebaseRetryCount = 0;
 const FIREBASE_MAX_RETRIES = 5;
 const FIREBASE_RETRY_INTERVAL = 30000; // 30 seconds
 
-function retryFirebaseLoad() {
+async function retryFirebaseLoad() {
   if (firebaseFirstLoadComplete || !firebaseInitialized || firebaseRetryCount >= FIREBASE_MAX_RETRIES) return;
   
   firebaseRetryCount++;
   console.log(`[FIREBASE] Retry #${firebaseRetryCount}/${FIREBASE_MAX_RETRIES}: Attempting to load cloud data...`);
+  
+  // TRY 1: ExtendsClass REST backup (faster, more reliable than WebSocket)
+  try {
+    const backupData = await fetchDBFromCloud();
+    if (backupData && !firebaseFirstLoadComplete) {
+      console.log(`[CLOUD-BACKUP] Retry #${firebaseRetryCount} loaded from ExtendsClass backup!`);
+      processFirebaseData(backupData);
+      return;
+    }
+  } catch (e) {
+    console.warn(`[CLOUD-BACKUP] Retry #${firebaseRetryCount} ExtendsClass fallback failed:`, e.message);
+  }
+
+  // TRY 2: Firebase SDK (WebSocket) as secondary attempt
+  if (firebaseFirstLoadComplete) return;
   
   const dbRef = getDatabase().ref('/');
   const retryTimeoutPromise = new Promise((_, reject) => {
@@ -672,10 +737,10 @@ function retryFirebaseLoad() {
     dbRef.once('value'),
     retryTimeoutPromise
   ]).then((snapshot) => {
-    if (firebaseFirstLoadComplete) return; // Another path already loaded
+    if (firebaseFirstLoadComplete) return;
     const val = snapshot.val();
     processFirebaseData(val);
-    console.log(`[FIREBASE] Retry #${firebaseRetryCount} SUCCESS!`);
+    console.log(`[FIREBASE] Retry #${firebaseRetryCount} SUCCESS via Firebase SDK!`);
   }).catch((err) => {
     console.error(`[FIREBASE] Retry #${firebaseRetryCount} failed:`, err.message);
     if (firebaseRetryCount < FIREBASE_MAX_RETRIES) {
