@@ -535,39 +535,35 @@ function initFirebase() {
       firebaseInitialized = true;
       console.log('[FIREBASE] Successfully connected to Realtime Database.');
 
-      // Load once from Firebase on startup to sync to local memory
+      // RACE: Try Firebase SDK AND ExtendsClass REST backup IN PARALLEL
+      // Whichever loads first with valid data wins — this handles Firebase WebSocket hanging on Render
       const dbRef = getDatabase().ref('/');
       
-      // CRITICAL: Wrap once() with a hard timeout using Promise.race
-      // Firebase's once('value') can silently hang forever on Render cold starts
-      const firebaseReadTimeout = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Firebase read timed out after 12 seconds')), 12000);
+      const firebasePromise = new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => reject(new Error('Firebase SDK timed out (10s)')), 10000);
+        dbRef.once('value').then((snapshot) => {
+          clearTimeout(timeout);
+          resolve({ source: 'firebase', data: snapshot.val() });
+        }).catch((err) => {
+          clearTimeout(timeout);
+          reject(err);
+        });
       });
       
-      Promise.race([
-        dbRef.once('value'),
-        firebaseReadTimeout
-      ]).then((snapshot) => {
-        const val = snapshot.val();
-        processFirebaseData(val);
-      }).catch(async (err) => {
-        // CRITICAL: Firebase SDK failed — try ExtendsClass REST backup immediately
-        console.error('[FIREBASE] Initial load failed:', err.message);
-        console.log('[FIREBASE] Attempting ExtendsClass cloud backup as fallback...');
-        
-        try {
-          const backupData = await fetchDBFromCloud();
-          if (backupData) {
-            console.log('[CLOUD-BACKUP] Using backup data as source of truth!');
-            processFirebaseData(backupData);
-            return; // processFirebaseData sets firebaseFirstLoadComplete = true
-          }
-        } catch (backupErr) {
-          console.error('[CLOUD-BACKUP] Fallback also failed:', backupErr.message);
-        }
-        
-        // Both Firebase AND ExtendsClass failed — unblock with local data
-        console.warn('[FIREBASE] All sources failed. Using local data for now. Retries will continue...');
+      const extendsClassPromise = fetchDBFromCloud().then(data => {
+        if (data) return { source: 'extendsclass', data };
+        throw new Error('ExtendsClass returned no data');
+      });
+      
+      // Use Promise.any — first successful source wins
+      Promise.any([firebasePromise, extendsClassPromise]).then((result) => {
+        if (firebaseFirstLoadComplete) return; // Already loaded by another path
+        console.log(`[STARTUP] Cloud data loaded from: ${result.source.toUpperCase()}`);
+        processFirebaseData(result.data);
+      }).catch((err) => {
+        // ALL sources failed
+        console.error('[STARTUP] All cloud data sources failed:', err.message || err);
+        console.warn('[STARTUP] Using local data. Retries will continue in background...');
         firebaseFirstLoadComplete = true;
       });
     } catch (e) {
@@ -761,25 +757,23 @@ setTimeout(() => {
 
 // Helper to prevent race conditions on cold start
 // This BLOCKS until Firebase cloud data has been loaded into globalDB
-let firebaseWaitTimedOut = false; // Prevents flooding logs with repeated timeout messages
+let firebaseWaitTimedOut = false;
 async function waitForFirebase() {
-  // If Firebase hasn't initialized yet, try now
   if (!firebaseInitialized) {
     initFirebase();
   }
-  // Wait for the first cloud data load (up to 15 seconds)
+  // Wait for cloud data load (up to 10 seconds — must be fast enough for Render health checks)
   if (firebaseInitialized && !firebaseFirstLoadComplete) {
     let attempts = 0;
-    while (!firebaseFirstLoadComplete && attempts < 150) { // wait up to 15s
+    while (!firebaseFirstLoadComplete && attempts < 100) { // wait up to 10s
       await new Promise(r => setTimeout(r, 100));
       attempts++;
     }
     if (!firebaseFirstLoadComplete) {
       if (!firebaseWaitTimedOut) {
-        console.warn('[FIREBASE] Timed out waiting for initial cloud load (15s). Using local data for all subsequent requests.');
+        console.warn('[STARTUP] Timed out waiting for cloud data (10s). Unblocking all requests.');
         firebaseWaitTimedOut = true;
       }
-      // CRITICAL: Unblock all future requests instead of letting them all individually wait & timeout
       firebaseFirstLoadComplete = true;
     }
   }
