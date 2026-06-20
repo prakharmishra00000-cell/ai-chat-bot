@@ -145,11 +145,12 @@ let dbInitData = {
       name: "Free",
       price: 0,
       prompts: 30,
-      featureLimits: { ppt: 3, mindmap: 5, matrix: 3, optimize: 3, masking: 5, workflow: 1, council: 1, leads: -1, threed: 3 },
+      featureLimits: { ppt: 3, mindmap: 5, matrix: 3, optimize: 3, masking: 5, interview: 3, workflow: 1, council: 1, leads: -1 },
       features: [
         "30 daily prompts limit",
         "All features unlocked (Trial)",
         "Data Masking (5/day)",
+        "Interview Mode (3/day)",
         "Workflow Sequencer (1/day)",
         "Council Room (1/day)",
         "PPT Generator (3/day)",
@@ -170,11 +171,12 @@ let dbInitData = {
       duration: "1 Month",
       days: 30,
       prompts: 100,
-      featureLimits: { ppt: 5, mindmap: 8, matrix: 5, optimize: 5, masking: 20, workflow: 0, council: 0, leads: 10, threed: 5 },
+      featureLimits: { ppt: 5, mindmap: 8, matrix: 5, optimize: 5, masking: 20, interview: 10, workflow: 0, council: 0 },
       features: [
         "100 daily prompts limit",
         "Standard processing priority",
         "Data Masking (20/day)",
+        "Interview Mode (10/day)",
         "PPT Generator (5/day)",
         "Mind Maps (8/day)",
         "Matrix Simulation (5/day)",
@@ -192,11 +194,12 @@ let dbInitData = {
       duration: "3 Months",
       days: 90,
       prompts: 150,
-      featureLimits: { ppt: 7, mindmap: 10, matrix: 10, optimize: 10, masking: 50, workflow: 10, council: 0, leads: 50, threed: 10 },
+      featureLimits: { ppt: 7, mindmap: 10, matrix: 10, optimize: 10, masking: 50, interview: 30, workflow: 10, council: 0 },
       features: [
         "150 daily prompts limit",
         "Better processing priority",
         "Data Masking (50/day)",
+        "Interview Mode (30/day)",
         "Workflow Sequencer (10/day)",
         "PPT Generator (7/day)",
         "Mind Maps (10/day)",
@@ -216,11 +219,12 @@ let dbInitData = {
       duration: "1 Year",
       days: 365,
       prompts: 200,
-      featureLimits: { ppt: 10, mindmap: 15, matrix: -1, optimize: -1, masking: -1, workflow: -1, council: -1, leads: -1, threed: -1 },
+      featureLimits: { ppt: 10, mindmap: 15, matrix: -1, optimize: -1, masking: -1, interview: -1, workflow: -1, council: -1 },
       features: [
         "200 daily prompts limit",
         "Maximum processing priority",
         "Data Masking (Unlimited)",
+        "Interview Mode (Unlimited)",
         "Workflow Sequencer (Unlimited)",
         "Council Room (Unlimited)",
         "PPT Generator (10/day)",
@@ -244,10 +248,10 @@ let dbInitData = {
     matrix: "Matrix Simulation",
     optimize: "Prompt Optimization",
     masking: "Data Masking",
-    workflow: "Workflow Sequences",
-    council: "AI Council Debates",
-    leads: "Lead Generation",
-    threed: "3D Shape Generator"
+    interview: "Interview Mode",
+    workflow: "Workflow Sequencer",
+    council: "Council Room",
+    leads: "Lead Extractor"
   }
 };
 
@@ -413,10 +417,12 @@ let globalDB = null;
 let firebaseInitialized = false;
 let firebaseFirstLoadComplete = false;
 
-// Shared helper: process Firebase cloud data snapshot into globalDB
-// Used by both initial load and retry mechanism
+// Shared helper: process cloud data snapshot into globalDB
+// RULE: Cloud data is THE SINGLE SOURCE OF TRUTH. Never merge with hardcoded defaults.
+// Admin-configured plans/limits in the cloud must NEVER be overwritten by dbInitData.
 function processFirebaseData(val) {
   if (val) {
+    // Extract config if bundled
     if (val._config) {
       const currentConfig = readConfig() || {};
       if (JSON.stringify(currentConfig) !== JSON.stringify({ ...currentConfig, ...val._config })) {
@@ -425,64 +431,38 @@ function processFirebaseData(val) {
       delete val._config;
     }
     
-    // CRITICAL: On cold start (Render ephemeral FS), local db.json is just hardcoded defaults.
-    // Cloud data should COMPLETELY OVERRIDE the local defaults (plans, users, limits, everything).
-    if (dbIsHardcodedSeed) {
-      console.log('[FIREBASE] Cold start detected. Using cloud data as source of truth (ignoring hardcoded defaults).');
-      if (!val.plans) val.plans = dbInitData.plans;
-      if (!val.featureNames) val.featureNames = dbInitData.featureNames;
-      if (!val.users) val.users = {};
-      if (!val.transactions) val.transactions = [];
-      if (!val.visits) val.visits = {};
-      if (!val.anonymousVisits) val.anonymousVisits = {};
-      if (!val.supportQueries) val.supportQueries = [];
-      if (!val.pendingApprovals) val.pendingApprovals = [];
-      dbIsHardcodedSeed = false;
-    } else {
-      // Normal operation: deep merge, Firebase takes precedence
-      const localDB = globalDB || readLocalDB();
-      
-      if (localDB.plans) {
-        if (!val.plans) val.plans = {};
-        Object.keys(localDB.plans).forEach(planKey => {
-          if (val.plans[planKey]) {
-            val.plans[planKey] = { ...localDB.plans[planKey], ...val.plans[planKey] };
-          } else {
-            val.plans[planKey] = localDB.plans[planKey];
-          }
-        });
-      }
-      
-      if (localDB.users) {
-        if (!val.users) val.users = {};
-        Object.keys(localDB.users).forEach(userKey => {
-          if (!val.users[userKey]) {
-            val.users[userKey] = localDB.users[userKey];
-          }
-        });
-      }
-      
-      if (localDB.featureNames) {
-        val.featureNames = val.featureNames 
-          ? { ...localDB.featureNames, ...val.featureNames }
-          : localDB.featureNames;
-      }
-
-      if (!val.transactions) val.transactions = localDB.transactions || [];
-      if (!val.visits) val.visits = localDB.visits || {};
-      if (!val.anonymousVisits) val.anonymousVisits = localDB.anonymousVisits || {};
-      if (!val.supportQueries) val.supportQueries = localDB.supportQueries || [];
-      if (!val.pendingApprovals) val.pendingApprovals = localDB.pendingApprovals || [];
+    // Ensure structural keys exist (empty defaults only — NEVER override with hardcoded plan data)
+    if (!val.users) val.users = {};
+    if (!val.transactions) val.transactions = [];
+    if (!val.visits) val.visits = {};
+    if (!val.anonymousVisits) val.anonymousVisits = {};
+    if (!val.supportQueries) val.supportQueries = [];
+    if (!val.pendingApprovals) val.pendingApprovals = [];
+    
+    // Plans: ONLY use hardcoded defaults if cloud has NO plans at all
+    // If cloud has plans, use them AS-IS (admin configured them)
+    if (!val.plans || Object.keys(val.plans).length === 0) {
+      console.warn('[FIREBASE] Cloud has no plans — using hardcoded defaults as seed.');
+      val.plans = JSON.parse(JSON.stringify(dbInitData.plans)); // deep copy
     }
     
+    // FeatureNames: same logic
+    if (!val.featureNames || Object.keys(val.featureNames).length === 0) {
+      val.featureNames = JSON.parse(JSON.stringify(dbInitData.featureNames));
+    }
+    
+    // DONE — cloud data is now the global DB
     globalDB = val;
+    dbIsHardcodedSeed = false;
+    
     try {
       fs.writeFileSync(DB_PATH, JSON.stringify(val, null, 2), 'utf8');
     } catch (err) {
       console.error('[FIREBASE] Failed to write local DB copy:', err.message);
     }
-    console.log('[FIREBASE] Cloud data loaded successfully. Users:', Object.keys(val.users || {}).length, 
-      '| Plans:', Object.keys(val.plans || {}).join(', '));
+    console.log('[FIREBASE] Cloud data loaded. Users:', Object.keys(val.users || {}).length, 
+      '| Plans:', Object.keys(val.plans || {}).join(', '),
+      '| Free prompts:', val.plans?.free?.prompts || 'N/A');
   } else {
     // Firebase is empty — push local data as initial seed
     if (!globalDB) globalDB = readLocalDB();
@@ -493,7 +473,7 @@ function processFirebaseData(val) {
   }
   firebaseFirstLoadComplete = true;
   
-  // Keep ExtendsClass backup in sync whenever we successfully load cloud data
+  // Keep ExtendsClass backup in sync
   if (globalDB && !dbIsHardcodedSeed) {
     syncDBToCloud(globalDB);
   }
@@ -574,12 +554,9 @@ function initFirebase() {
 function readLocalDB() {
   try {
     const data = JSON.parse(fs.readFileSync(DB_PATH, 'utf8'));
-    if (!data.plans || Object.keys(data.plans).length === 0) {
-      data.plans = dbInitData.plans;
-    }
-    if (!data.featureNames || Object.keys(data.featureNames).length === 0) {
-      data.featureNames = dbInitData.featureNames;
-    }
+    // Never inject hardcoded plan defaults — cloud data is source of truth
+    if (!data.plans) data.plans = {};
+    if (!data.featureNames) data.featureNames = {};
     return data;
   } catch (e) {
     return { 
@@ -589,8 +566,8 @@ function readLocalDB() {
       anonymousVisits: {}, 
       supportQueries: [], 
       pendingApprovals: [], 
-      plans: dbInitData.plans,
-      featureNames: dbInitData.featureNames
+      plans: {},
+      featureNames: {}
     };
   }
 }
@@ -606,12 +583,9 @@ function readDB() {
   if (!globalDB.anonymousVisits) globalDB.anonymousVisits = {};
   if (!globalDB.supportQueries) globalDB.supportQueries = [];
   if (!globalDB.pendingApprovals) globalDB.pendingApprovals = [];
-  if (!globalDB.plans || Object.keys(globalDB.plans).length === 0) {
-    globalDB.plans = dbInitData.plans;
-  }
-  if (!globalDB.featureNames || Object.keys(globalDB.featureNames).length === 0) {
-    globalDB.featureNames = dbInitData.featureNames;
-  }
+  // NEVER replace plans with hardcoded defaults — admin may have customized them
+  if (!globalDB.plans) globalDB.plans = {};
+  if (!globalDB.featureNames) globalDB.featureNames = {};
   
   return globalDB;
 }
@@ -946,7 +920,7 @@ function checkFeatureLimit(email, feature) {
   const db = readDB();
   const planInfo = db.plans && db.plans[user.plan];
   
-  const defaultLimits = { ppt: 3, mindmap: 5, matrix: 3, optimize: 3, masking: 5, interview: 3, workflow: 1, council: 1, leads: -1, threed: 3 };
+  const defaultLimits = { ppt: 3, mindmap: 5, matrix: 3, optimize: 3, masking: 5, interview: 3, workflow: 1, council: 1, leads: -1 };
   const limits = planInfo?.featureLimits || defaultLimits;
   let limit = limits[feature];
   if (limit === undefined) {
@@ -967,7 +941,7 @@ function incrementFeatureUsage(email, feature) {
   const db = readDB();
   const user = db.users[cleanEmail];
   if (user) {
-    if (!user.featureUsage) user.featureUsage = { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, interview: 0, workflow: 0, council: 0, leads: 0, threed: 0 };
+    if (!user.featureUsage) user.featureUsage = { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, interview: 0, workflow: 0, council: 0, leads: 0 };
     user.featureUsage[feature] = (user.featureUsage[feature] || 0) + 1;
     db.users[cleanEmail] = user;
     writeDB(db);
@@ -1018,7 +992,7 @@ app.post('/api/user/status', async (req, res) => {
   const db = readDB();
   const planInfo = db.plans && db.plans[user.plan];
   const userLimit = planInfo ? planInfo.prompts : (user.plan === 'free' ? 30 : 100);
-  const featureLimits = planInfo?.featureLimits || { ppt: 3, mindmap: 5, matrix: 3, optimize: 3, masking: 5, workflow: 1, council: 1, leads: -1 };
+  const featureLimits = planInfo?.featureLimits || { ppt: 3, mindmap: 5, matrix: 3, optimize: 3, masking: 5, interview: 3, workflow: 1, council: 1, leads: -1 };
   const isAdmin = email === ADMIN_EMAIL;
   
   res.json({
