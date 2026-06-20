@@ -12,6 +12,7 @@ import WorkflowPanel from './WorkflowPanel';
 const MindMap3D = React.lazy(() => import('./MindMap3D'));
 const Interactive3DObject = React.lazy(() => import('./Interactive3DObject'));
 const AnimatedScene3D = React.lazy(() => import('./AnimatedScenes'));
+const DynamicAnimatedScene = React.lazy(() => import('./DynamicAnimatedScene'));
 
 // AI Image Renderer with loading state and retry across multiple providers
 function AIImageRenderer({ prompt }) {
@@ -1058,6 +1059,24 @@ function Dashboard({
                 return (
                   <React.Suspense key={lineIdx} fallback={<div style={{padding:'15px',color:'#00f2fe',textAlign:'center',background:'rgba(0,0,0,0.2)',borderRadius:'8px',border:'1px solid rgba(255,255,255,0.05)',fontSize:'0.85rem'}}>Loading 3D Scene...</div>}>
                     <AnimatedScene3D scene={scene} label={label} />
+                  </React.Suspense>
+                );
+              }
+            }
+
+            // 3D Dynamic Scene renderer (any live animated scene)
+            if (line.includes('[3D_DYNAMIC:')) {
+              const startIdx = line.indexOf('[3D_DYNAMIC:');
+              const endIdx = line.indexOf(']', startIdx);
+              if (endIdx !== -1) {
+                const tokenContent = line.substring(startIdx + 12, endIdx);
+                const sceneParam = tokenContent.match(/scene\s*=\s*([^,;\]]+)/);
+                const labelParam = tokenContent.match(/label\s*=\s*([^;\]]+)/);
+                const scene = sceneParam ? sceneParam[1].trim() : 'shark';
+                const label = labelParam ? labelParam[1].trim() : null;
+                return (
+                  <React.Suspense key={lineIdx} fallback={<div style={{padding:'20px',color:'#00f2fe',textAlign:'center',background:'rgba(0,0,0,0.2)',borderRadius:'12px',border:'1px solid rgba(0,242,254,0.1)',fontSize:'0.85rem',margin:'15px 0'}}>🎬 Loading 3D Scene...</div>}>
+                    <DynamicAnimatedScene scene={scene} label={label} />
                   </React.Suspense>
                 );
               }

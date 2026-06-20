@@ -2022,30 +2022,59 @@ ONLY use [3D_SHAPE_RENDER] for requests where the user explicitly wants an inter
 Do NOT output HTML canvas code, base64, or image URLs for 3D shapes. ONLY use the token format above. `;
 
       systemInstruction += `LIVE ANIMATED 3D SCENES — MOVING 3D WORLDS (360° Rotatable):
-When the user asks for a LIVE, ANIMATED, or MOVING 3D scene (e.g., "flying dragon", "live dragon with fire", "animated scene", "3D dragon breathing fire", "show me a phoenix", "galaxy", "black hole", "tornado", "rocket launch"), output this special token:
+You have TWO tokens for live animated 3D scenes. Choose the best one:
 
-[3D_ANIMATED: scene=<scene_name>]
+━━━ TOKEN 1: [3D_ANIMATED: scene=<name>] ━━━
+Use for: dragon, phoenix, galaxy, blackhole, tornado, rocket
+- scene=dragon → Flying dragon, flapping wings, fire breath, glowing eyes
+- scene=phoenix → Fire phoenix bird, animated wings, fire trail
+- scene=galaxy → Rotating spiral galaxy, 8000 stars
+- scene=blackhole → Black hole with accretion disk, glowing rings
+- scene=tornado → Spinning tornado with particle debris
+- scene=rocket → Rocket launch with fire exhaust and boosters
 
-Available scenes and when to use each:
-- scene=dragon → Flying dragon with animated wings, fire breath particles, glowing eyes (USE when user asks for dragon, fire-breathing creature, flying monster)
-- scene=phoenix → Fire phoenix bird with animated wings and fire trail (USE for phoenix, fire bird, mythical flame creature)
-- scene=galaxy → Rotating spiral galaxy with thousands of stars (USE for galaxy, milky way, space, cosmos, star cluster)
-- scene=blackhole → Spinning black hole with accretion disk, glowing rings (USE for black hole, event horizon, singularity, space phenomenon)
-- scene=tornado → Animated spinning tornado with particle debris (USE for tornado, twister, cyclone, vortex)
-- scene=rocket → Rocket launch with animated fire exhaust and boosters (USE for rocket, spacecraft, launch, space rocket)
+━━━ TOKEN 2: [3D_DYNAMIC: scene=<name>] ━━━
+Use for ALL OTHER animated scenes:
+- scene=shark → Great white shark swimming in ocean with fish
+- scene=butterfly → Multiple colorful butterflies flying
+- scene=eagle → Soaring eagle in the sky
+- scene=underwater → Full underwater world: shark + fish + coral + bubbles
+- scene=fish → Underwater world with colorful fish
+- scene=volcano → Erupting volcano island with lava particles
+- scene=solarsystem → Full solar system with orbiting planets + rings
+- scene=planet → Giant ringed planet with atmosphere + comet
+- scene=comet → Speeding comet through space with sparkle trail
+- scene=forest → Forest with trees, eagle, butterflies
+- scene=space → Space battle scene with explosions, electric particles
+- scene=snow → Snowstorm with snowman
+- scene=snowman → Snow scene with animated snowfall
+- scene=waterfall → Rainforest waterfall with trees, butterfly, eagle
+- scene=rainforest → Rainforest scene with wildlife
+
+DECISION GUIDE:
+- Dragon/Phoenix/Galaxy/Blackhole/Tornado/Rocket → [3D_ANIMATED: scene=...]
+- Shark/Fish/Butterfly/Eagle/Volcano/Solar System/Forest/Snow/Waterfall → [3D_DYNAMIC: scene=...]
+- Anything not listed above → use [3D_DYNAMIC: scene=shark] as closest match, OR use [AI_IMAGE:] for static image
 
 RULES:
-1. Output [3D_ANIMATED: scene=dragon] EXACTLY — no spaces before the bracket
-2. The scene value must be one of: dragon, phoenix, galaxy, blackhole, tornado, rocket
-3. User gets full 360° rotation with mouse drag, zoom with scroll — ALWAYS mention this
-4. ALWAYS output [3D_ANIMATED] for animated/live/moving scene requests
-5. You can combine [3D_ANIMATED] with text explanation in the same response
-6. Default to dragon if unsure which scene fits best
+1. ALWAYS use one of these tokens when user asks for any live/animated/moving/3D scene
+2. User gets 360° rotation with mouse drag + zoom with scroll
+3. You can combine the token with a text explanation
+4. ALWAYS mention that they can rotate 360° by dragging the mouse
 
-Example responses:
-- User: "show me a flying dragon with fire" → text + [3D_ANIMATED: scene=dragon]
-- User: "animated galaxy" → text + [3D_ANIMATED: scene=galaxy]
-- User: "live phoenix" → text + [3D_ANIMATED: scene=phoenix]
+EXAMPLES:
+- "show me a flying dragon" → [3D_ANIMATED: scene=dragon]
+- "show a shark swimming" → [3D_DYNAMIC: scene=shark]
+- "animated galaxy" → [3D_ANIMATED: scene=galaxy]
+- "underwater world with fish" → [3D_DYNAMIC: scene=underwater]
+- "volcano erupting" → [3D_DYNAMIC: scene=volcano]
+- "solar system" → [3D_DYNAMIC: scene=solarsystem]
+- "butterfly flying" → [3D_DYNAMIC: scene=butterfly]
+- "eagle soaring" → [3D_DYNAMIC: scene=eagle]
+- "black hole" → [3D_ANIMATED: scene=blackhole]
+- "rocket launch" → [3D_ANIMATED: scene=rocket]
+- "forest scene" → [3D_DYNAMIC: scene=forest]
+- "snowstorm" → [3D_DYNAMIC: scene=snow]
 `;
 
       systemInstruction += `AI IMAGE GENERATION — COLORFUL 3D RENDERED IMAGES:
