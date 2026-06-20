@@ -139,9 +139,11 @@ const themeOptions = [
 
 function Dashboard({ 
   currentUser, 
+  deviceId,
   userPlanDetails, 
   refreshUserStatus, 
   onLogout, 
+  onLogin,
   theme, 
   setTheme, 
   onTriggerUpgrade,
@@ -364,7 +366,7 @@ function Dashboard({
 
   // 1. Fetch Local Chat History on Mount
   useEffect(() => {
-    const savedChats = localStorage.getItem(`chats_${currentUser.email}`);
+    const savedChats = localStorage.getItem(`chats_${currentUser?.email || deviceId}`);
     if (savedChats) {
       try {
         const parsed = JSON.parse(savedChats);
@@ -374,7 +376,7 @@ function Dashboard({
         }
       } catch (e) {
         console.error('Corrupted chat history, resetting:', e);
-        localStorage.removeItem(`chats_${currentUser.email}`);
+        localStorage.removeItem(`chats_${currentUser?.email || deviceId}`);
       }
     } else {
       // Start a welcome conversation automatically
@@ -388,9 +390,9 @@ function Dashboard({
       };
       setConversations([initialChat]);
       setActiveChatId(initialChat.id);
-      localStorage.setItem(`chats_${currentUser.email}`, JSON.stringify([initialChat]));
+      localStorage.setItem(`chats_${currentUser?.email || deviceId}`, JSON.stringify([initialChat]));
     }
-  }, [currentUser.email]);
+  }, [currentUser?.email, deviceId]);
 
   // Sync scroll on new messages
   useEffect(() => {
@@ -400,7 +402,7 @@ function Dashboard({
   // 2. Local Chat CRUD Operations
   const saveChatsToLocal = (updatedChats) => {
     setConversations(updatedChats);
-    localStorage.setItem(`chats_${currentUser.email}`, JSON.stringify(updatedChats));
+    localStorage.setItem(`chats_${currentUser?.email || deviceId}`, JSON.stringify(updatedChats));
   };
 
   const handleCreateChat = () => {
@@ -620,7 +622,7 @@ function Dashboard({
         const trackRes = await fetch('/api/feature/track', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: currentUser.email, feature: 'masking' })
+          body: JSON.stringify({ email: currentUser?.email || null, deviceId: currentUser ? null : deviceId, feature: 'masking' })
         });
         const trackData = await trackRes.json();
         if (!trackRes.ok) {
@@ -680,7 +682,8 @@ function Dashboard({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          email: currentUser.email,
+          email: currentUser?.email || null,
+          deviceId: currentUser ? null : deviceId,
           message: messageForServer, // MASKED version sent over the internet
           history: currentChat.messages.slice(-10),
           personality: personality,
@@ -748,7 +751,7 @@ function Dashboard({
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({
-                    email: currentUser.email,
+                    email: currentUser?.email || null,
                     topic: cleanTopic,
                 pageCount,
                 style
@@ -1198,7 +1201,7 @@ function Dashboard({
           {/* User badge */}
           <div className="user-badge">
             <div className="user-badge-info">
-              <span className="user-badge-email" style={{ fontWeight: 'bold' }}>{currentUser.email}</span>
+              <span className="user-badge-email" style={{ fontWeight: 'bold' }}>{currentUser?.email || 'Guest User'}</span>
               <span className="user-badge-plan" style={{ color: 'var(--accent-cyan)' }}>
                 {userPlanDetails?.plan ? userPlanDetails.plan.toUpperCase() : 'FREE'} PLAN
               </span>
@@ -1208,10 +1211,16 @@ function Dashboard({
             </div>
           </div>
 
-          {/* Logout button */}
-          <button className="btn btn-secondary" onClick={onLogout} style={{ width: '100%', padding: '10px 12px', fontSize: '0.85rem', marginTop: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', color: 'var(--accent-neon-red)', borderColor: 'rgba(255,51,102,0.3)' }}>
-            <LogOut size={16} /> Log Out
-          </button>
+          {/* Login / Logout button */}
+          {currentUser ? (
+            <button className="btn btn-secondary" onClick={onLogout} style={{ width: '100%', padding: '10px 12px', fontSize: '0.85rem', marginTop: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', color: 'var(--accent-neon-red)', borderColor: 'rgba(255,51,102,0.3)' }}>
+              <LogOut size={16} /> Log Out
+            </button>
+          ) : onLogin ? (
+            <button className="btn btn-secondary" onClick={onLogin} style={{ width: '100%', padding: '10px 12px', fontSize: '0.85rem', marginTop: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', color: 'var(--accent-cyan)', borderColor: 'rgba(0,242,254,0.3)' }}>
+              <Shield size={16} /> Sign In with Google
+            </button>
+          ) : null}
         </div>
       </div>
 
@@ -1620,7 +1629,7 @@ function Dashboard({
       {councilMode && (
         <CouncilRoom
           prompt={councilPrompt}
-          email={currentUser.email}
+          email={currentUser?.email || 'anonymous'}
           onClose={() => setCouncilMode(false)}
           onConsensusComplete={handleCouncilConsensus}
         />
@@ -1630,7 +1639,7 @@ function Dashboard({
       {workflowMode && (
         <WorkflowPanel
           prompt={workflowGoal}
-          email={currentUser.email}
+          email={currentUser?.email || 'anonymous'}
           onClose={() => setWorkflowMode(false)}
           onWorkflowComplete={handleWorkflowComplete}
         />

@@ -913,6 +913,68 @@ function getOrCreateUser(email) {
   return user;
 }
 
+// Device-based anonymous user tracking (for users who haven't signed in)
+function getOrCreateDevice(deviceId) {
+  if (!deviceId) return null;
+  const db = readDB();
+  const today = new Date().toISOString().split('T')[0];
+  
+  if (!db.devices) {
+    db.devices = {};
+  }
+  
+  let device = db.devices[deviceId];
+  if (!device) {
+    device = {
+      deviceId,
+      promptsUsed: 0,
+      lastResetDate: today,
+      featureUsage: { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, interview: 0, workflow: 0, council: 0, leads: 0 }
+    };
+    db.devices[deviceId] = device;
+    writeDB(db);
+  } else {
+    // Daily reset at midnight
+    if (device.lastResetDate !== today) {
+      device.promptsUsed = 0;
+      device.featureUsage = { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, interview: 0, workflow: 0, council: 0, leads: 0 };
+      device.lastResetDate = today;
+      db.devices[deviceId] = device;
+      writeDB(db);
+    }
+  }
+  return device;
+}
+
+// Check feature limit for device-based anonymous users
+function checkDeviceFeatureLimit(deviceId, feature) {
+  const device = getOrCreateDevice(deviceId);
+  if (!device) return { allowed: false, used: 0, limit: 0 };
+  
+  const db = readDB();
+  const freePlan = db.plans && db.plans['free'];
+  const defaultLimits = { ppt: 3, mindmap: 5, matrix: 3, optimize: 3, masking: 5, interview: 3, workflow: 1, council: 1, leads: -1 };
+  const limits = freePlan?.featureLimits || defaultLimits;
+  let limit = limits[feature];
+  if (limit === undefined) limit = defaultLimits[feature] !== undefined ? defaultLimits[feature] : 0;
+  const used = device.featureUsage?.[feature] || 0;
+  
+  if (Number(limit) === -1) return { allowed: true, used, limit: -1 };
+  return { allowed: used < limit, used, limit };
+}
+
+// Increment feature usage for device-based anonymous users  
+function incrementDeviceFeatureUsage(deviceId, feature) {
+  if (!deviceId) return;
+  const db = readDB();
+  if (!db.devices || !db.devices[deviceId]) return;
+  const device = db.devices[deviceId];
+  if (!device.featureUsage) device.featureUsage = { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, interview: 0, workflow: 0, council: 0, leads: 0 };
+  device.featureUsage[feature] = (device.featureUsage[feature] || 0) + 1;
+  db.devices[deviceId] = device;
+  writeDB(db);
+}
+
 // Check if a feature is within its daily limit
 function checkFeatureLimit(email, feature) {
   if (email === ADMIN_EMAIL) return { allowed: true, used: 0, limit: -1 };
@@ -981,6 +1043,27 @@ app.post('/api/user/auth', async (req, res) => {
   } catch (e) {
     return res.status(500).json({ error: 'CRASH', message: e.message, stack: e.stack });
   }
+});
+
+// Device Status Endpoint (anonymous users without login)
+app.post('/api/device/status', async (req, res) => {
+  await waitForFirebase();
+  const { deviceId } = req.body;
+  if (!deviceId) return res.status(400).json({ error: 'Device ID is required' });
+  
+  const device = getOrCreateDevice(deviceId);
+  const db = readDB();
+  const freePlan = db.plans && db.plans['free'];
+  const defaultLimits = { ppt: 3, mindmap: 5, matrix: 3, optimize: 3, masking: 5, interview: 3, workflow: 1, council: 1, leads: -1 };
+  
+  res.json({
+    deviceId: device.deviceId,
+    plan: 'free',
+    promptsUsed: device.promptsUsed,
+    limit: freePlan ? freePlan.prompts : 30,
+    featureUsage: device.featureUsage || { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, interview: 0, workflow: 0, council: 0, leads: 0 },
+    featureLimits: freePlan?.featureLimits || defaultLimits
+  });
 });
 
 // User Status Endpoint
@@ -1627,12 +1710,16 @@ app.post('/api/chat', async (req, res) => {
   
   console.log(`[CHAT] Processing request with ${config.keys.length} API key(s). First key prefix: ${config.keys[0].substring(0, 6)}...`);
 
-  const { email, message, history, personality, mode, attachment, appCredentials } = req.body;
-  if (!email) return res.status(400).json({ error: 'Email is required.' });
+  const { email, message, history, personality, mode, attachment, appCredentials, deviceId } = req.body;
+  
+  // Support anonymous device-based users (no email required)
+  const isAnonymous = !email && deviceId;
+  if (!email && !deviceId) return res.status(400).json({ error: 'Email or Device ID is required.' });
 
   const db = readDB();
-  const user = getOrCreateUser(email);
-  const isAdmin = email === ADMIN_EMAIL;
+  const user = isAnonymous ? null : getOrCreateUser(email);
+  const device = isAnonymous ? getOrCreateDevice(deviceId) : null;
+  const isAdmin = email && email.trim().toLowerCase() === ADMIN_EMAIL;
 
   // 0. LEAD EXTRACTOR INTENT DETECTION
   let isLeadGenRequest = false;
@@ -1653,19 +1740,24 @@ app.post('/api/chat', async (req, res) => {
   if (isLeadGenRequest) {
     try {
       console.log(`[LEAD EXTRACTOR] Intent detected for ${email}`);
-      const check = checkFeatureLimit(email, 'leads');
+      const check = isAnonymous ? checkDeviceFeatureLimit(deviceId, 'leads') : checkFeatureLimit(email, 'leads');
       if (!check.allowed && !isAdmin) {
         return res.status(403).json({ error: 'FEATURE_LIMIT', message: `Lead Extractor daily limit reached (${check.used}/${check.limit}). Upgrade your plan for more.` });
       }
-      incrementFeatureUsage(email, 'leads');
+      isAnonymous ? incrementDeviceFeatureUsage(deviceId, 'leads') : incrementFeatureUsage(email, 'leads');
       
       const leadPrompt = `You are a Professional B2B Lead Researcher. The user wants leads based on this requirement: "${message}".\nSearch the public internet for relevant professional discussions, Reddit threads, Twitter posts, and professional networks. \nUse your search tool to find actual public contact info or profiles. Append queries with "contact me" OR "email me at" to find actual leads if needed.\nFormat the output EXACTLY as a Markdown Table with these columns:\n| Lead Name/Handle | Contact Info (Email/Phone) | Relevant Comment/Bio | Direct Source Link |\n|---|---|---|---|\nIf direct contact info is missing from the public web, write "N/A (DM via Platform)". \nProvide as many leads as the user requested. Output the markdown table and a brief summary. Do not output anything malicious or harmful.`;
       
       const leadResult = await queryGeminiAPI(config.keys, [{ role: 'user', parts: [{ text: leadPrompt }] }], 'You are a professional lead researcher. You must use web search to find publicly available business contact details.', true);
       
       if (!isAdmin) {
-        user.promptsUsed += 1;
-        db.users[email] = user;
+        if (isAnonymous) {
+          device.promptsUsed += 1;
+          db.devices[deviceId] = device;
+        } else {
+          user.promptsUsed += 1;
+          db.users[email] = user;
+        }
         writeDB(db);
       }
       
@@ -1677,21 +1769,21 @@ app.post('/api/chat', async (req, res) => {
   }
 
   // 1. Enforce Prompt Limit & Feature Gating
-  const planInfo = db.plans && db.plans[user.plan];
-  const userLimit = planInfo ? planInfo.prompts : (user.plan === 'free' ? 30 : 100);
+  const planInfo = isAnonymous ? null : (db.plans && db.plans[user.plan]);
+  const userLimit = isAnonymous ? null : (planInfo ? planInfo.prompts : (user.plan === 'free' ? 30 : 100));
   const planFeatures = planInfo && planInfo.features ? [...new Set(planInfo.features)].join(' ').toLowerCase() : '';
 
   // Feature usage limits (matrix, optimize, mindmap)
   
   if (!isAdmin) {
     if (mode === 'matrix_simulation') {
-      const check = checkFeatureLimit(email, 'matrix');
+      const check = isAnonymous ? checkDeviceFeatureLimit(deviceId, 'matrix') : checkFeatureLimit(email, 'matrix');
       if (!check.allowed) {
         return res.status(403).json({ error: 'FEATURE_LIMIT', message: `Matrix Simulation daily limit reached (${check.used}/${check.limit}). Upgrade your plan for more.` });
       }
     }
     if (mode === 'optimize') {
-      const check = checkFeatureLimit(email, 'optimize');
+      const check = isAnonymous ? checkDeviceFeatureLimit(deviceId, 'optimize') : checkFeatureLimit(email, 'optimize');
       if (!check.allowed) {
         return res.status(403).json({ error: 'FEATURE_LIMIT', message: `Prompt Optimization daily limit reached (${check.used}/${check.limit}). Upgrade your plan for more.` });
       }
@@ -1699,19 +1791,23 @@ app.post('/api/chat', async (req, res) => {
 
     const is3DRequest = /\b3d\b/i.test(message) && /(generate|render|make|create|draw|show|build|mode)\b/i.test(message);
     if (is3DRequest) {
-      const check = checkFeatureLimit(email, 'threed');
+      const check = isAnonymous ? checkDeviceFeatureLimit(deviceId, 'threed') : checkFeatureLimit(email, 'threed');
       if (!check.allowed) {
         return res.status(403).json({ error: 'FEATURE_LIMIT', message: `3D Shape Generator daily limit reached (${check.used}/${check.limit}). Upgrade your plan for more.` });
       }
-      incrementFeatureUsage(email, 'threed');
+      isAnonymous ? incrementDeviceFeatureUsage(deviceId, 'threed') : incrementFeatureUsage(email, 'threed');
     }
 
   }
 
-  if (!isAdmin && Number(userLimit) !== -1 && user.promptsUsed >= Number(userLimit)) {
+  const activeEntity = isAnonymous ? device : user;
+  const activePlanInfo = isAnonymous ? (db.plans && db.plans['free']) : planInfo;
+  const activeLimit = isAnonymous ? (activePlanInfo ? activePlanInfo.prompts : 30) : userLimit;
+  
+  if (!isAdmin && Number(activeLimit) !== -1 && activeEntity.promptsUsed >= Number(activeLimit)) {
     return res.status(403).json({
       error: 'LIMIT_EXCEEDED',
-      message: `You have reached your daily limit of ${userLimit} prompts. Please upgrade your plan.`
+      message: `You have reached your daily limit of ${activeLimit} prompts. Please upgrade your plan.`
     });
   }
 
@@ -1935,24 +2031,35 @@ User's original raw query: ${message}`;
 
 
     // F. INCREMENT USAGE
-    user.promptsUsed += 1;
-    db.users[email] = user;
-    writeDB(db);
+    if (!isAdmin) {
+      if (isAnonymous) {
+        device.promptsUsed += 1;
+        const db2 = readDB();
+        if (!db2.devices) db2.devices = {};
+        db2.devices[deviceId] = device;
+        writeDB(db2);
+      } else {
+        user.promptsUsed += 1;
+        const db2 = readDB();
+        db2.users[email] = user;
+        writeDB(db2);
+      }
+    }
 
     // Increment feature-specific usage
-    if (mode === 'matrix_simulation') incrementFeatureUsage(email, 'matrix');
-    if (mode === 'optimize') incrementFeatureUsage(email, 'optimize');
+    if (mode === 'matrix_simulation') isAnonymous ? incrementDeviceFeatureUsage(deviceId, 'matrix') : incrementFeatureUsage(email, 'matrix');
+    if (mode === 'optimize') isAnonymous ? incrementDeviceFeatureUsage(deviceId, 'optimize') : incrementFeatureUsage(email, 'optimize');
 
     // Mindmap: detect if response contains mermaid diagram
     if (/m[ieo]nd\s*ma?[sp]/i.test(message) || /flow\s*ch/i.test(message) || /diagram/i.test(message) || /chart/i.test(message) || /graph/i.test(message) || /tree/i.test(message) || /visual/i.test(message) || /\b3d\b/i.test(message)) {
-      incrementFeatureUsage(email, 'mindmap');
+      isAnonymous ? incrementDeviceFeatureUsage(deviceId, 'mindmap') : incrementFeatureUsage(email, 'mindmap');
     }
 
     res.json({
       response: finalResponse,
       optimizedPrompt: mode === 'optimize' ? finalPrompt : null,
-      promptsUsed: user.promptsUsed,
-      limit: userLimit
+      promptsUsed: activeEntity.promptsUsed,
+      limit: activeLimit
     });
 
   } catch (error) {

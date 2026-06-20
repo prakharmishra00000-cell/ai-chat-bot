@@ -1,7 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { X, Check, Award, Flame, Zap, Copy, Loader, CheckCircle, AlertCircle } from 'lucide-react';
 
-function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess, preFetchedPlans, preFetchedFeatureNames, preFetchedReceiverUpiId, preFetchedReceiverName, preFetchedRazorpayKeyId }) {
+function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess, preFetchedPlans, preFetchedFeatureNames, preFetchedReceiverUpiId, preFetchedReceiverName, preFetchedRazorpayKeyId, preFetchedGoogleClientId, needsLogin, onLoginSuccess }) {
+  // Track internal email state (updates when anonymous user signs in)
+  const [internalEmail, setInternalEmail] = useState(email);
+  const [loginStep, setLoginStep] = useState(needsLogin && !email);
+  const [googleReady, setGoogleReady] = useState(false);
   // NO hardcoded prices — all prices come from the server (admin-configured)
   const iconsMap = {
     standard: <Zap size={32} color="#4facfe" />,
@@ -77,6 +81,63 @@ function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess, preFetche
     loadRazorpay();
   }, [preFetchedPlans, preFetchedFeatureNames, preFetchedReceiverUpiId, preFetchedReceiverName]);
 
+  // Initialize Google Sign-In for login step (anonymous users upgrading)
+  useEffect(() => {
+    if (!loginStep) return;
+    const clientId = preFetchedGoogleClientId;
+    if (!clientId) return;
+
+    const initGoogle = () => {
+      if (window.google?.accounts?.id) {
+        window.google.accounts.id.initialize({
+          client_id: clientId,
+          callback: (response) => {
+            try {
+              const payload = JSON.parse(atob(response.credential.split('.')[1]));
+              const userEmail = payload.email;
+              setInternalEmail(userEmail);
+              setLoginStep(false);
+              // Register user on backend
+              fetch('/api/user/auth', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: userEmail, action: 'login' })
+              }).catch(() => {});
+              // Notify parent
+              if (onLoginSuccess) onLoginSuccess(userEmail);
+            } catch (e) {
+              setError('Google sign-in failed. Please try again.');
+            }
+          }
+        });
+        const btnContainer = document.getElementById('upgrade-google-btn');
+        if (btnContainer) {
+          window.google.accounts.id.renderButton(btnContainer, {
+            theme: 'filled_black',
+            size: 'large',
+            text: 'continue_with',
+            shape: 'pill',
+            width: 300
+          });
+        }
+        setGoogleReady(true);
+      }
+    };
+
+    // Wait for GSI script
+    const interval = setInterval(() => {
+      if (window.google?.accounts?.id) {
+        initGoogle();
+        clearInterval(interval);
+      }
+    }, 200);
+    const timeout = setTimeout(() => clearInterval(interval), 8000);
+    return () => { clearInterval(interval); clearTimeout(timeout); };
+  }, [loginStep, preFetchedGoogleClientId]);
+
+  // Use internalEmail throughout (falls back to prop email)
+  const activeEmail = internalEmail || email;
+
   const handleRazorpayCheckout = async (plan) => {
     setLoading(true);
     setError('');
@@ -93,7 +154,7 @@ function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess, preFetche
       const orderRes = await fetch('/api/payment/razorpay/create-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ planId: plan.id, amountINR: plan.price, email })
+        body: JSON.stringify({ planId: plan.id, amountINR: plan.price, email: activeEmail })
       });
       
       const orderData = await orderRes.json();
@@ -134,7 +195,7 @@ function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess, preFetche
                 razorpay_order_id: response.razorpay_order_id,
                 razorpay_payment_id: response.razorpay_payment_id,
                 razorpay_signature: response.razorpay_signature,
-                email: email,
+                email: activeEmail,
                 planId: plan.id
               })
             });
@@ -154,10 +215,10 @@ function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess, preFetche
           }
         },
         prefill: {
-          email: email || "",
+          email: activeEmail || "",
         },
         notes: {
-          email: email || "",
+          email: activeEmail || "",
           planId: plan.id,
           durationDays: plan.days || 30
         },
@@ -219,14 +280,14 @@ function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess, preFetche
   // Polling loop to check if plan is unlocked in background via webhook or manual UTR approval
   useEffect(() => {
     let interval;
-    if (email) {
+    if (activeEmail) {
       const initialPlan = currentPlan || 'free';
       interval = setInterval(async () => {
         try {
           const res = await fetch('/api/user/status', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email })
+            body: JSON.stringify({ email: activeEmail })
           });
           if (res.ok) {
             const data = await res.json();
@@ -246,7 +307,7 @@ function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess, preFetche
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [currentPlan, email, onPaymentSuccess]);
+  }, [currentPlan, activeEmail, onPaymentSuccess]);
 
   // Copy UPI ID
   const handleCopyUpiId = async () => {
@@ -282,7 +343,7 @@ function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess, preFetche
       const res = await fetch('/api/payment/submit-utr', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, utr: utrInput, planRequested: selectedManualPlan })
+        body: JSON.stringify({ email: activeEmail, utr: utrInput, planRequested: selectedManualPlan })
       });
 
       const data = await res.json();
@@ -327,8 +388,64 @@ function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess, preFetche
           <X size={24} />
         </button>
 
-        <h2 className="plans-title">Choose Your Plan</h2>
-        <p className="plans-subtitle">Review our plans below, then complete your UPI payment and submit the UTR for verification.</p>
+        <h2 className="plans-title">Upgrade Your Plan</h2>
+
+        {/* Step-by-step instructions for new users */}
+        <div style={{ background: 'rgba(0, 242, 254, 0.04)', border: '1px solid rgba(0, 242, 254, 0.15)', borderRadius: '12px', padding: '16px 20px', marginBottom: '22px' }}>
+          <h4 style={{ color: 'var(--accent-cyan)', fontSize: '0.95rem', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            📋 How to Purchase a Plan
+          </h4>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <span style={{ color: '#00f2fe', fontWeight: 700, minWidth: '20px' }}>1.</span>
+              <span>{loginStep ? <strong style={{ color: '#ffd740' }}>Sign in with your Google account below ↓</strong> : <span style={{ color: '#00e676' }}>✅ Signed in as <strong>{activeEmail}</strong></span>}</span>
+            </div>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <span style={{ color: '#00f2fe', fontWeight: 700, minWidth: '20px' }}>2.</span>
+              <span>Choose a plan that suits your needs</span>
+            </div>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <span style={{ color: '#00f2fe', fontWeight: 700, minWidth: '20px' }}>3.</span>
+              <span>Complete payment via Razorpay or UPI</span>
+            </div>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <span style={{ color: '#00f2fe', fontWeight: 700, minWidth: '20px' }}>4.</span>
+              <span>Plan unlocks <strong>instantly</strong> on your email across all devices</span>
+            </div>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <span style={{ color: '#00f2fe', fontWeight: 700, minWidth: '20px' }}>5.</span>
+              <span>Plan <strong>auto-expires</strong> on the date shown — no manual cancellation needed</span>
+            </div>
+          </div>
+        </div>
+
+        {/* LOGIN STEP — for anonymous users who need to sign in first */}
+        {loginStep && (
+          <div style={{ textAlign: 'center', padding: '30px 20px', marginBottom: '20px', background: 'rgba(255,215,64,0.05)', border: '1px solid rgba(255,215,64,0.2)', borderRadius: '14px' }}>
+            <h3 style={{ color: '#ffd740', fontSize: '1.2rem', fontWeight: 700, marginBottom: '8px' }}>
+              🔐 Sign In to Continue
+            </h3>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '20px' }}>
+              To purchase a plan, please sign in with your Google account. The plan will be linked to your email.
+            </p>
+            
+            {/* Google Sign-In Button Container */}
+            <div id="upgrade-google-btn" style={{ display: 'flex', justifyContent: 'center', marginBottom: '15px' }}></div>
+            
+            {!googleReady && !preFetchedGoogleClientId && (
+              <p style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '10px' }}>
+                Google Sign-In is not configured. Please contact the admin.
+              </p>
+            )}
+            
+            {!googleReady && preFetchedGoogleClientId && (
+              <p style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '10px' }}>
+                <Loader size={14} className="spin" style={{ display: 'inline', marginRight: '6px' }} />
+                Loading Google Sign-In...
+              </p>
+            )}
+          </div>
+        )}
 
         {/* Error / Success messages */}
         {error && (
@@ -429,8 +546,8 @@ function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess, preFetche
 
                 {!isActive && plan.price > 0 && (
                   <button 
-                    onClick={() => handleRazorpayCheckout(plan)}
-                    disabled={loading}
+                    onClick={() => loginStep ? null : handleRazorpayCheckout(plan)}
+                    disabled={loading || loginStep}
                     style={{
                       marginTop: 'auto',
                       padding: '12px 16px',
@@ -454,7 +571,7 @@ function UpgradeModal({ email, currentPlan, onClose, onPaymentSuccess, preFetche
                     onMouseOver={(e) => e.target.style.transform = 'translateY(-2px)'}
                     onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
                   >
-                    {loading ? <Loader size={16} className="spin-animation" /> : '💳 Auto Unlock Plan'}
+                    {loading ? <Loader size={16} className="spin-animation" /> : loginStep ? '🔐 Sign In First' : '💳 Auto Unlock Plan'}
                   </button>
                 )}
               </div>
