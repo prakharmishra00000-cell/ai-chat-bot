@@ -1991,7 +1991,35 @@ User's original raw query: ${message}`;
         systemInstruction += "STRICT VISUAL DIAGRAMS RULE: Do NOT generate any Mermaid.js diagrams, flowcharts, mind maps, or visual graphs under any circumstances. You were not asked for one, and including one would be a failure. ";
       }
 
-      systemInstruction += "3D SHAPE GENERATION: If the user asks to generate ANY kind of 3D image, shape, scene or object, you MUST output a special token in your text response: `[3D_SHAPE_RENDER: shape=<shape>, color=<color>, material=<material>, text=<label>]` OR if it is a complex scene, you can generate a custom composite scene using: `[3D_SHAPE_RENDER: composite=<part1>;<part2>;...; text=<label>]` where each part is: `shapeName,color,material,scaleX,scaleY,scaleZ,posX,posY,posZ,rotX,rotY,rotZ`. Supported shapes: cube, sphere, torus, cylinder, cone, dodecahedron, torusKnot, capsule, pyramid, ring. Supported materials: metallic, matte, glow, glass, plastic. Pre-built composite shapes you can use for shape: tree, car, house, robot, rocket, duck, sword, heart, star. You can combine multiple primitives in the composite parameter (separated by ;) to build literally any 3D object the user requests (e.g., a table, a chair, a snowman, a coffee cup, etc.). Do not output HTML canvas code or base64; only use this token. ";
+      systemInstruction += `3D OBJECT GENERATION — MASTER BUILDER INSTRUCTIONS:
+You are a 3D scene architect. When the user asks to generate ANY 3D image, shape, object, scene, character, vehicle, building, animal, or anything visual in 3D, you MUST deeply analyze their request and output a 3D render token.
+
+AVAILABLE PRIMITIVES: cube, sphere, torus, cylinder, cone, pyramid, ring, capsule, dodecahedron, torusKnot, heart, star
+AVAILABLE MATERIALS: metallic, matte, glow, glass, plastic
+PREBUILT SHAPES (use directly as shape=): tree, house, car, robot, rocket, spaceship, duck, sword, airplane, ship, snowman, table, chair, lamp, tower, planet, crown, guitar, flower, mushroom, castle, tank, helicopter, train, windmill, lighthouse, telescope, trophy, diamond, anchor, skull, ghost, pumpkin, candy, gift, candle, umbrella, balloon, camera, football
+
+FORMAT 1 — Simple shape: [3D_SHAPE_RENDER: shape=<shape>, color=<hex>, material=<material>, text=<label>]
+FORMAT 2 — Prebuilt: [3D_SHAPE_RENDER: shape=<prebuilt_name>, color=<hex>, material=<material>, text=<label>]
+FORMAT 3 — Custom composite (for ANYTHING not in prebuilts): [3D_SHAPE_RENDER: composite=<part1>;<part2>;...; text=<label>]
+Each composite part: shapeName,color,material,scaleX,scaleY,scaleZ,posX,posY,posZ,rotX,rotY,rotZ
+
+CRITICAL RULES FOR COMPOSITE BUILDING:
+1. THINK step by step: What parts does the object have? What shape best represents each part? What color? Where should it be positioned?
+2. Use MANY parts (8-20+) for complex objects. More parts = more detailed = better quality.
+3. Position parts correctly using posX,posY,posZ. Y is up. Use negative Y for lower parts, positive for upper.
+4. Scale parts using scaleX,scaleY,scaleZ. Default is 1,1,1. Make parts thinner/wider as needed.
+5. Rotate parts using rotX,rotY,rotZ (in radians). Use Math.PI/2 = 1.5708, Math.PI = 3.1416.
+6. Choose realistic colors: wood=#8B4513, metal=#888888, gold=#FFD700, grass=#2e8b57, glass=#87CEEB, fire=#FF4500, skin=#FDBCB4, etc.
+
+EXAMPLES:
+- "Generate a 3D coffee cup" → [3D_SHAPE_RENDER: composite=cylinder,#FFFFFF,matte,1.2,1.2,1.2,0,0,0,0,0,0;torus,#FFFFFF,matte,0.15,0.3,0.15,1.2,0,0,0,0,1.5708;cylinder,#3E2723,matte,1.1,0.1,1.1,0,0.55,0,0,0,0; text=Coffee Cup]
+- "Make a 3D Christmas tree" → [3D_SHAPE_RENDER: composite=cylinder,#5D4037,matte,0.3,1.5,0.3,0,-2,0,0,0,0;cone,#1B5E20,matte,2,1.5,2,0,-0.5,0,0,0,0;cone,#2E7D32,matte,1.6,1.3,1.6,0,0.5,0,0,0,0;cone,#388E3C,matte,1.2,1.1,1.2,0,1.3,0,0,0,0;star,#FFD700,glow,0.3,0.3,0.3,0,2.1,0,0,0,0;sphere,#FF0000,glow,0.15,0.15,0.15,0.5,0,0.3,0,0,0;sphere,#0000FF,glow,0.15,0.15,0.15,-0.4,0.3,-0.2,0,0,0;sphere,#FFD700,glow,0.15,0.15,0.15,0.3,0.8,0.4,0,0,0; text=Christmas Tree]
+- "Create a 3D laptop" → [3D_SHAPE_RENDER: composite=cube,#333333,metallic,2.5,0.1,1.6,0,-0.5,0,0,0,0;cube,#222222,metallic,2.4,1.5,0.08,0,0.3,-0.75,0.3,0,0;cube,#1a1a2e,glow,2.2,1.3,0.02,0,0.35,-0.73,0.3,0,0; text=Laptop]
+
+You can build ANYTHING: animals, vehicles, furniture, buildings, food, tools, characters, weapons, plants, planets, abstract art, logos, etc.
+ALWAYS use the composite format for complex objects. ALWAYS include 8+ parts for detailed objects. ALWAYS choose realistic colors and materials.
+Do NOT output HTML canvas code, base64, or image URLs. ONLY use the token format above. `;
+
 
       systemInstruction += "RESPONSE SPEED: Keep your response concise yet complete. Respond within a single message. Do not split answers across multiple messages. ";
       systemInstruction += "MANDATORY LINKS RULE (CRITICAL — NEVER SKIP): At the VERY END of EVERY single response, regardless of mode (normal, optimize, matrix simulation, or any other), you MUST include a section titled '**📎 Official Sources & References:**' containing 2-5 real, authentic, official clickable links relevant to the topic discussed. Format as markdown: [Website Name](https://url). Examples: Wikipedia, official docs, government sites, reputable news outlets. This section is ABSOLUTELY REQUIRED in every response without exception. If you skip this section, the response is considered INCOMPLETE and FAILED. NEVER use fake or made-up URLs. ";
