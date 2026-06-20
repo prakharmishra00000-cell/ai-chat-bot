@@ -266,8 +266,9 @@ if (!fs.existsSync(DB_PATH)) {
   try {
     const currentDB = JSON.parse(fs.readFileSync(DB_PATH, 'utf8'));
     let updated = false;
-    if (!currentDB.plans) { currentDB.plans = dbInitData.plans; updated = true; }
-    if (!currentDB.featureNames) { currentDB.featureNames = dbInitData.featureNames; updated = true; }
+    // Only add missing structural keys — NEVER inject hardcoded plan data
+    if (!currentDB.plans) { currentDB.plans = {}; updated = true; }
+    if (!currentDB.featureNames) { currentDB.featureNames = {}; updated = true; }
     if (!currentDB.supportQueries) { currentDB.supportQueries = []; updated = true; }
     if (!currentDB.anonymousVisits) { currentDB.anonymousVisits = {}; updated = true; }
     if (!currentDB.pendingApprovals) { currentDB.pendingApprovals = []; updated = true; }
@@ -867,7 +868,7 @@ function getOrCreateUser(email) {
         promptsUsed: 0,
         lastResetDate: today,
         planExpiry: null,
-        featureUsage: { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, workflow: 0, council: 0, leads: 0 },
+        featureUsage: { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, interview: 0, workflow: 0, council: 0, leads: 0 },
         _temporary: true // Flag: this user was NOT loaded from the real database
       };
     }
@@ -877,14 +878,14 @@ function getOrCreateUser(email) {
       promptsUsed: 0,
       lastResetDate: today,
       planExpiry: null,
-      featureUsage: { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, workflow: 0, council: 0, leads: 0 }
+      featureUsage: { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, interview: 0, workflow: 0, council: 0, leads: 0 }
     };
     db.users[cleanEmail] = user;
     writeDB(db);
   } else {
     // Ensure featureUsage field exists (for existing users)
     if (!user.featureUsage) {
-      user.featureUsage = { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, workflow: 0, council: 0, leads: 0 };
+      user.featureUsage = { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, interview: 0, workflow: 0, council: 0, leads: 0 };
     }
 
     // Check Plan Expiry — ONLY downgrade if plan has ACTUALLY expired
@@ -903,7 +904,7 @@ function getOrCreateUser(email) {
     // Daily Reset at Midnight (prompts + feature usage)
     if (user.lastResetDate !== today) {
       user.promptsUsed = 0;
-      user.featureUsage = { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, workflow: 0, council: 0, leads: 0 };
+      user.featureUsage = { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, interview: 0, workflow: 0, council: 0, leads: 0 };
       user.lastResetDate = today;
       db.users[cleanEmail] = user;
       writeDB(db);
@@ -1001,8 +1002,8 @@ app.post('/api/user/status', async (req, res) => {
     promptsUsed: user.promptsUsed,
     limit: userLimit,
     expiry: user.planExpiry,
-    featureUsage: isAdmin ? { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, workflow: 0, council: 0, leads: 0 } : (user.featureUsage || { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, workflow: 0, council: 0, leads: 0 }),
-    featureLimits: isAdmin ? { ppt: -1, mindmap: -1, matrix: -1, optimize: -1, masking: -1, workflow: -1, council: -1, leads: -1 } : featureLimits
+    featureUsage: isAdmin ? { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, interview: 0, workflow: 0, council: 0, leads: 0 } : (user.featureUsage || { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, interview: 0, workflow: 0, council: 0, leads: 0 }),
+    featureLimits: isAdmin ? { ppt: -1, mindmap: -1, matrix: -1, optimize: -1, masking: -1, interview: -1, workflow: -1, council: -1, leads: -1 } : featureLimits
   });
 });
 
