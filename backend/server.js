@@ -645,6 +645,80 @@ process.on('SIGINT', () => {
 // Call on startup
 initFirebase();
 
+// FIREBASE RETRY: If the initial once('value') hangs (common on Render cold starts),
+// retry loading cloud data periodically until it succeeds
+let firebaseRetryCount = 0;
+const FIREBASE_MAX_RETRIES = 5;
+const FIREBASE_RETRY_INTERVAL = 30000; // 30 seconds
+
+function retryFirebaseLoad() {
+  if (firebaseFirstLoadComplete || !firebaseInitialized || firebaseRetryCount >= FIREBASE_MAX_RETRIES) return;
+  
+  firebaseRetryCount++;
+  console.log(`[FIREBASE] Retry #${firebaseRetryCount}/${FIREBASE_MAX_RETRIES}: Attempting to load cloud data...`);
+  
+  const dbRef = getDatabase().ref('/');
+  const retryTimeout = setTimeout(() => {
+    console.warn(`[FIREBASE] Retry #${firebaseRetryCount} timed out after 15s.`);
+    if (firebaseRetryCount < FIREBASE_MAX_RETRIES) {
+      setTimeout(retryFirebaseLoad, FIREBASE_RETRY_INTERVAL);
+    } else {
+      console.error('[FIREBASE] All retries exhausted. Running with local data only.');
+    }
+  }, 15000);
+
+  dbRef.once('value').then((snapshot) => {
+    clearTimeout(retryTimeout);
+    if (firebaseFirstLoadComplete) return; // Another path already loaded
+    
+    const val = snapshot.val();
+    if (val) {
+      if (val._config) {
+        const currentConfig = readConfig() || {};
+        if (JSON.stringify(currentConfig) !== JSON.stringify({ ...currentConfig, ...val._config })) {
+          fs.writeFileSync(CONFIG_PATH, JSON.stringify({ ...currentConfig, ...val._config }, null, 2), 'utf8');
+        }
+        delete val._config;
+      }
+      
+      // Always use cloud data as truth on retry (we're in cold start state)
+      if (!val.plans) val.plans = dbInitData.plans;
+      if (!val.featureNames) val.featureNames = dbInitData.featureNames;
+      if (!val.users) val.users = {};
+      if (!val.transactions) val.transactions = [];
+      if (!val.visits) val.visits = {};
+      if (!val.anonymousVisits) val.anonymousVisits = {};
+      if (!val.supportQueries) val.supportQueries = [];
+      if (!val.pendingApprovals) val.pendingApprovals = [];
+      
+      globalDB = val;
+      dbIsHardcodedSeed = false;
+      firebaseFirstLoadComplete = true;
+      
+      try {
+        fs.writeFileSync(DB_PATH, JSON.stringify(val, null, 2), 'utf8');
+      } catch (err) {
+        console.error('[FIREBASE] Failed to write local DB copy:', err.message);
+      }
+      console.log(`[FIREBASE] Retry #${firebaseRetryCount} SUCCESS! Cloud data loaded. Users: ${Object.keys(val.users || {}).length}`);
+    }
+  }).catch((err) => {
+    clearTimeout(retryTimeout);
+    console.error(`[FIREBASE] Retry #${firebaseRetryCount} failed:`, err.message);
+    if (firebaseRetryCount < FIREBASE_MAX_RETRIES) {
+      setTimeout(retryFirebaseLoad, FIREBASE_RETRY_INTERVAL);
+    }
+  });
+}
+
+// Start retry loop 20 seconds after startup (gives initial once() time to complete)
+setTimeout(() => {
+  if (!firebaseFirstLoadComplete && firebaseInitialized) {
+    console.log('[FIREBASE] Initial load did not complete in 20s. Starting retry loop...');
+    retryFirebaseLoad();
+  }
+}, 20000);
+
 // Helper to prevent race conditions on cold start
 // This BLOCKS until Firebase cloud data has been loaded into globalDB
 let firebaseWaitTimedOut = false; // Prevents flooding logs with repeated timeout messages
@@ -798,11 +872,20 @@ function getOrCreateUser(email) {
   
   let user = db.users[cleanEmail];
   if (!user) {
-    // SAFETY: If we're still on hardcoded seed data, this user might actually exist
-    // in Firebase cloud with a paid plan. The global middleware should prevent this,
-    // but log a warning just in case.
+    // SAFETY: If we're still on hardcoded seed data, Firebase cloud data hasn't loaded.
+    // This user likely exists in Firebase with a paid plan.
+    // Return a TEMPORARY user WITHOUT persisting to DB, so the real cloud data isn't overwritten.
     if (dbIsHardcodedSeed) {
-      console.warn(`[SAFETY] Creating new user ${cleanEmail} while Firebase cloud data hasn't loaded yet! This user may have a paid plan in the cloud.`);
+      console.warn(`[SAFETY] Returning temporary user for ${cleanEmail} — Firebase cloud data hasn't loaded yet. NOT persisting to DB.`);
+      return {
+        email: cleanEmail,
+        plan: 'free',
+        promptsUsed: 0,
+        lastResetDate: today,
+        planExpiry: null,
+        featureUsage: { ppt: 0, mindmap: 0, matrix: 0, optimize: 0, masking: 0, workflow: 0, council: 0, leads: 0 },
+        _temporary: true // Flag: this user was NOT loaded from the real database
+      };
     }
     user = {
       email: cleanEmail,
