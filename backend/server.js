@@ -423,7 +423,7 @@ function initFirebase() {
 
       // Load once from Firebase on startup to sync to local memory
       const dbRef = getDatabase().ref('/');
-      dbRef.once('value', (snapshot) => {
+      dbRef.once('value').then((snapshot) => {
         const val = snapshot.val();
         if (val) {
           if (val._config) {
@@ -501,13 +501,20 @@ function initFirebase() {
           } catch (err) {
             console.error('[FIREBASE] Failed to write local DB copy:', err.message);
           }
+          console.log('[FIREBASE] Cloud data loaded successfully. Users:', Object.keys(val.users || {}).length);
         } else {
           // If Firebase is empty, initialize it with the local db.json and config.json
           if (!globalDB) globalDB = readLocalDB();
           const initialPayload = { ...globalDB, _config: readConfig() || {} };
           getDatabase().ref('/').set(initialPayload);
           dbIsHardcodedSeed = false; // Disable hardcoded seed flag to enable writing updates to Firebase
+          console.log('[FIREBASE] Cloud was empty. Pushed local data as initial seed.');
         }
+        firebaseFirstLoadComplete = true;
+      }).catch((err) => {
+        // CRITICAL: Always unblock requests even if Firebase read fails
+        console.error('[FIREBASE] Failed to load cloud data:', err.message);
+        console.warn('[FIREBASE] Proceeding with local data. Cloud sync will retry on next write.');
         firebaseFirstLoadComplete = true;
       });
     } catch (e) {
@@ -640,20 +647,26 @@ initFirebase();
 
 // Helper to prevent race conditions on cold start
 // This BLOCKS until Firebase cloud data has been loaded into globalDB
+let firebaseWaitTimedOut = false; // Prevents flooding logs with repeated timeout messages
 async function waitForFirebase() {
   // If Firebase hasn't initialized yet, try now
   if (!firebaseInitialized) {
     initFirebase();
   }
-  // Wait for the first cloud data load (up to 10 seconds)
+  // Wait for the first cloud data load (up to 15 seconds)
   if (firebaseInitialized && !firebaseFirstLoadComplete) {
     let attempts = 0;
-    while (!firebaseFirstLoadComplete && attempts < 100) { // wait up to 10s
+    while (!firebaseFirstLoadComplete && attempts < 150) { // wait up to 15s
       await new Promise(r => setTimeout(r, 100));
       attempts++;
     }
     if (!firebaseFirstLoadComplete) {
-      console.warn('[FIREBASE] Timed out waiting for initial cloud load. Using local data.');
+      if (!firebaseWaitTimedOut) {
+        console.warn('[FIREBASE] Timed out waiting for initial cloud load (15s). Using local data for all subsequent requests.');
+        firebaseWaitTimedOut = true;
+      }
+      // CRITICAL: Unblock all future requests instead of letting them all individually wait & timeout
+      firebaseFirstLoadComplete = true;
     }
   }
 }
