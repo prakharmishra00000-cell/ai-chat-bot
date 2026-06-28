@@ -179,8 +179,6 @@ function Dashboard({
   onLogin,
   theme, 
   setTheme, 
-  activeModel = 'gemini',
-  setActiveModel,
   onTriggerUpgrade,
   onShowAdmin,
   onShowHelp
@@ -188,11 +186,6 @@ function Dashboard({
   const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth > 768);
   const [conversations, setConversations] = useState([]);
   const [activeChatId, setActiveChatId] = useState(null);
-  
-  // Hugging Face token states
-  const [showTokenModal, setShowTokenModal] = useState(false);
-  const [hfToken, setHfToken] = useState(() => localStorage.getItem('matrixmind_hf_token') || '');
-  const [tokenInputVal, setTokenInputVal] = useState('');
 
   // Search bar for filtering chats
   const [chatSearchQuery, setChatSearchQuery] = useState('');
@@ -407,17 +400,14 @@ function Dashboard({
   // 1. Fetch Local Chat History on Mount
   // Welcome chat initializer
   const initializeWelcomeChat = (key) => {
-    const isDolphin = key.includes('dolphin');
     const welcomeMessage = {
       id: Date.now(),
       sender: 'model',
-      text: isDolphin
-        ? '🐬 Hello! I am Dolphin 2.9 (Llama 3 70B), an uncensored, helpful, and direct AI assistant powered by your Hugging Face API token. How can I help you today?'
-        : 'Welcome to MatrixMind! How can I assist you today?'
+      text: 'Welcome to MatrixMind! How can I assist you today?'
     };
     const initialChat = {
       id: 'chat_' + Date.now(),
-      title: isDolphin ? 'New Dolphin Topic' : 'New Conversation Topic',
+      title: 'New Conversation Topic',
       messages: [welcomeMessage],
       personality: 'standard',
       created_at: new Date().toISOString()
@@ -428,9 +418,7 @@ function Dashboard({
   };
 
   useEffect(() => {
-    const key = activeModel === 'dolphin'
-      ? `dolphin_chats_${currentUser?.email || deviceId}`
-      : `chats_${currentUser?.email || deviceId}`;
+    const key = `chats_${currentUser?.email || deviceId}`;
       
     const savedChats = localStorage.getItem(key);
     if (savedChats) {
@@ -450,7 +438,7 @@ function Dashboard({
     } else {
       initializeWelcomeChat(key);
     }
-  }, [currentUser?.email, deviceId, activeModel]);
+  }, [currentUser?.email, deviceId]);
 
   // Sync scroll on new messages
   useEffect(() => {
@@ -460,24 +448,19 @@ function Dashboard({
   // 2. Local Chat CRUD Operations
   const saveChatsToLocal = (updatedChats) => {
     setConversations(updatedChats);
-    const key = activeModel === 'dolphin'
-      ? `dolphin_chats_${currentUser?.email || deviceId}`
-      : `chats_${currentUser?.email || deviceId}`;
+    const key = `chats_${currentUser?.email || deviceId}`;
     localStorage.setItem(key, JSON.stringify(updatedChats));
   };
 
   const handleCreateChat = () => {
-    const isDolphin = activeModel === 'dolphin';
     const welcomeMessage = {
       id: Date.now(),
       sender: 'model',
-      text: isDolphin
-        ? '🐬 Hello! I am Dolphin 2.9 (Llama 3 70B), an uncensored, helpful, and direct AI assistant powered by your Hugging Face API token. How can I help you today?'
-        : 'Welcome to MatrixMind! How can I assist you today?'
+      text: 'Welcome to MatrixMind! How can I assist you today?'
     };
     const newChat = {
       id: 'chat_' + Date.now(),
-      title: isDolphin ? 'New Dolphin Topic' : 'New Conversation',
+      title: 'New Conversation',
       messages: [welcomeMessage],
       personality: personality,
       created_at: new Date().toISOString()
@@ -485,7 +468,6 @@ function Dashboard({
     const updated = [newChat, ...conversations];
     saveChatsToLocal(updated);
     setActiveChatId(newChat.id);
-
   };
 
   const handleDeleteChat = (id, e) => {
@@ -523,7 +505,7 @@ function Dashboard({
     docContent += `=========================================\n\n`;
 
     activeChat.messages.forEach((m, idx) => {
-      const senderName = m.sender === 'user' ? 'USER' : (activeModel === 'dolphin' ? 'DOLPHIN AI' : 'MATRIXMIND BOT');
+      const senderName = m.sender === 'user' ? 'USER' : 'MATRIXMIND BOT';
       docContent += `[${senderName}] - ${new Date(m.timestamp || Date.now()).toLocaleTimeString()}\n`;
       docContent += `${m.text}\n\n`;
     });
@@ -587,10 +569,7 @@ function Dashboard({
     const file = e.target.files[0];
     if (!file) return;
     
-    if (activeModel === 'dolphin' && file.type.startsWith('image/')) {
-      alert('Dolphin 2.9 is a text-only model. Image uploads are only supported in Gemini mode.');
-      return;
-    }
+
 
     setShowAttachmentMenu(false);
     const reader = new FileReader();
@@ -620,10 +599,7 @@ function Dashboard({
   };
 
   const startCamera = async () => {
-    if (activeModel === 'dolphin') {
-      alert('Dolphin 2.9 is a text-only model. Camera capture is only supported in Gemini mode.');
-      return;
-    }
+
     setShowAttachmentMenu(false);
     setShowCamera(true);
     try {
@@ -768,8 +744,7 @@ function Dashboard({
           personality: personality,
           mode: mode,
           attachment: activeAttachment,
-          appCredentials: mode === 'generate' ? appCredentials : [],
-          activeModel: activeModel
+          appCredentials: mode === 'generate' ? appCredentials : []
         })
       });
 
@@ -910,15 +885,14 @@ function Dashboard({
       refreshUserStatus();
 
       // Generate smart AI title
-      if (currentChat.messages.length === 0 || currentChat.title.startsWith('New Conversation') || currentChat.title.startsWith('New Dolphin Topic')) {
+      if (currentChat.messages.length === 0 || currentChat.title.startsWith('New Conversation')) {
         try {
           const titleRes = await fetch('/api/chat/generate-title', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               userMessage: originalRawInput.substring(0, 200),
-              botResponse: botResponseText.substring(0, 200),
-              activeModel: activeModel
+              botResponse: botResponseText.substring(0, 200)
             })
           });
           if (titleRes.ok) {
@@ -1405,26 +1379,7 @@ function Dashboard({
               </button>
             </div>
 
-            {/* Model Mode Selector (Gemini vs Dolphin 2.9) */}
-            <div style={{ display: 'flex', alignItems: 'center' }}>
-              <div className="model-mode-selector">
-                <button
-                  type="button"
-                  className={`model-mode-btn ${activeModel === 'gemini' ? 'active' : ''}`}
-                  onClick={() => setActiveModel('gemini')}
-                >
-                  <BrainCircuit size={14} />
-                  <span>Gemini 1.5</span>
-                </button>
-                <button
-                  type="button"
-                  className={`model-mode-btn ${activeModel === 'dolphin' ? 'active' : ''}`}
-                  onClick={() => setActiveModel('dolphin')}
-                >
-                  <span>🐬 Dolphin 2.9</span>
-                </button>
-              </div>
-            </div>
+
 
             {/* Mode toggle buttons */}
             <div className="header-modes">
@@ -1568,7 +1523,7 @@ function Dashboard({
                   <div key={m.id} className={`chat-bubble-wrapper ${m.sender}`}>
                     <div className="chat-bubble">
                       <div className="chat-bubble-header">
-                        <span>{m.sender === 'user' ? 'You' : (activeModel === 'dolphin' ? 'Dolphin AI (Uncensored)' : 'MatrixMind Bot')}</span>
+                        <span>{m.sender === 'user' ? 'You' : 'MatrixMind Bot'}</span>
                       </div>
                       
                       {/* Attachment in chat */}
@@ -1598,9 +1553,9 @@ function Dashboard({
                   <div className="chat-bubble-wrapper bot">
                     <div className="chat-bubble">
                       <div className="chat-bubble-header">
-                        <span>{activeModel === 'dolphin' ? 'Dolphin AI (Uncensored)' : 'MatrixMind Bot'}</span>
+                        <span>MatrixMind Bot</span>
                       </div>
-                      <p style={{ color: 'var(--accent-cyan)', fontWeight: 600 }}>{activeModel === 'dolphin' ? 'Dolphin is thinking...' : 'Calculating response...'}</p>
+                      <p style={{ color: 'var(--accent-cyan)', fontWeight: 600 }}>Calculating response...</p>
                     </div>
                   </div>
                 )}
@@ -1654,7 +1609,7 @@ function Dashboard({
 
               <input 
                 type="text" 
-                placeholder={isRecording ? "Listening to voice input..." : (activeModel === 'dolphin' ? "Query Dolphin 2.9 (Uncensored)..." : "Ask a query, write Hinglish, build designs...")}
+                placeholder={isRecording ? "Listening to voice input..." : "Ask a query, write Hinglish, build designs..."}
                 value={promptInput}
                 onChange={(e) => setPromptInput(e.target.value)}
                 disabled={loading}

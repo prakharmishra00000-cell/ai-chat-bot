@@ -49,12 +49,7 @@ function App() {
   // Performance mode state
   const [perfMode, setPerfMode] = useState(() => localStorage.getItem('perf_mode_static_bg') !== 'false');
 
-  // Dolphin active model state
-  const [activeModel, setActiveModel] = useState(() => localStorage.getItem('matrixmind_active_model') || 'gemini');
 
-  useEffect(() => {
-    localStorage.setItem('matrixmind_active_model', activeModel);
-  }, [activeModel]);
 
   // Pre-fetched subscription plans
   const [preFetchedPlans, setPreFetchedPlans] = useState([]);
@@ -296,7 +291,7 @@ function App() {
   }
 
   return (
-    <div className={`app-container theme-${theme} model-${activeModel}`}>
+    <div className={`app-container theme-${theme}`}>
       {/* GLOBAL 3D BACKGROUND */}
       <Suspense fallback={<div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: -1, background: '#010103' }} />}>
         <SpaceBackground theme={theme} />
@@ -378,8 +373,6 @@ function App() {
           onLogin={() => { setView('login'); }}
           theme={theme}
           setTheme={setTheme}
-          activeModel={activeModel}
-          setActiveModel={setActiveModel}
           onTriggerUpgrade={handleTriggerUpgrade}
           onShowAdmin={() => {
             setNextViewAfterOwnerSecured('admin');
