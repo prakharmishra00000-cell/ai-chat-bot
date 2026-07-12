@@ -1593,11 +1593,11 @@ app.get('/api/test-keys', async (req, res) => {
     const key = config.keys[i];
     const keyPreview = key.substring(0, 8) + '...' + key.substring(key.length - 4);
     
-    // Test with gemini-3.5-flash
+    // Test with gemini-2.5-flash
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000);
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${key}`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`;
       const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1608,13 +1608,13 @@ app.get('/api/test-keys', async (req, res) => {
       const data = await response.json();
       
       if (response.ok && data.candidates?.[0]?.content) {
-        results.push({ key: keyPreview, status: 'WORKING', httpCode: 200, model: 'gemini-3.5-flash' });
+        results.push({ key: keyPreview, status: 'WORKING', httpCode: 200, model: 'gemini-2.5-flash' });
       } else {
         const errMsg = data.error?.message || 'Unknown error';
-        results.push({ key: keyPreview, status: 'FAILED', httpCode: response.status, error: errMsg.substring(0, 150), model: 'gemini-3.5-flash' });
+        results.push({ key: keyPreview, status: 'FAILED', httpCode: response.status, error: errMsg.substring(0, 150), model: 'gemini-2.5-flash' });
       }
     } catch (e) {
-      results.push({ key: keyPreview, status: 'ERROR', error: e.message, model: 'gemini-3.5-flash' });
+      results.push({ key: keyPreview, status: 'ERROR', error: e.message, model: 'gemini-2.5-flash' });
     }
   }
   
