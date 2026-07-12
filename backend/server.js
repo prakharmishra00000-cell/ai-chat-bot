@@ -1158,11 +1158,8 @@ let lastGeminiError = '';
 async function queryGeminiAPI(keys, contents, systemInstruction, enableWebSearch = false) {
   const modelConfigs = [
     { model: 'gemini-2.5-flash', api: 'v1beta' },
-    { model: 'gemini-2.0-flash', api: 'v1beta' },
-    { model: 'gemini-1.5-flash', api: 'v1beta' },
-    { model: 'gemini-1.5-flash', api: 'v1' },
-    { model: 'gemini-1.5-pro', api: 'v1beta' },
-    { model: 'gemini-1.5-pro', api: 'v1' }
+    { model: 'gemini-2.5-pro', api: 'v1beta' },
+    { model: 'gemini-2.0-flash', api: 'v1beta' }
   ];
 
   // Try each key
@@ -1270,9 +1267,9 @@ async function queryGeminiAPI(keys, contents, systemInstruction, enableWebSearch
   await new Promise(r => setTimeout(r, 2000));
   
   const finalFallbackModels = [
-    { model: 'gemini-1.5-flash', api: 'v1beta' },
-    { model: 'gemini-2.0-flash', api: 'v1beta' },
-    { model: 'gemini-1.5-pro', api: 'v1beta' }
+    { model: 'gemini-2.5-flash', api: 'v1beta' },
+    { model: 'gemini-2.5-pro', api: 'v1beta' },
+    { model: 'gemini-2.0-flash', api: 'v1beta' }
   ];
 
   for (let i = 0; i < Math.min(keys.length, 3); i++) {
