@@ -157,6 +157,270 @@ function MermaidChart({ chartCode, defaultTo3D = false }) {
   );
 }
 
+// AI Handwritten Notes Renderer
+function HandwrittenNotesRenderer({ content }) {
+  const [fontFamily, setFontFamily] = useState('Kalam'); // 'Kalam' | 'Caveat'
+  const [fontSize, setFontSize] = useState(1.05); // rem size
+  const [inkColor, setInkColor] = useState('#0f2b5c'); // blue ink by default
+  const [pdfLoading, setPdfLoading] = useState(false);
+
+  const printAreaRef = useRef(null);
+
+  const downloadPDF = async () => {
+    setPdfLoading(true);
+    try {
+      // Dynamically load html2pdf.js via CDN if it's not already loaded
+      if (!window.html2pdf) {
+        await new Promise((resolve, reject) => {
+          const script = document.createElement('script');
+          script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+          script.onload = resolve;
+          script.onerror = reject;
+          document.head.appendChild(script);
+        });
+      }
+
+      const element = printAreaRef.current;
+      const opt = {
+        margin:       [15, 15, 15, 15],
+        filename:     'Handwritten_Notes.pdf',
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2, useCORS: true, logging: false },
+        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
+        pagebreak:    { mode: ['avoid-all', 'css', 'legacy'] }
+      };
+
+      await window.html2pdf().set(opt).from(element).save();
+    } catch (err) {
+      console.error('PDF generation error:', err);
+      alert('Failed to generate PDF. Please try again.');
+    } finally {
+      setPdfLoading(false);
+    }
+  };
+
+  // Convert markdown-like content to structured HTML for styled rendering
+  const parseNotes = (text) => {
+    if (!text) return [];
+    
+    // We clean headers, bullets, and separate into paragraphs
+    return text.split('\n').map((line, idx) => {
+      const trimmed = line.trim();
+      if (!trimmed) return <div key={idx} style={{ height: '20px' }}></div>;
+
+      // Headers (Topic title)
+      if (trimmed.startsWith('# ')) {
+        return <h2 key={idx} style={{ 
+          fontSize: '1.8rem', 
+          color: '#d93838', 
+          margin: '25px 0 10px 0', 
+          borderBottom: '1px solid rgba(217, 56, 56, 0.2)',
+          fontFamily: fontFamily,
+          fontWeight: '700'
+        }}>{trimmed.replace('# ', '')}</h2>;
+      }
+      if (trimmed.startsWith('## ')) {
+        return <h3 key={idx} style={{ 
+          fontSize: '1.4rem', 
+          color: '#2a6fdb', 
+          margin: '20px 0 8px 0',
+          fontFamily: fontFamily,
+          fontWeight: '700'
+        }}>{trimmed.replace('## ', '')}</h3>;
+      }
+      if (trimmed.startsWith('### ')) {
+        return <h4 key={idx} style={{ 
+          fontSize: '1.2rem', 
+          color: inkColor, 
+          margin: '15px 0 5px 0',
+          fontFamily: fontFamily,
+          fontWeight: 'bold'
+        }}>{trimmed.replace('### ', '')}</h4>;
+      }
+
+      // Bullet lists
+      if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+        return (
+          <div key={idx} style={{ 
+            display: 'flex', 
+            paddingLeft: '15px', 
+            marginBottom: '6px',
+            fontFamily: fontFamily,
+            fontSize: `${fontSize}rem`,
+            lineHeight: '28px'
+          }}>
+            <span style={{ marginRight: '10px', color: '#d93838' }}>•</span>
+            <span>{trimmed.substring(2)}</span>
+          </div>
+        );
+      }
+
+      // Numbered lists
+      const numberMatch = trimmed.match(/^(\d+)\.\s(.*)/);
+      if (numberMatch) {
+        return (
+          <div key={idx} style={{ 
+            display: 'flex', 
+            paddingLeft: '15px', 
+            marginBottom: '6px',
+            fontFamily: fontFamily,
+            fontSize: `${fontSize}rem`,
+            lineHeight: '28px'
+          }}>
+            <span style={{ marginRight: '10px', color: '#2a6fdb', fontWeight: 'bold' }}>{numberMatch[1]}.</span>
+            <span>{numberMatch[2]}</span>
+          </div>
+        );
+      }
+
+      // Default paragraphs
+      return (
+        <p key={idx} style={{ 
+          margin: '0 0 12px 0', 
+          textIndent: '20px', 
+          fontFamily: fontFamily,
+          fontSize: `${fontSize}rem`,
+          lineHeight: '28px',
+          textAlign: 'justify'
+        }}>
+          {trimmed}
+        </p>
+      );
+    });
+  };
+
+  return (
+    <div style={{ margin: '20px 0', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px', background: 'rgba(10,15,30,0.4)', padding: '15px', backdropFilter: 'blur(10px)' }}>
+      <style>{`
+        .notes-notebook-paper h2, .notes-notebook-paper h3 {
+          page-break-after: avoid;
+          break-after: avoid;
+        }
+        .notes-notebook-paper p, .notes-notebook-paper li, .notes-notebook-paper div {
+          page-break-inside: avoid;
+          break-inside: avoid;
+        }
+      `}</style>
+      {/* Controls Bar */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '10px', paddingBottom: '12px', borderBottom: '1px solid rgba(255,255,255,0.08)', marginBottom: '15px' }}>
+        <span style={{ color: '#00f2fe', fontWeight: 'bold', fontSize: '0.9rem' }}>📝 Study Notes Viewer (Handwritten Style)</span>
+        
+        <div style={{ display: 'flex', alignItems: 'center', gap: '15px', flexWrap: 'wrap' }}>
+          {/* Font switcher */}
+          <div style={{ display: 'flex', gap: '5px', background: 'rgba(0,0,0,0.3)', padding: '3px', borderRadius: '8px' }}>
+            <button 
+              onClick={() => setFontFamily('Kalam')}
+              style={{ padding: '4px 10px', fontSize: '0.75rem', border: 'none', background: fontFamily === 'Kalam' ? '#00f2fe' : 'transparent', color: fontFamily === 'Kalam' ? '#000' : '#fff', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
+            >
+              Kalam (Style 1)
+            </button>
+            <button 
+              onClick={() => setFontFamily('Caveat')}
+              style={{ padding: '4px 10px', fontSize: '0.75rem', border: 'none', background: fontFamily === 'Caveat' ? '#00f2fe' : 'transparent', color: fontFamily === 'Caveat' ? '#000' : '#fff', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
+            >
+              Caveat (Style 2)
+            </button>
+          </div>
+
+          {/* Color selector */}
+          <div style={{ display: 'flex', gap: '5px' }}>
+            {['#0f2b5c', '#151515', '#245a34'].map((color) => (
+              <button
+                key={color}
+                onClick={() => setInkColor(color)}
+                style={{
+                  width: '18px',
+                  height: '18px',
+                  borderRadius: '50%',
+                  background: color,
+                  border: inkColor === color ? '2px solid #00f2fe' : '1px solid rgba(255,255,255,0.3)',
+                  cursor: 'pointer',
+                  padding: 0
+                }}
+                title={color === '#0f2b5c' ? 'Blue Ink' : color === '#151515' ? 'Black Ink' : 'Green Ink'}
+              />
+            ))}
+          </div>
+
+          {/* Font Size controls */}
+          <div style={{ display: 'flex', gap: '5px', alignItems: 'center' }}>
+            <button 
+              onClick={() => setFontSize(prev => Math.max(0.9, prev - 0.05))} 
+              style={{ width: '24px', height: '24px', borderRadius: '4px', background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', cursor: 'pointer' }}
+            >
+              -
+            </button>
+            <span style={{ fontSize: '0.75rem', color: '#fff' }}>Size</span>
+            <button 
+              onClick={() => setFontSize(prev => Math.min(1.3, prev + 0.05))} 
+              style={{ width: '24px', height: '24px', borderRadius: '4px', background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', cursor: 'pointer' }}
+            >
+              +
+            </button>
+          </div>
+
+          {/* PDF Download Button */}
+          <button
+            onClick={downloadPDF}
+            disabled={pdfLoading}
+            style={{
+              padding: '6px 14px',
+              borderRadius: '8px',
+              border: 'none',
+              background: 'linear-gradient(90deg, #ff007f, #7928ca)',
+              color: '#fff',
+              fontSize: '0.8rem',
+              fontWeight: 'bold',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+          >
+            {pdfLoading ? (
+              <>
+                <span className="animate-spin" style={{ display: 'inline-block', width: '12px', height: '12px', border: '2px solid #fff', borderTopColor: 'transparent', borderRadius: '50%', marginRight: '5px' }}></span> Generating...
+              </>
+            ) : (
+              <>
+                <Download size={14} /> Download PDF
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+
+      {/* Styled Notebook Paper Frame */}
+      <div 
+        ref={printAreaRef}
+        className="notes-notebook-paper"
+        style={{
+          background: '#fdfdfd',
+          backgroundImage: 'linear-gradient(#e2e9f3 1px, transparent 1px)',
+          backgroundSize: '100% 28px',
+          padding: '40px 30px 40px 55px',
+          position: 'relative',
+          borderLeft: '2px solid #ff9e9e', // Notebook margin line
+          borderRadius: '8px',
+          boxShadow: 'inset 0 0 20px rgba(0,0,0,0.05), 0 4px 15px rgba(0,0,0,0.15)',
+          color: inkColor,
+          minHeight: '400px',
+          boxSizing: 'border-box',
+          overflow: 'hidden'
+        }}
+      >
+        {/* Lined paper top padding / spacing */}
+        <div style={{ height: '14px' }}></div>
+        
+        {/* Rendered content */}
+        <div style={{ fontSize: `${fontSize}rem`, fontFamily: fontFamily }}>
+          {parseNotes(content)}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const themeOptions = [
   { value: 'supernova-blast', label: 'Supernova Blast', color: '#ff007f', bg: '#050207' },
   { value: 'solar-eruption', label: 'Solar Eruption', color: '#ff4e50', bg: '#070200' },
@@ -202,6 +466,18 @@ function Dashboard({
 
   // App Credentials State for Generate Mode
   const [showCredentials, setShowCredentials] = useState(false);
+
+  useEffect(() => {
+    // Add Google Fonts link for handwriting fonts
+    const fontId = 'google-handwriting-fonts';
+    if (!document.getElementById(fontId)) {
+      const link = document.createElement('link');
+      link.id = fontId;
+      link.rel = 'stylesheet';
+      link.href = 'https://fonts.googleapis.com/css2?family=Caveat:wght@400..700&family=Kalam:wght@300;400;700&display=swap';
+      document.head.appendChild(link);
+    }
+  }, []);
   const [appCredentials, setAppCredentials] = useState(() => {
     try {
       const saved = localStorage.getItem('appCredentials');
@@ -696,6 +972,21 @@ function Dashboard({
     }
     const activeAttachment = attachment;
 
+    // Detect if user is asking for study/handwritten notes
+    const isNotesRequest = /\b(handwritten\s*notes?|get\s*notes?|generate\s*notes?|study\s*notes?|notes\s*on)\b/i.test(messageForServer);
+    if (isNotesRequest) {
+      messageForServer += `
+      
+[STRICT SYSTEM TRIGGER: The user wants to generate structured notes. You MUST wrap the entire detailed notes content inside a single [HANDWRITTEN_NOTES: <content>] block.
+Inside this block:
+1. Provide a comprehensive, organized notes layout topic-wise.
+2. Use markdown headers for topics (e.g. "# Topic Name" and "## Subtopic Name").
+3. Use bullet points ("- Point") or numbered lists for key concepts.
+4. Keep the content extremely detailed, covering all concepts, definitions, and explanations thoroughly.
+5. Write the notes in the language requested by the user (Hindi, English, or Hinglish). If they write the prompt in Hinglish or ask for Hinglish, write the notes in Hinglish (Romanized Hindi, e.g. "Aaj hum padhenge..."). If they prompt in Hindi Devanagari, write in Hindi. If English, write in English.
+6. DO NOT include any text outside the [HANDWRITTEN_NOTES: ...] block. The block must contain all study notes.]`;
+    }
+
     // Append user message immediately to local state — user sees their ORIGINAL text
     const userMsg = {
       id: 'msg_user_' + Date.now(),
@@ -1024,16 +1315,31 @@ function Dashboard({
       );
     }
 
+    // Scan for [HANDWRITTEN_NOTES: ...] anywhere in text (multiline)
+    const notesRegex = /\[HANDWRITTEN_NOTES:\s*([\s\S]*?)\]/gi;
+    let notesMatch;
+    while ((notesMatch = notesRegex.exec(text)) !== null) {
+      const notesContent = notesMatch[1].trim();
+      topLevelElements.push(
+        <HandwrittenNotesRenderer 
+          key={`notes-${notesMatch.index}`} 
+          content={notesContent} 
+        />
+      );
+    }
+
     // Strip raw tokens from text parts so they don't display as text
     const stripTokens = (s) => s
       .replace(/\[3D_ANIMATED:[^\]]*\]/gi, '')
       .replace(/\[3D_DYNAMIC:[^\]]*\]/gi, '')
       .replace(/\[3D_SHAPE_RENDER:[^\]]*\]/gi, '')
       .replace(/\[AI_IMAGE:[^\]]*\]/gi, '')
+      .replace(/\[HANDWRITTEN_NOTES:[\s\S]*?\]/gi, '')
       .replace(/`\[3D_ANIMATED:[^\]]*\]`/gi, '')
       .replace(/`\[3D_DYNAMIC:[^\]]*\]`/gi, '')
       .replace(/`\[3D_SHAPE_RENDER:[^\]]*\]`/gi, '')
-      .replace(/`\[AI_IMAGE:[^\]]*\]`/gi, '');
+      .replace(/`\[AI_IMAGE:[^\]]*\]`/gi, '')
+      .replace(/`\[HANDWRITTEN_NOTES:[\s\S]*?\]`/gi, '');
 
     const cleanedParts = parts.map(p =>
       p.type === 'text' ? { ...p, content: stripTokens(p.content) } : p
