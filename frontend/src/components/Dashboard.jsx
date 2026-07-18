@@ -1429,9 +1429,14 @@ Inside this block:
         linkParts.push(<span key={counter++} dangerouslySetInnerHTML={{ __html: textBefore }} />);
       }
       linkParts.push(
-        <a key={counter++} href={linkMatch[2]} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent-cyan)', textDecoration: 'underline' }}>
-          {linkMatch[1]}
-        </a>
+        <a 
+          key={counter++} 
+          href={linkMatch[2]} 
+          target="_blank" 
+          rel="noopener noreferrer" 
+          style={{ color: 'var(--accent-cyan)', textDecoration: 'underline' }}
+          dangerouslySetInnerHTML={{ __html: linkMatch[1] }}
+        />
       );
       linkLastIndex = linkRegex.lastIndex;
     }
