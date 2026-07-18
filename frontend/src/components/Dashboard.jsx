@@ -198,70 +198,8 @@ function Dashboard({
   // Prompt states
   const [promptInput, setPromptInput] = useState('');
   const [personality, setPersonality] = useState('standard'); // 'standard', 'architect', 'analyst'
-  const [mode, setMode] = useState('normal'); // 'normal', 'matrix_simulation', 'optimize', 'generate'
+  const [mode, setMode] = useState('normal'); // 'normal', 'matrix_simulation', 'optimize'
   const [loading, setLoading] = useState(false);
-  const [livePreviewApp, setLivePreviewApp] = useState(null);
-
-  // App Credentials State for Generate Mode
-  const [showCredentials, setShowCredentials] = useState(false);
-
-  useEffect(() => {
-    // Add Google Fonts link for handwriting fonts
-    const fontId = 'google-handwriting-fonts';
-    if (!document.getElementById(fontId)) {
-      const link = document.createElement('link');
-      link.id = fontId;
-      link.rel = 'stylesheet';
-      link.href = 'https://fonts.googleapis.com/css2?family=Caveat:wght@400..700&family=Kalam:wght@300;400;700&display=swap';
-      document.head.appendChild(link);
-    }
-  }, []);
-  const [appCredentials, setAppCredentials] = useState(() => {
-    try {
-      const saved = localStorage.getItem('appCredentials');
-      return saved ? JSON.parse(saved) : [];
-    } catch { return []; }
-  });
-
-  const handleAddCredentialRow = () => {
-    setAppCredentials([...appCredentials, { name: '', value: '' }]);
-  };
-
-  const handleCredentialChange = (index, field, val) => {
-    const updated = [...appCredentials];
-    updated[index][field] = val;
-    setAppCredentials(updated);
-  };
-
-  const handleRemoveCredentialRow = (index) => {
-    const updated = [...appCredentials];
-    updated.splice(index, 1);
-    setAppCredentials(updated);
-  };
-
-  const handleSaveCredentials = () => {
-    localStorage.setItem('appCredentials', JSON.stringify(appCredentials));
-    alert('Credentials saved securely to your local browser storage.');
-  };
-  const handleShareApp = async (htmlContent) => {
-    try {
-      const res = await fetch('/api/apps/share', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ htmlCode: htmlContent })
-      });
-      const data = await res.json();
-      if (res.ok && data.url) {
-        const fullUrl = window.location.origin + data.url;
-        navigator.clipboard.writeText(fullUrl);
-        alert(`App hosted locally!\nLink: ${fullUrl}\n(Copied to clipboard)`);
-      } else {
-        alert('Failed to host app: ' + data.error);
-      }
-    } catch (err) {
-      alert('Error hosting app locally.');
-    }
-  };
 
   // Anonymize Input feature
   const [anonymizeEnabled, setAnonymizeEnabled] = useState(false);
@@ -760,7 +698,7 @@ function Dashboard({
           personality: personality,
           mode: mode,
           attachment: activeAttachment,
-          appCredentials: mode === 'generate' ? appCredentials : []
+          appCredentials: []
         })
       });
 
@@ -1366,9 +1304,9 @@ function Dashboard({
 
       {/* Main chat viewport */}
       {/* Main chat viewport */}
-      <div className={(livePreviewApp && mode === 'generate') || "main-chat-area-wrapper"} style={{ flex: 1, overflow: 'hidden' }}>
+      <div className="main-chat-area-wrapper" style={{ flex: 1, overflow: 'hidden' }}>
         
-        <div className={`main-chat-area ${livePreviewApp && mode === 'generate' ? 'chat-pane' : ''}`}>
+        <div className="main-chat-area">
           <div className="chat-container-inner" style={{ display: 'flex', flexDirection: 'column', height: '100%', width: '100%', flex: 1 }}>
           <div className="main-header">
           <div className="header-row-top">
@@ -1404,17 +1342,7 @@ function Dashboard({
 
             {/* Mode toggle buttons */}
             <div className="header-modes">
-              <div className="tooltip-container">
-                <button 
-                  className={`mode-toggle-btn ${mode === 'generate' ? 'active' : ''}`}
-                  style={mode === 'generate' ? { background: 'linear-gradient(90deg, #ff007f, #7928ca)', color: '#fff', border: 'none' } : {}}
-                  onClick={() => setMode(prev => prev === 'generate' ? 'normal' : 'generate')}
-                >
-                  <Code size={14} style={{ marginRight: '6px' }} />
-                  Generate App
-                </button>
-                <div className="tooltip-text">Autonomous AI Web Developer that builds real React code!</div>
-              </div>
+
 
               <div className="tooltip-container">
                 <button 
@@ -1447,60 +1375,7 @@ function Dashboard({
           </div>
         </div>
 
-        {/* Credentials Panel - Only visible in Generate Mode */}
-        {mode === 'generate' && (
-          <div className="credentials-panel">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', padding: '5px' }} onClick={() => setShowCredentials(!showCredentials)}>
-              <h4 style={{ margin: 0, color: 'var(--accent-cyan)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Shield size={16} /> App Credentials (Local)
-              </h4>
-              <div style={{ fontSize: '0.75rem', color: '#8b9bb4', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span>{appCredentials.length} Saved</span>
-                <button style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.7rem' }}>
-                  {showCredentials ? 'Hide' : 'Show / Add'}
-                </button>
-              </div>
-            </div>
-            
-            {showCredentials && (
-              <div style={{ marginTop: '15px' }}>
-                <div style={{ fontSize: '0.75rem', color: '#8b9bb4', marginBottom: '10px' }}>
-                  These are saved securely in your browser and injected into your generated apps automatically.
-                </div>
-                {appCredentials.map((cred, index) => (
-                  <div key={index} className="credential-row">
-                    <input 
-                      type="text" 
-                      placeholder="Credential Name (e.g., WEATHER_API_KEY)" 
-                      className="credential-input"
-                      value={cred.name}
-                      onChange={(e) => handleCredentialChange(index, 'name', e.target.value)}
-                    />
-                    <input 
-                      type="text" 
-                      placeholder="Actual Value (e.g., 12345ABC)" 
-                      className="credential-input"
-                      value={cred.value}
-                      onChange={(e) => handleCredentialChange(index, 'value', e.target.value)}
-                    />
-                    <button onClick={() => handleRemoveCredentialRow(index)} style={{ background: 'transparent', border: 'none', color: '#ff3366', cursor: 'pointer' }}>
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                ))}
-                
-                <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
-                  <button onClick={handleAddCredentialRow} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}>
-                    <Plus size={14} style={{ verticalAlign: 'middle' }} /> Add Row
-                  </button>
-                  <button onClick={handleSaveCredentials} style={{ background: 'var(--accent-purple)', border: 'none', color: '#fff', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}>
-                    Save Credentials
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
+
 
         {/* Message view */}
         <div className="messages-container">
@@ -1719,39 +1594,7 @@ function Dashboard({
 
       </div>
 
-      {/* Live Preview Pane (Split Screen) */}
-      {livePreviewApp && mode === 'generate' && (
-        <div className="preview-pane">
-          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '15px', background: '#000', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-            <h3 style={{ color: '#fff', margin: 0, fontSize: '1.1rem' }}>
-              <MonitorPlay size={18} style={{ verticalAlign: 'middle', marginRight: '8px' }}/> 
-              Live App Preview
-            </h3>
-            <div style={{ display: 'flex', gap: '10px' }}>
-              <button 
-                onClick={() => handleShareApp(livePreviewApp)} 
-                className="btn" style={{ background: '#00f2fe', color: '#000', border: 'none', padding: '6px 12px', borderRadius: '6px', fontSize: '0.8rem' }}
-              >
-                <Share2 size={14} style={{ verticalAlign: 'middle', marginRight: '5px' }}/> Share Locally
-              </button>
-              <button 
-                onClick={() => setLivePreviewApp(null)} 
-                className="btn btn-secondary" style={{ background: 'rgba(255,255,255,0.1)', padding: '6px 12px', fontSize: '0.8rem' }}
-              >
-                <X size={14} style={{ verticalAlign: 'middle' }}/> Close
-              </button>
-            </div>
-          </div>
-          <div style={{ flex: 1, background: '#fff', overflow: 'hidden' }}>
-            <iframe 
-              srcDoc={livePreviewApp} 
-              style={{ width: '100%', height: '100%', border: 'none', background: '#fff' }}
-              sandbox="allow-scripts allow-forms allow-same-origin allow-popups"
-              title="App Preview Sandbox"
-            />
-          </div>
-        </div>
-      )}
+
       
       </div>
       {/* Camera modal view overlay */}
