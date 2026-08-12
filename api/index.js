@@ -3798,9 +3798,13 @@ app.get('/api/generate-image', async (req, res) => {
   }
 });
 
-// START EXPRESS SERVER
-app.listen(PORT, () => {
-  console.log(`Super Advanced AI Bot Server running on http://localhost:${PORT}`);
-});
+// START EXPRESS SERVER OR EXPORT FOR VERCEL
+if (process.env.VERCEL) {
+  module.exports = app;
+} else {
+  app.listen(PORT, () => {
+    console.log(`Super Advanced AI Bot Server running on http://localhost:${PORT}`);
+  });
+}
 
 // This is an automatically added comment.
